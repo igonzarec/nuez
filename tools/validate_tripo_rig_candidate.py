@@ -24,5 +24,15 @@ movement = max((a - b).length for a, b in zip(rest, posed))
 bone.rotation_euler = (0.0, 0.0, 0.0)
 bpy.context.view_layer.update()
 assert movement > 0.02, f"Arm pose did not deform the mesh enough: {movement}"
+rest = [vertex.co.copy() for vertex in candidate.evaluated_get(depsgraph).data.vertices]
+tail_bone = rig.pose.bones["tail"]
+tail_bone.rotation_mode = "XYZ"
+tail_bone.rotation_euler.x = radians(18)
+bpy.context.view_layer.update()
+posed = [vertex.co.copy() for vertex in candidate.evaluated_get(depsgraph).data.vertices]
+tail_movement = max((a - b).length for a, b in zip(rest, posed))
+tail_bone.rotation_euler = (0.0, 0.0, 0.0)
+bpy.context.view_layer.update()
+assert tail_movement > 0.02, f"Tail pose did not deform the mesh enough: {tail_movement}"
 triangles = sum(len(face.vertices) - 2 for face in candidate.data.polygons)
-print(f"TRIPO CANDIDATE PASS: {triangles} triangles, {len(groups)} weight groups, arm deformation {movement:.3f}")
+print(f"TRIPO CANDIDATE PASS: {triangles} triangles, {len(groups)} weight groups, arm deformation {movement:.3f}, tail deformation {tail_movement:.3f}")
