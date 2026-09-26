@@ -1,0 +1,154 @@
+{
+  "seam_max_gap": 5.349911174480987e-07,
+  "weight_error": 2.9802322387695312e-08,
+  "poses": [
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 1,
+      "gap": 2.388837865275353e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 11,
+      "gap": 2.563219009939369e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 21,
+      "gap": 2.1490760299348766e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 31,
+      "gap": 3.4240261593687705e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 41,
+      "gap": 3.5762786865234375e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 51,
+      "gap": 3.4240261593687705e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 61,
+      "gap": 2.388837865275353e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 71,
+      "gap": 2.388837865275353e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 81,
+      "gap": 2.388837865275353e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 91,
+      "gap": 2.388837865275353e-07
+    },
+    {
+      "action": "Nuez_Prueba_Articulaciones",
+      "frame": 101,
+      "gap": 2.388837865275353e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 1,
+      "gap": 4.172325134277344e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 4,
+      "gap": 2.7314279645418166e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 7,
+      "gap": 3.03925246810483e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 10,
+      "gap": 2.7314279645418166e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 13,
+      "gap": 4.172325134277344e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 16,
+      "gap": 2.7314279645418166e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 19,
+      "gap": 3.03925246810483e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 22,
+      "gap": 2.7314279645418166e-07
+    },
+    {
+      "action": "Nuez_Correr",
+      "frame": 25,
+      "gap": 4.172325134277344e-07
+    },
+    {
+      "action": "Nuez_Salto",
+      "frame": 1,
+      "gap": 2.4755668231600746e-07
+    },
+    {
+      "action": "Nuez_Salto",
+      "frame": 6,
+      "gap": 3.7170856247146194e-07
+    },
+    {
+      "action": "Nuez_Salto",
+      "frame": 12,
+      "gap": 3.0538293021796936e-07
+    },
+    {
+      "action": "Nuez_Salto",
+      "frame": 22,
+      "gap": 3.6863436927953305e-07
+    },
+    {
+      "action": "Nuez_Salto",
+      "frame": 32,
+      "gap": 5.349911174480987e-07
+    },
+    {
+      "action": "Nuez_Salto",
+      "frame": 40,
+      "gap": 2.5288109106536417e-07
+    },
+    {
+      "action": "Nuez_Salto",
+      "frame": 48,
+      "gap": 2.4755668231600746e-07
+    }
+  ],
+  "contact_failures": [],
+  "max_edge_ratio": 2.796415116704215,
+  "triangles": 1716,
+  "max_edge_at": [
+    "Nuez_Pantorrilla_left",
+    "Nuez_Prueba_Articulaciones",
+    61,
+    5,
+    0.0419142726762549
+  ],
+  "skeleton_unchanged": true,
+  "textures_packed": true,
+  "pose_translation_locks": true
+}
