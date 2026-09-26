@@ -1,0 +1,6 @@
+# Blender recovery copies are regenerated automatically.
+*.blend1
+
+# OS metadata
+Thumbs.db
+Desktop.ini
