@@ -6,10 +6,11 @@ the bone names used by the Godot prototype.
 """
 
 import bpy
+from math import cos, pi, sin
 from mathutils import Vector
 
 
-OUTPUT = r"C:\Users\USER\Documents\Game Development\games\explorer squirrel\nuez_replicado_v2.blend"
+OUTPUT = r"C:\Users\USER\Documents\Game Development\games\explorer squirrel\nuez_replicado_v3.blend"
 
 
 def make_material(name, color):
@@ -63,6 +64,39 @@ def cone_between(collection, name, start, end, radius_a, radius_b, material):
     obj.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(direction.normalized())
     obj.data.materials.append(material)
     link_to(collection, obj)
+    return obj
+
+
+def tube_path(collection, name, points, radii, material, sides=7):
+    """Make a flat-shaded, low-poly tube along a hand-authored tail path."""
+    points = [Vector(point) for point in points]
+    vertices, faces = [], []
+    for index, point in enumerate(points):
+        if index == 0:
+            tangent = (points[1] - point).normalized()
+        elif index == len(points) - 1:
+            tangent = (point - points[index - 1]).normalized()
+        else:
+            tangent = (points[index + 1] - points[index - 1]).normalized()
+        sideways = tangent.cross(Vector((0, 1, 0))).normalized()
+        depth = tangent.cross(sideways).normalized()
+        for side in range(sides):
+            angle = 2.0 * pi * side / sides
+            vertices.append(point + radii[index] * (sideways * cos(angle) + depth * sin(angle)))
+    for ring in range(len(points) - 1):
+        for side in range(sides):
+            next_side = (side + 1) % sides
+            a, b = ring * sides + side, ring * sides + next_side
+            c, d = (ring + 1) * sides + next_side, (ring + 1) * sides + side
+            faces.append((a, b, c, d))
+    faces.append(tuple(range(sides - 1, -1, -1)))
+    end = (len(points) - 1) * sides
+    faces.append(tuple(end + side for side in range(sides)))
+    mesh = bpy.data.meshes.new(f"{name}_Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(material)
+    obj = bpy.data.objects.new(name, mesh)
+    collection.objects.link(obj)
     return obj
 
 
@@ -133,12 +167,21 @@ for side, x in (("left", -1), ("right", 1)):
     )
     parts[f"foot_{side}"] = ico(meshes, f"Nuez_Pie_{side}", (x * 0.22, -0.24, 0.105), (0.18, 0.23, 0.10), FUR_DARK, 1)
 
-# A large, layered tail makes the silhouette read from a distance. The cream
-# spiral inset is a simple low-poly disk rather than a dense painted texture.
-parts["tail"] = ico(meshes, "Nuez_ColaBase", (-0.30, 0.38, 1.43), (0.52, 0.30, 0.64), FUR, 2)
-parts["tail_tip"] = ico(meshes, "Nuez_ColaGrande", (-0.56, 0.56, 1.67), (0.68, 0.25, 0.74), FUR_LIT, 2)
-parts["tail_spiral"] = ico(meshes, "Nuez_EspiralCola", (-0.65, 0.83, 1.70), (0.35, 0.035, 0.38), CREAM, 1)
-parts["tail_spiral_inner"] = ico(meshes, "Nuez_EspiralColaCentro", (-0.57, 0.865, 1.68), (0.135, 0.025, 0.145), FUR_DARK, 1)
+# A continuous, oversized spiral tail is the visual signature of the reference.
+# It uses only seven sides per ring, so it remains intentionally low poly.
+parts["tail"] = ico(meshes, "Nuez_ColaBase", (-0.20, 0.28, 1.28), (0.33, 0.27, 0.39), FUR, 1)
+parts["tail_tip"] = tube_path(
+    meshes,
+    "Nuez_ColaEspiral",
+    [
+        (-0.24, 0.34, 1.34), (-0.57, 0.40, 1.47), (-0.84, 0.46, 1.72),
+        (-0.80, 0.48, 2.08), (-0.48, 0.50, 2.28), (-0.12, 0.52, 2.14),
+        (0.02, 0.54, 1.82), (-0.12, 0.56, 1.59), (-0.43, 0.57, 1.55),
+        (-0.53, 0.58, 1.76), (-0.39, 0.59, 1.91), (-0.24, 0.60, 1.80),
+    ],
+    [0.18, 0.24, 0.27, 0.25, 0.23, 0.22, 0.20, 0.18, 0.16, 0.14, 0.105, 0.055],
+    FUR_LIT,
+)
 
 # Godot-compatible rig.  The familiar names preserve the existing animation
 # vocabulary even though this is a separate prototype model.
