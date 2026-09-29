@@ -30,7 +30,7 @@ La cámara conserva un radio fijo de **14,4 unidades** desde el punto de enfoque
 
 ## Ardilla y movimiento
 
-El personaje jugable es el modelo artesanal `assets/playertest2/playertest2.glb`. Su archivo fuente es `playertest2.blend`. El GLB contiene el armature `NuezRig`, el clip de carrera `Run`, la transición `GlideStart`, el clip de planeo `Glide` y las dos membranas.
+El personaje jugable es el modelo artesanal `assets/playertest2/playertest2.glb`. Su archivo fuente es `playertest2.blend`. El GLB contiene el armature `NuezRig`, el clip de caminata `Run`, el clip de sprint `RunFast`, la transición `GlideStart`, el clip de planeo `Glide` y las dos membranas.
 
 Cada membrana tiene la Shape Key `membrana_abierta`: `0` es plegada y `1` es abierta. Godot controla ese valor directamente durante el planeo, de modo que la apertura y el cierre siguen el estado físico aunque existan clips auxiliares exportados desde Blender. Edita el rig, pesos o Shape Keys en `playertest2.blend`; después vuelve a exportar el GLB a `assets/playertest2/playertest2.glb`.
 
@@ -51,7 +51,7 @@ Valores ajustables en el Inspector de `scenes/player.tscn`:
 | Landing Threshold / Hard Landing Speed | 2,5 / 18 unidades/s |
 | Snap Distance / Walkable Slope Degrees | 0,35 / 48° |
 
-En el hijo **Animation** encontrarás los grupos **Ritmo y transiciones**, **Cuerpo**, **Salto y aterrizaje**, **Postura de planeo** y **Planeo · modelo artesanal**. Ahí se ajustan inclinación, apertura/cierre de membranas, velocidad de `GlideStart`, velocidad de `Glide` y temblor de brazos/piernas.
+En el hijo **Animation** encontrarás los grupos **Ritmo y transiciones**, **Cuerpo**, **Salto y aterrizaje**, **Postura de planeo** y **Planeo · modelo artesanal**. `Idle` se activa al no haber desplazamiento: detiene el clip de movimiento y restablece la pose de reposo real del rig (piernas y brazos rectos), sin aplicar movimiento adicional. Ahí también se ajustan inclinación, apertura/cierre de membranas, velocidad de `GlideStart`, velocidad de `Glide` y temblor de brazos/piernas.
 
 El audio ya no incluye el acorde grave continuo. La música usa notas suaves separadas por silencios; los pasos emplean ruido filtrado breve sin tono grave sostenido. Los bucles arrancan una sola vez, después de aplicar los volúmenes guardados.
 

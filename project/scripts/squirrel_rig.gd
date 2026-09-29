@@ -8,6 +8,7 @@ var glide_amount := 0.0
 var tail_rotation := Vector3.ZERO
 var playertest2_animation: AnimationPlayer
 var playertest2_run := &""
+var playertest2_run_fast := &""
 var playertest2_glide_start := &""
 var playertest2_glide_loop := &""
 var glide_active := false
@@ -17,6 +18,7 @@ var playertest2_skeleton: Skeleton3D
 var glide_tremor_degrees := 0.0
 var glide_tremor_speed := 12.0
 var glide_tremor_clock := 0.0
+var idle_active := false
 const GLIDE_TREMOR_BONES := [&"arm_left", &"arm_right", &"leg_left", &"leg_right"]
 
 func _ready() -> void:
@@ -34,7 +36,9 @@ func _ready() -> void:
 		return
 	for animation_name in playertest2_animation.get_animation_list():
 		var animation_text := String(animation_name)
-		if animation_text.ends_with("Run"):
+		if animation_text.ends_with("RunFast"):
+			playertest2_run_fast = animation_name
+		elif animation_text.ends_with("Run"):
 			playertest2_run = animation_name
 		elif animation_text.ends_with("GlideStart"):
 			playertest2_glide_start = animation_name
@@ -44,24 +48,33 @@ func _ready() -> void:
 		playertest2_animation.play(playertest2_run)
 		playertest2_animation.pause()
 
-func update_handmade_run(speed: float, walk_speed: float, run_speed: float, walk_member_speed: float, run_member_speed: float) -> void:
+func update_handmade_run(speed: float, walk_member_speed: float, run_member_speed: float, sprint_requested: bool) -> void:
 	if glide_active:
 		return
 	if not playertest2_animation or playertest2_run.is_empty():
 		return
 	if speed > 0.12:
-		if playertest2_animation.current_animation != playertest2_run:
-			playertest2_animation.play(playertest2_run)
+		idle_active = false
+		# RunFast es opcional para que las versiones antiguas del GLB sigan funcionando.
+		var use_run_fast := sprint_requested and not playertest2_run_fast.is_empty()
+		var locomotion_animation := playertest2_run_fast if use_run_fast else playertest2_run
+		if playertest2_animation.current_animation != locomotion_animation:
+			playertest2_animation.play(locomotion_animation)
 		elif not playertest2_animation.is_playing():
 			playertest2_animation.play()
-		var run_blend := clampf((speed - walk_speed) / maxf(0.01, run_speed - walk_speed), 0.0, 1.0)
-		playertest2_animation.speed_scale = lerpf(walk_member_speed, run_member_speed, run_blend)
+		playertest2_animation.speed_scale = run_member_speed if use_run_fast else walk_member_speed
 	else:
+		idle_active = true
+		# Nunca congelamos la última zancada: Idle siempre parte de la pose base.
+		if playertest2_animation.current_animation != playertest2_run:
+			playertest2_animation.play(playertest2_run)
+		playertest2_animation.seek(0.0, true)
 		playertest2_animation.pause()
 
 func update_handmade_glide(amount: float, flutter_speed: float, start_speed := 1.0, tremor_degrees := 0.0, tremor_speed := 12.0) -> void:
 	var should_glide := amount > 0.08
 	glide_active = should_glide
+	idle_active = false
 	glide_tremor_degrees = tremor_degrees * amount
 	glide_tremor_speed = tremor_speed
 	_set_membrane_amount(amount)
@@ -120,7 +133,15 @@ func _set_membrane_amount(amount: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if not glide_active or glide_tremor_degrees <= 0.0 or not playertest2_skeleton:
+	if not playertest2_skeleton:
+		return
+	if idle_active:
+		# Idle no utiliza el primer frame de Run: ese frame puede contener una
+		# zancada. Restablecemos la pose real del rig para tener piernas y brazos
+		# rectos; es una postura fija sin movimiento adicional.
+		_reset_idle_pose()
+		return
+	if not glide_active or glide_tremor_degrees <= 0.0:
 		return
 	glide_tremor_clock += delta * glide_tremor_speed
 	# Vuelve a evaluar la pose del clip antes de sumar el temblor. Así el giro
@@ -137,6 +158,11 @@ func _process(delta: float) -> void:
 		var pitch: float = cos(phase * 2.3) * amplitude * 0.45
 		var current_rotation: Quaternion = playertest2_skeleton.get_bone_pose_rotation(bone_index)
 		playertest2_skeleton.set_bone_pose_rotation(bone_index, current_rotation * Quaternion.from_euler(Vector3(pitch, 0.0, roll)))
+
+
+func _reset_idle_pose() -> void:
+	for bone_index in playertest2_skeleton.get_bone_count():
+		playertest2_skeleton.reset_bone_pose(bone_index)
 
 
 func _clear_glide_tremor() -> void:
@@ -158,5 +184,6 @@ func leg_pose(_side: int, _target: Vector3, _foot_pitch: float) -> void: pass
 func reset_interpolation() -> void:
 	glide_active = false
 	glide_started = false
+	idle_active = false
 	_set_membrane_amount(0.0)
 	_clear_glide_tremor()

@@ -51,12 +51,14 @@ func run() -> void:
 	Input.action_release("jump")
 	await frames(1)
 	var rising_velocity: float = game.player.velocity.y
-	await press_jump()
-	check(game.player.is_gliding and game.player.velocity.y < rising_velocity, "Second press deploys without an extra upward impulse")
+	Input.action_press("jump")
+	await frames(1)
+	check(game.player.is_gliding and game.player.velocity.y < rising_velocity, "Second airborne press deploys without an extra upward impulse")
 	await frames(12)
 	check(game.player.animation_state == "glide" and game.player.model.glide_membrane.visible, "Glide state opens visible membranes")
-	await press_jump()
-	check(not game.player.is_gliding, "Third press folds glide while airborne")
+	Input.action_release("jump")
+	await frames(1)
+	check(not game.player.is_gliding, "Releasing jump folds glide while airborne")
 	await frames(100)
 	check(game.player.is_on_floor() and not game.player.model.glide_membrane.visible, "Normal landing leaves no membrane or buffered extra jump")
 	# Controlled safe fall: fully test sustained glide, braking and airborne UI.
@@ -69,7 +71,6 @@ func run() -> void:
 	var before: float = game.player.velocity.y
 	button(true)
 	await frames(1)
-	button(false)
 	check(game.player.is_gliding and game.player.velocity.y > before and game.player.velocity.y < -game.player.glide_fall_speed, "Gamepad A deploys and brakes a fast fall gradually")
 	await frames(25)
 	check(absf(game.player.velocity.y + game.player.glide_fall_speed) < 0.01, "Gliding settles to configured downward speed, never hovering")
@@ -108,6 +109,9 @@ func run() -> void:
 		game.camera_rig.camera.make_current()
 		game.ui.visible = true
 		game.player.set_physics_process(true)
+	button(false)
+	await frames(1)
+	check(not game.player.is_gliding, "Releasing gamepad A folds glide")
 	var landed := false
 	for i in 260:
 		await frames(1)

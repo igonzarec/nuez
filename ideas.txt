@@ -8,3 +8,5 @@ canción al planear, efecto de planear tal vez
 si le dejas apretado al de planear al carea, se desliza poquito y suena un sonido.
 
 Y otra cosa, cuando estamos cerca de un personaje por alguna razón no les habla.
+
+y que los brazos se muevan con un mayor ángulo al correr y también las piertas, o sea que se pueda modificar esto.

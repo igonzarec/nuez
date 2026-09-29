@@ -8,7 +8,8 @@ script = ExtResource("1")
 sprint_speed = 9.0
 walk_member_animation_speed = 2.35
 run_member_animation_speed = 2.87
-jump_velocity = 9.129
+jump_velocity = 8.0
+gravity = 30.0
 hard_landing_speed = 7.808
 
 [node name="Animation" type="Node" parent="." unique_id=46449727]
@@ -21,6 +22,6 @@ run_lean_degrees = 6.681
 acceleration_lean = 0.184
 turn_lean = 0.0
 run_squash = 0.038
-glide_lean_degrees = 50.0
+glide_lean_degrees = 75.0
 handmade_glide_flutter_speed = 2.0
 handmade_glide_tremor_degrees = 8.0

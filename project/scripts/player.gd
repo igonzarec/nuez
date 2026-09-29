@@ -14,7 +14,7 @@ signal respawned
 @export_group("Animación del modelo artesanal")
 ## Rapidez del ciclo Run cuando el personaje camina. No modifica el movimiento ni la distancia recorrida.
 @export_range(0.1, 3.0, 0.01) var walk_member_animation_speed := 0.72
-## Rapidez del ciclo Run al mantener sprint. No modifica la velocidad física del personaje.
+## Rapidez del ciclo RunFast al mantener sprint. No modifica la velocidad física del personaje.
 @export_range(0.1, 3.0, 0.01) var run_member_animation_speed := 1.35
 @export_group("Ground movement")
 ## Rapidez para alcanzar la velocidad deseada en el suelo, en unidades/s². La entrada empieza a actuar de inmediato.
@@ -66,8 +66,8 @@ signal respawned
 ## Ejemplo: 0 no permite dirigir de lado; 0,2 da una corrección leve; 0,4 ofrece más control.
 @export_range(0.0, 0.5) var slide_steering := 0.2
 @export_group("Planeo")
-## Permite desplegar membranas al mantener presionado Brincar durante la caída.
-## Al soltar Brincar, la ardilla recoge las membranas inmediatamente.
+## Permite desplegar membranas al pulsar Brincar una vez que la ardilla ya está en el aire.
+## Mantener Brincar desde el salto no activa el planeo; al soltarlo, las membranas se recogen inmediatamente.
 @export var glide_enabled := true
 ## Límite de caída durante planeo, en unidades/s. Nunca añade impulso hacia arriba.
 ## Ejemplo: 2 prolonga el descenso; 4 baja más rápido. No cambia el salto normal.
@@ -113,6 +113,7 @@ var is_sliding := false
 var slide_velocity := Vector3.ZERO
 var is_gliding := false
 var is_glide_sprinting := false
+var glide_button_pressed_in_air := false
 
 func _steep_support() -> Vector3:
 	# Sample beneath the feet, never a forward wall. Leave a real jump untouched.
@@ -178,6 +179,7 @@ func respawn() -> void:
 	is_sliding = false
 	is_gliding = false
 	is_glide_sprinting = false
+	glide_button_pressed_in_air = false
 	slide_velocity = Vector3.ZERO
 	reaction_time = 0
 	landing_time = 0
@@ -194,16 +196,24 @@ func _physics_process(delta: float) -> void:
 	is_sliding = steep_normal != Vector3.ZERO
 	if grounded or is_sliding:
 		is_gliding = false
+		glide_button_pressed_in_air = false
 		jump_consumed = false
 		coyote_left = coyote_time
 	else:
 		coyote_left = maxf(0, coyote_left - delta)
 	buffer_left = maxf(0, buffer_left - delta)
-	if Input.is_action_just_pressed("jump") and input_grace <= 0:
+	var jump_pressed_this_frame := Input.is_action_just_pressed("jump")
+	# El planeo necesita una pulsación nueva estando ya en el aire. Esto evita
+	# que mantener Brincar desde el despegue lo active al comenzar a caer.
+	if jump_pressed_this_frame and not grounded and not is_sliding:
+		glide_button_pressed_in_air = true
+	if not Input.is_action_pressed("jump"):
+		glide_button_pressed_in_air = false
+	# Un botón pulsado en el aire ahora sirve para iniciar planeo, no para
+	# convertir accidentalmente una caída en un salto de coyote.
+	if jump_pressed_this_frame and input_grace <= 0 and not glide_button_pressed_in_air:
 		buffer_left = jump_buffer
-	# Planear requiere mantener Brincar mientras la ardilla ya va descendiendo.
-	# Soltarlo, tocar suelo o volver a subir recoge las membranas.
-	is_gliding = glide_enabled and not grounded and not is_sliding and jump_consumed and velocity.y <= 0.0 and Input.is_action_pressed("jump")
+	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and Input.is_action_pressed("jump")
 	is_glide_sprinting = is_gliding and Input.is_action_pressed("sprint")
 	if grounded:
 		velocity.y = 0
@@ -295,4 +305,4 @@ func _physics_process(delta: float) -> void:
 		return
 	animator.tick(delta, horizontal_speed)
 	if not is_gliding:
-		model.update_handmade_run(horizontal_speed, walk_speed, sprint_speed, walk_member_animation_speed, run_member_animation_speed)
+		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, Input.is_action_pressed("sprint"))
