@@ -28,6 +28,7 @@ func _ready() -> void:
 	handmade_visual.rotation.y = PI
 	add_child(handmade_visual)
 	_find_glide_membranes(handmade_visual)
+	_set_membrane_amount(0.0)
 	playertest2_skeleton = _find_skeleton(handmade_visual)
 	# Se ejecuta después del AnimationPlayer para aplicar el temblor encima del clip Glide.
 	process_priority = 100
@@ -105,7 +106,10 @@ func _find_glide_membranes(node: Node) -> void:
 		# El exportador conserva los nombres de malla Plane/Plane.001, pero ambas
 		# membranas comparten esta Shape Key exclusiva.
 		if mesh_instance.mesh and mesh_instance.mesh.get_blend_shape_count() > 0:
-			glide_membranes.append(mesh_instance)
+			for shape_index: int in mesh_instance.mesh.get_blend_shape_count():
+				if mesh_instance.mesh.get_blend_shape_name(shape_index) == &"membrana_abierta":
+					glide_membranes.append(mesh_instance)
+					break
 	for child in node.get_children():
 		_find_glide_membranes(child)
 
@@ -123,6 +127,10 @@ func _find_skeleton(node: Node) -> Skeleton3D:
 func _set_membrane_amount(amount: float) -> void:
 	for membrane in glide_membranes:
 		if is_instance_valid(membrane):
+			# Una Shape Key con valor 0 solo pliega el plano; no lo vuelve invisible.
+			# Por eso la visibilidad se controla aparte y las membranas no aparecen
+			# durante Idle, Run ni RunFast.
+			membrane.visible = amount > 0.01
 			var shape_index: int = -1
 			for candidate_index: int in membrane.mesh.get_blend_shape_count():
 				if membrane.mesh.get_blend_shape_name(candidate_index) == &"membrana_abierta":

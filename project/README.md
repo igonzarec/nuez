@@ -18,7 +18,7 @@ No requiere plugins, descargas, .NET ni una solución C#. La ardilla utiliza el 
 | Mover | WASD / flechas | Stick izquierdo |
 | Cámara | Mantener clic derecho y arrastrar | Stick derecho |
 | Saltar | Espacio | Botón sur (A / cruz) |
-| Planear | Mantener Espacio mientras cae | Mantener A / cruz mientras cae |
+| Planear | Pulsar Espacio ya en el aire y mantenerlo | Pulsar A / cruz ya en el aire y mantenerlo |
 | Interactuar | E | Botón oeste (X / cuadrado) |
 | Correr rápido | Mantener Shift | Mantener L1 o R1 mientras mueves el stick |
 | Pausa | Escape | Menú / Start |
@@ -32,7 +32,9 @@ La cámara conserva un radio fijo de **14,4 unidades** desde el punto de enfoque
 
 El personaje jugable es el modelo artesanal `assets/playertest2/playertest2.glb`. Su archivo fuente es `playertest2.blend`. El GLB contiene el armature `NuezRig`, el clip de caminata `Run`, el clip de sprint `RunFast`, la transición `GlideStart`, el clip de planeo `Glide` y las dos membranas.
 
-Cada membrana tiene la Shape Key `membrana_abierta`: `0` es plegada y `1` es abierta. Godot controla ese valor directamente durante el planeo, de modo que la apertura y el cierre siguen el estado físico aunque existan clips auxiliares exportados desde Blender. Edita el rig, pesos o Shape Keys en `playertest2.blend`; después vuelve a exportar el GLB a `assets/playertest2/playertest2.glb`.
+Cada membrana tiene la Shape Key `membrana_abierta`: `0` es plegada y `1` es abierta. Godot controla ese valor directamente durante el planeo, además de ocultar las dos membranas fuera de Glide: una Shape Key plegada no vuelve invisible su malla. Edita el rig, pesos o Shape Keys en `playertest2.blend`; después vuelve a exportar el GLB a `assets/playertest2/playertest2.glb`.
+
+**Regla de visibilidad por estado:** cuando un objeto de Blender deba desaparecer durante un estado de juego, controla su propiedad `visible` desde Godot según el estado, siguiendo el ejemplo de las membranas. Una Shape Key sirve para deformar la malla, no para ocultarla; no dependas solo de un valor `0` ni de ocultar el objeto desde el Outliner de Blender.
 
 Las pendientes no caminables permiten resbalar suavemente y dirigir el deslizamiento de lado. La cámara conserva una distancia fija y puede elevar su vista durante el planeo. La interfaz permanece nítida sobre el acabado pixelado del mundo.
 
