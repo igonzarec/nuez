@@ -5,6 +5,7 @@
 
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
+sprint_speed = 9.0
 walk_member_animation_speed = 2.35
 run_member_animation_speed = 2.87
 jump_velocity = 9.129

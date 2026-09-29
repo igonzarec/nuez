@@ -9,7 +9,7 @@ Una expedición 3D breve para **Godot 4.6**, con una ardilla sin ropa ni accesor
 3. Pulsa **F5**. La escena principal es `main.tscn`; comienza en el título.
 4. Elige **Nueva expedición**. Cuando exista progreso, **Continuar** estará disponible.
 
-No requiere plugins, descargas, .NET ni una solución C#. La ardilla utiliza una versión optimizada del GLB proporcionado por el usuario, incluida en el proyecto; el escenario y el audio se construyen con recursos propios. Las capturas de referencia no están incluidas como assets.
+No requiere plugins, descargas, .NET ni una solución C#. La ardilla utiliza el modelo artesanal `playertest2.glb`, incluido en el proyecto; el escenario y el audio se construyen con recursos propios. Las capturas de referencia no están incluidas como assets.
 
 ## Controles
 
@@ -18,23 +18,25 @@ No requiere plugins, descargas, .NET ni una solución C#. La ardilla utiliza una
 | Mover | WASD / flechas | Stick izquierdo |
 | Cámara | Mantener clic derecho y arrastrar | Stick derecho |
 | Saltar | Espacio | Botón sur (A / cruz) |
-| Desplegar / recoger planeo | Volver a pulsar Espacio en el aire | Volver a pulsar A / cruz en el aire |
+| Planear | Mantener Espacio mientras cae | Mantener A / cruz mientras cae |
 | Interactuar | E | Botón oeste (X / cuadrado) |
-| Correr rápido | Mantener Shift | Mantener LB / L1 mientras mueves el stick |
+| Correr rápido | Mantener Shift | Mantener L1 o R1 mientras mueves el stick |
 | Pausa | Escape | Menú / Start |
 | Menús | Ratón, flechas, Tab, Enter | Cruceta y botón sur; este para volver |
 
 El cursor permanece visible y libre, incluso durante el arrastre. Mover el ratón sin mantener el botón derecho no cambia la cámara; puedes salir de la ventana y usar otras aplicaciones.
 
-La cámara conserva un radio fijo de **14,4 unidades** desde el punto de enfoque del personaje, con seguimiento y órbita amortiguados e interpolación física. No tiene zoom ni brazo retráctil: los objetos nunca pueden acercarla al jugador. Se puede girar horizontalmente y variar la inclinación solo entre **−54° y −42°** (por defecto −48°). La cámara no gira al mover al personaje. El encuadre normal sitúa a la ardilla alrededor del 10 % de la altura de pantalla. Los objetos pueden ocultar temporalmente al personaje; el giro horizontal permite despejar la vista sin alterar la distancia.
+La cámara conserva un radio fijo de **14,4 unidades** desde el punto de enfoque del personaje, con seguimiento y órbita amortiguados e interpolación física. No tiene zoom ni brazo retráctil: los objetos nunca pueden acercarla al jugador. La vista normal está limitada entre **−54° y −42°**; durante planeo se mezcla hacia un ángulo configurable en el Inspector de `CameraRig`. La cámara no gira al mover al personaje. Los objetos pueden ocultar temporalmente al personaje; el giro horizontal permite despejar la vista sin alterar la distancia.
 
 ## Ardilla y movimiento
 
-Últimos ajustes: cola elástica que baja su extremo al subir en un salto y lo levanta al caer, con flexión y estiramiento/compresión interpolados; dos marcas blancas de la nuca corregidas mediante UV locales de pelaje (textura y archivo original intactos). Las pendientes no caminables permiten resbalar suavemente, dirigir el deslizamiento de lado y saltar. El fondo tiene desenfoque progresivo por profundidad; la ardilla cercana y la interfaz permanecen nítidas. Todos estos valores están documentados en `docs/animation_tuning.md`.
+El personaje jugable es el modelo artesanal `assets/playertest2/playertest2.glb`. Su archivo fuente es `playertest2.blend`. El GLB contiene el armature `NuezRig`, el clip de carrera `Run`, la transición `GlideStart`, el clip de planeo `Glide` y las dos membranas.
 
-El personaje jugable es el modelo artesanal `assets/playertest2/playertest2.glb`, con sus propias acciones `Run` y `Glide`. El rig y la forma de planeo se editan en `playertest2.blend` antes de volver a exportarlo.
+Cada membrana tiene la Shape Key `membrana_abierta`: `0` es plegada y `1` es abierta. Godot controla ese valor directamente durante el planeo, de modo que la apertura y el cierre siguen el estado físico aunque existan clips auxiliares exportados desde Blender. Edita el rig, pesos o Shape Keys en `playertest2.blend`; después vuelve a exportar el GLB a `assets/playertest2/playertest2.glb`.
 
-El movimiento comienza en el primer tick físico. La aceleración se aplica al vector completo, el frenado es gradual y más fuerte, y la orientación sigue el desplazamiento real. El salto conserva su arco al pausar o abrir diálogo. La adherencia al suelo evita deslizamiento en reposo; la velocidad real determina el ritmo de las patas. La animación mezcla reposo, carrera, despegue, subida, caída y aterrizaje. Recoger/interactuar se superpone sin bloquear el movimiento. Los aterrizajes dependen de la velocidad del impacto. Incluye apoyo de patas mediante rayos al suelo e IK de dos huesos, interpolación de poses, inclinación contenida y cola amortiguada.
+Las pendientes no caminables permiten resbalar suavemente y dirigir el deslizamiento de lado. La cámara conserva una distancia fija y puede elevar su vista durante el planeo. La interfaz permanece nítida sobre el acabado pixelado del mundo.
+
+El movimiento comienza en el primer tick físico. La aceleración se aplica al vector completo, el frenado es gradual y la orientación sigue el desplazamiento real. El salto conserva su arco al pausar o abrir diálogo. La adherencia al suelo evita deslizamiento en reposo. Los clips de Blender animan los huesos del modelo, mientras que Godot mezcla inclinación, rebote, apertura de membranas y temblor de miembros.
 
 Valores ajustables en el Inspector de `scenes/player.tscn`:
 
@@ -49,7 +51,7 @@ Valores ajustables en el Inspector de `scenes/player.tscn`:
 | Landing Threshold / Hard Landing Speed | 2,5 / 18 unidades/s |
 | Snap Distance / Walkable Slope Degrees | 0,35 / 48° |
 
-En el hijo **Animation** encontrarás grupos para ritmo, patas, brazos/codos, cuerpo/cabeza, aterrizaje y cola. La guía **docs/animation_tuning.md** explica todos los controles, valores iniciales y cómo probarlos en Remote y guardarlos en la escena. La carrera incluye alternancia de brazos/piernas, codos flexionados, torsión del torso, cambio de peso, arco de recuperación de patas y compensación de cabeza.
+En el hijo **Animation** encontrarás los grupos **Ritmo y transiciones**, **Cuerpo**, **Salto y aterrizaje**, **Postura de planeo** y **Planeo · modelo artesanal**. Ahí se ajustan inclinación, apertura/cierre de membranas, velocidad de `GlideStart`, velocidad de `Glide` y temblor de brazos/piernas.
 
 El audio ya no incluye el acorde grave continuo. La música usa notas suaves separadas por silencios; los pasos emplean ruido filtrado breve sin tono grave sostenido. Los bucles arrancan una sola vez, después de aplicar los volúmenes guardados.
 
@@ -78,7 +80,7 @@ Para reiniciar la partida, usa **Nueva expedición** en el título. Para restaur
 
 - `scripts/game.gd`: estados de título, juego, diálogo, pausa, ajustes, final y coordinación.
 - `scenes/player.tscn` + `scripts/player.gd`: aceleración, frenado, salto configurable, tolerancia de borde y buffer de salto, control aéreo y recuperación.
-- `scripts/squirrel_animator.gd` + `scripts/squirrel_rig.gd`: estados, transiciones, movimiento secundario y poses esqueléticas interpoladas. El ciclo avanza por desplazamiento real; recoger/interactuar se superponen a locomoción.
+- `scripts/squirrel_animator.gd` + `scripts/squirrel_rig.gd`: transición visual de carrera/planeo, inclinación, temblor de miembros, reproducción de acciones de Blender y control directo de las Shape Keys de las membranas.
 - `scenes/camera_rig.tscn`: distancia, inclinación, campo de visión y suavizado editables en el Inspector.
 - `scenes/mountain.tscn` + `scripts/level.gd`: montaña fija, circuito en espiral, posiciones de objetos, decoración, luz y nieve. Los modelos se ensamblan al ejecutar; el editor muestra los nodos raíz de estos componentes.
 - `scripts/interactable.gd` + `scripts/interaction.gd`: rango, orientación, línea de visión y prompts reutilizables.
@@ -91,15 +93,23 @@ Para reiniciar la partida, usa **Nueva expedición** en el título. Para restaur
 
 La topología y los puntos del recorrido están definidos en `TrailLevel.ROUTE`, `SEEDS`, `LAMP_POINTS` y `height_at()`. La máscara del sendero se calcula una vez y se reutiliza para reducir el coste del shader. No hay mapas aleatorios, combate ni escalada.
 
-## Planeo y referencias de rigging
+## Planeo y rigging
 
-La primera pulsación salta. Una nueva pulsación en el aire despliega brazos, patas y membranas de ardilla voladora; mantener el botón desde el suelo no las abre. Otra pulsación las recoge. Se controlan con WASD/stick izquierdo y se recogen automáticamente al aterrizar. No hay impulso extra hacia arriba: el descenso se estabiliza en 2,6 unidades/s, con frenado gradual si se despliega durante una caída rápida. Pausa y diálogo congelan el estado sin perderlo.
+La primera pulsación inicia el salto. Para planear, mantén Brincar cuando la ardilla ya está descendiendo; al soltarlo, al volver a subir o al tocar el suelo se cierran las membranas. No existe impulso vertical adicional: el planeo solo reduce la velocidad de caída.
 
-Los archivos `model-rigged-fly.glb` (40 huesos) y `model-rigged-open-arms.glb` (29 huesos), fuera de la carpeta del proyecto, se inspeccionaron como referencias. No se intercambian esos modelos completos al saltar: la postura y las membranas se integran en el personaje actual para conservar su cara, tamaño y continuidad. Los archivos originales no se modifican. Las membranas son una malla visual separada de 10 triángulos; el torso no se estira para crearlas.
+Mientras planeas, mantén R1/L1 o Shift para el sprint de planeo. Aumenta la velocidad horizontal, suma inclinación hacia delante y permite una caída ligeramente más rápida.
 
-En `player.tscn`, el nodo raíz tiene el grupo **Planeo**; **Animation → Postura de planeo** controla apertura de brazos/piernas, inclinación y rapidez de despliegue. Todos incluyen descripción y ejemplos en el Inspector. Los controles normales de brazos siguen siendo independientes.
+Valores físicos en el Inspector de `SquirrelExplorer`:
 
-`tests/glide_review.gd` verifica 13 casos, incluyendo segunda pulsación, mando, cancelación, descenso sin ascenso extra, pausa, diálogo, aterrizaje y respawn. Añade `--visual` después de `-- --qa` para capturar la postura en un visor de revisión. `tests/arm_geometry_review.gd` verifica pesos independientes, simetría a 150° y ausencia de deformación del torso al mover los brazos. `tests/animation_review.gd -- --stress-arms` prueba la elevación extrema sin cambiar los valores guardados.
+- **Planeo**: `Glide Fall Speed`, `Glide Gravity Scale`, `Glide Braking` y `Glide Air Control`.
+- **Planeo con sprint · R1**: multiplicador de velocidad, límite extra de caída y gravedad adicional.
+
+Valores visuales en `SquirrelExplorer → Animation`:
+
+- **Postura de planeo**: inclinación normal, inclinación extra con R1 y rapidez de apertura/cierre.
+- **Planeo · modelo artesanal**: velocidad de `Glide`, velocidad de `GlideStart`, grados y frecuencia del temblor de miembros.
+
+El modelo no cambia de posición por sus clips: el `CharacterBody3D` mueve al jugador por el mundo y las acciones de Blender mueven huesos y Shape Keys de manera local.
 
 ## Verificación
 
@@ -117,12 +127,12 @@ godot --path . --script tests/visual_review.gd -- --qa
 godot --path . --script tests/blur_review.gd -- --qa
 ```
 
-La prueba de juego hace el recorrido con movimiento y colisiones reales, comprueba gasto de semillas, guardado/continuación, final, reinicio, diálogos, pausa, eventos de mando, duplicados y radio fijo de cámara ante obstáculos. La prueba de movimiento verifica aceleración, frenado, reversas, sprint LB/L1, salto, pausas en el aire, impactos, pendientes, giros y límites de cámara. La revisión visual captura título, escenario, cima, ardilla, diálogo, ajustes y encuadre en `tests/captures/`; todas las capturas de juego mantienen la distancia de producción.
+La prueba de juego hace el recorrido con movimiento y colisiones reales, comprueba gasto de semillas, guardado/continuación, final, reinicio, diálogos, pausa, eventos de mando, duplicados y radio fijo de cámara ante obstáculos. La prueba de movimiento verifica aceleración, frenado, reversas, sprint L1/R1, salto, pausas en el aire, impactos, pendientes, giros y límites de cámara. La revisión visual captura título, escenario, cima, ardilla, diálogo, ajustes y encuadre en `tests/captures/`.
 
 Validación realizada en Godot 4.6 Mono / Compatibility: 90 comprobaciones de expedición y **46 de movimiento/cámara**, sin fallos en sus últimas ejecuciones. Estas últimas incluyen cursor libre, arrastre con clic derecho, liberación y pausa. También se revisaron poses con renderizado real en la RTX 4060. Una muestra de 120 frames con el modelo optimizado dio aproximadamente 6,3 ms de mediana; no es una garantía para otros equipos ni una prueba de rendimiento extensa.
 
 La revisión adicional de pendientes recorre 24 ascensos: 21 líneas de terreno quedan libres de atascos y pérdida de contacto; tres atraviesan árboles o rocas reales y conservan sus colisiones. También comprueba silencios y ausencia de saturación en el ambiente musical. `tests/animation_review.gd` captura seis fases de carrera en un visor de revisión independiente de la cámara de juego y verifica los controles de brazos.
 
-El mando se verifica mediante eventos inyectados, no con una sesión manual en un dispositivo físico. El esqueleto y sus pesos se preparan por código para este modelo concreto; las poses son procedurales, sin clips de animación externos ni animación facial. El audio es síntesis original sencilla.
+El mando se verifica mediante eventos inyectados, no con una sesión manual en un dispositivo físico. Los pesos, Shape Keys y clips principales se preparan en Blender para este modelo concreto; Godot reproduce las acciones y aplica ajustes visuales adicionales durante el juego. El audio es síntesis original sencilla.
 
 La nueva prueba `polish_review.gd` añade **30 comprobaciones** de deslizamiento a 55°, límite de velocidad, dirección lateral, salto, retorno a suelo llano, deformación de cola en subida/caída y restauración tras aterrizar, y activación del desenfoque al cambiar de cámara/pausa. `blur_review.gd` captura el mismo encuadre con y sin desenfoque y comprueba que no cambia apreciablemente el color del primer plano. `inspect_head.gd` verifica que no quedan caras blancas en la región posterior de la cabeza. El GLB tiene 27.410 triángulos tras reconstruir los brazos independientes; algunas esquinas se duplican para reparar las UV.
