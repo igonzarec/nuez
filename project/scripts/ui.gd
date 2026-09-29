@@ -212,6 +212,12 @@ func settings(values: Dictionary) -> void:
 	fullscreen.button_pressed = values.fullscreen
 	fullscreen.toggled.connect(func(value: bool) -> void: setting_changed.emit("fullscreen", value))
 	page.add_child(fullscreen)
+	var fast_reset := CheckButton.new()
+	fast_reset.text = "Reinicio rápido · Start"
+	fast_reset.tooltip_text = "Durante la exploración, Start devuelve a la ardilla junto al farol de la cima en lugar de abrir la pausa."
+	fast_reset.button_pressed = values.get("fast_reset_enabled", true)
+	fast_reset.toggled.connect(func(value: bool) -> void: setting_changed.emit("fast_reset_enabled", value))
+	page.add_child(fast_reset)
 	var pixel_label := _label("Acabado pixelado", 17)
 	page.add_child(pixel_label)
 	var pixels := HSlider.new()

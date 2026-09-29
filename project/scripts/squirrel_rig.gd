@@ -6,6 +6,7 @@ const PLAYERTES2_VISUAL := preload("res://assets/playertest2/playertest2.glb")
 
 var glide_amount := 0.0
 var tail_rotation := Vector3.ZERO
+var body_pivot: Node3D
 var playertest2_animation: AnimationPlayer
 var playertest2_run := &""
 var playertest2_run_fast := &""
@@ -22,11 +23,14 @@ var idle_active := false
 const GLIDE_TREMOR_BONES := [&"arm_left", &"arm_right", &"leg_left", &"leg_right"]
 
 func _ready() -> void:
+	body_pivot = Node3D.new()
+	body_pivot.name = "BodyPivot"
+	add_child(body_pivot)
 	var handmade_visual := PLAYERTES2_VISUAL.instantiate()
 	handmade_visual.name = "NuezPlayerTest2"
 	# Blender exporta el frente en sentido opuesto al movimiento del controlador.
 	handmade_visual.rotation.y = PI
-	add_child(handmade_visual)
+	body_pivot.add_child(handmade_visual)
 	_find_glide_membranes(handmade_visual)
 	_set_membrane_amount(0.0)
 	playertest2_skeleton = _find_skeleton(handmade_visual)
@@ -181,6 +185,18 @@ func _clear_glide_tremor() -> void:
 		if bone_index >= 0:
 			playertest2_skeleton.reset_bone_pose(bone_index)
 
+func set_body_tilt(pitch: float, roll: float) -> void:
+	if not body_pivot:
+		return
+	# Yaw queda en SquirrelRig. El pivote aplica pitch y después roll en el eje
+	# longitudinal local, por lo que alas, brazos, patas y cola se alabean como
+	# un cuerpo único aun cuando la ardilla ya está inclinada hacia delante.
+	body_pivot.quaternion = Quaternion(Vector3.RIGHT, pitch) * Quaternion(Vector3.FORWARD, roll)
+
+func reset_body_tilt() -> void:
+	if body_pivot:
+		body_pivot.quaternion = Quaternion.IDENTITY
+
 # Compatibilidad temporal con el controlador de movimiento. El modelo nuevo
 # usa sus propias animaciones y no necesita el antiguo esqueleto procedural.
 func begin_pose() -> void: pass
@@ -193,5 +209,6 @@ func reset_interpolation() -> void:
 	glide_active = false
 	glide_started = false
 	idle_active = false
+	reset_body_tilt()
 	_set_membrane_amount(0.0)
 	_clear_glide_tremor()

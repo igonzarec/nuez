@@ -64,8 +64,9 @@ func _build_session(data: Dictionary) -> void:
 	level.name = "MountainTrail"
 	add_child(level)
 	player = load("res://scenes/player.tscn").instantiate() as ExplorerPlayer
-	var checkpoint: Array = progress.checkpoint
-	player.position = TrailLevel.point(float(checkpoint[0]), float(checkpoint[2]), 0.15)
+	# Cada sesión comienza junto al farol del mirador. Los faroles restaurados
+	# siguen siendo puntos de recuperación para caídas durante la exploración.
+	player.position = TrailLevel.summit_spawn()
 	level.add_child(player)
 	player.feedback.connect(audio.play)
 	player.respawned.connect(func() -> void: ui.toast("De vuelta en un lugar seguro."))
@@ -124,6 +125,10 @@ func start_game(continue_game := false) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.echo:
 		return
+	if _is_fast_reset_event(event):
+		_fast_reset_to_summit()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("pause") or (event.is_action_pressed("ui_cancel") and not event is InputEventKey):
 		match state:
 			State.PLAYING: pause_game()
@@ -138,6 +143,22 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif state == State.DIALOGUE:
 			advance_dialogue()
 		get_viewport().set_input_as_handled()
+
+func _is_fast_reset_event(event: InputEvent) -> bool:
+	if state != State.PLAYING or settings.get("fast_reset_enabled", true) != true:
+		return false
+	if not event is InputEventJoypadButton:
+		return false
+	return event.pressed and event.button_index == JOY_BUTTON_START
+
+func _fast_reset_to_summit() -> void:
+	# No reemplaza el refugio de recuperación que el jugador haya desbloqueado.
+	# Solo teletransporta esta vez al punto inicial junto al farol del mirador.
+	var recovery_spawn := player.spawn_position
+	player.spawn_position = TrailLevel.summit_spawn()
+	player.respawn()
+	player.spawn_position = recovery_spawn
+	ui.toast("Reinicio rápido · cima del mirador")
 
 func _input(event: InputEvent) -> void:
 	if not is_instance_valid(ui) or not is_instance_valid(interaction):

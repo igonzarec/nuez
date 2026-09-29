@@ -3,7 +3,7 @@ extends RefCounted
 
 const SAVE_PATH := "user://expedition_v3.json"
 const SETTINGS_PATH := "user://settings.json"
-const DEFAULT_SETTINGS := {"master": 0.8, "music": 0.45, "sfx": 0.75, "sensitivity": 1.0, "fullscreen": false, "pixel_size": 2.0}
+const DEFAULT_SETTINGS := {"master": 0.8, "music": 0.45, "sfx": 0.75, "sensitivity": 1.0, "fullscreen": false, "pixel_size": 2.0, "fast_reset_enabled": true}
 var save_path := SAVE_PATH
 var settings_path := SETTINGS_PATH
 
@@ -55,4 +55,5 @@ func load_settings() -> Dictionary:
 			result[key] = clampf(float(loaded[key]), 0.2 if key == "sensitivity" else 0.0, 2.5 if key == "sensitivity" else 1.0)
 	result.fullscreen = loaded.get("fullscreen", false) == true
 	result.pixel_size = clampf(float(loaded.get("pixel_size", 2.0)), 1, 4)
+	result.fast_reset_enabled = loaded.get("fast_reset_enabled", true) == true
 	return result

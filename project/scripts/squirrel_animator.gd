@@ -21,11 +21,32 @@ extends Node
 @export_range(0.0, 0.2) var landing_squash := 0.09
 
 @export_group("Postura de planeo")
-## Inclinación hacia delante al planear. Cerca de 85° es una postura muy extrema.
+## Inclinación base hacia delante durante Glide, incluso sin entrada de movimiento.
+## Ejemplo: 20° es planeo tranquilo; 45° es marcado; cerca de 85° es una postura extrema.
 @export_range(0.0, 85.0, 0.5) var glide_lean_degrees := 20.0
 @export_range(3.0, 25.0) var glide_blend_speed := 12.0
-## Inclinación adicional al mantener R1/Shift durante el planeo.
+## Inclinación añadida mientras mantienes una dirección durante Glide.
+## Ejemplo: 0 conserva la misma postura; 6° da intención de avance; 15° es una picada clara.
+@export_range(0.0, 40.0, 0.5) var glide_movement_extra_lean_degrees := 6.0
+## Inclinación adicional al mantener R1/Shift y moverse durante el planeo.
 @export_range(0.0, 50.0, 0.5) var glide_sprint_extra_lean_degrees := 12.0
+
+@export_group("Banking de planeo")
+## Inclinación lateral máxima al cambiar de dirección mientras planea.
+## Ejemplo: 10° es apenas visible; 22° es natural; 40° se siente como un giro agresivo de ave.
+@export_range(0.0, 75.0, 0.5) var glide_bank_degrees := 22.0
+## Diferencia de rumbo pedida que alcanza el bank máximo.
+## Ejemplo: 35° reacciona con fuerza en curvas breves; 70° es más gradual; 120° reserva el máximo para cambios cerrados.
+@export_range(10.0, 180.0, 1.0) var glide_bank_full_turn_angle_degrees := 65.0
+## Rapidez de giro real (grados/s) que refuerza el banking iniciado por la palanca. Menor valor lo refuerza antes.
+## Ejemplo: 150 refuerza curvas suaves; 300 es equilibrado; 600 reserva ese refuerzo para curvas muy cerradas.
+@export_range(45.0, 1080.0, 1.0) var glide_bank_full_turn_rate_degrees := 300.0
+## Rapidez con que el cuerpo entra y sale de la inclinación lateral.
+## Ejemplo: 4 se siente pesado y suave; 10 es equilibrado; 20 responde casi de inmediato.
+@export_range(1.0, 30.0, 0.1) var glide_bank_blend_speed := 10.0
+## Actívalo si el rig se inclina hacia el exterior de la curva en vez de hacia el interior.
+## Ejemplo: déjalo apagado normalmente; actívalo solo para corregir una orientación de ejes invertida del modelo importado.
+@export var glide_bank_invert := false
 
 @export_group("Planeo · modelo artesanal")
 ## Velocidad de la vibración incluida en la acción Glide de Blender.
@@ -44,6 +65,8 @@ var gait_phase := 0.0
 var run_blend := 0.0
 var jump_start := 0.0
 var locomotion_state := "idle"
+var body_pitch := 0.0
+var body_roll := 0.0
 
 func jump_started() -> void:
 	jump_start = 0.10
@@ -55,8 +78,9 @@ func reset() -> void:
 	actor.model.glide_amount = 0.0
 	actor.model.position = Vector3.ZERO
 	actor.model.scale = Vector3.ONE
-	actor.model.rotation.x = 0.0
-	actor.model.rotation.z = 0.0
+	body_pitch = 0.0
+	body_roll = 0.0
+	actor.model.reset_body_tilt()
 	actor.model.reset_interpolation()
 
 func tick(delta: float, speed: float) -> void:
@@ -93,10 +117,30 @@ func tick(delta: float, speed: float) -> void:
 	var forward := Vector3.FORWARD.rotated(Vector3.UP, actor.model.rotation.y)
 	var acceleration := clampf(actor.motion_acceleration.dot(forward) / maxf(0.01, actor.acceleration), -1.0, 1.0)
 	var lean := -acceleration * acceleration_lean - deg_to_rad(run_lean_degrees) * run_blend
-	var glide_lean := glide_lean_degrees + (glide_sprint_extra_lean_degrees if actor.is_glide_sprinting else 0.0)
+	# Conserva una postura base de planeo. La entrada y Sprint añaden inclinación
+	# para comunicar intención de avanzar y ganar velocidad.
+	var glide_intent := clampf(actor.glide_movement_intent, 0.0, 1.0)
+	var glide_lean := glide_lean_degrees + glide_movement_extra_lean_degrees * glide_intent + (glide_sprint_extra_lean_degrees if actor.is_glide_sprinting else 0.0) * glide_intent
 	lean = lerpf(lean, -deg_to_rad(glide_lean), glide_blend)
-	actor.model.rotation.x = lerp_angle(actor.model.rotation.x, lean, blend)
-	actor.model.rotation.z = lerp_angle(actor.model.rotation.z, clampf(-actor.angular_velocity * 0.018, -turn_lean, turn_lean) * run_blend, blend)
+	body_pitch = lerp_angle(body_pitch, lean, blend)
+	var run_roll := clampf(-actor.angular_velocity * 0.018, -turn_lean, turn_lean) * run_blend
+	var bank_direction := 1.0 if glide_bank_invert else -1.0
+	var glide_turn_rate := rad_to_deg(actor.angular_velocity)
+	var max_glide_roll := deg_to_rad(glide_bank_degrees) * glide_blend
+	# El yaw sigue el rumbo en Player. Aquí el roll es puramente visual: toma el
+	# ángulo firmado de la curva y, al soltar la palanca, conserva solo el giro
+	# que aún ocurra de verdad. Cuando vuela recto ambos valores llegan a cero.
+	var requested_bank := clampf(actor.glide_signed_turn_angle / deg_to_rad(glide_bank_full_turn_angle_degrees), -1.0, 1.0)
+	var turning_bank := clampf(glide_turn_rate / maxf(1.0, glide_bank_full_turn_rate_degrees), -1.0, 1.0)
+	var bank_signal := requested_bank
+	if absf(bank_signal) < 0.01:
+		bank_signal = turning_bank
+	elif signf(turning_bank) == signf(bank_signal):
+		bank_signal = signf(bank_signal) * maxf(absf(bank_signal), absf(turning_bank))
+	var glide_roll := clampf(bank_signal * max_glide_roll * bank_direction, -max_glide_roll, max_glide_roll)
+	var roll_blend := 1.0 - exp(-(glide_bank_blend_speed if glide_blend > 0.001 else blend_speed) * delta)
+	body_roll = lerp_angle(body_roll, run_roll + glide_roll, roll_blend)
+	actor.model.set_body_tilt(body_pitch, body_roll)
 	actor.model.position.x = lerpf(actor.model.position.x, sin(gait_phase) * body_sway * run_blend, blend)
 	actor.model.position.y = lerpf(actor.model.position.y, (0.5 - 0.5 * cos(gait_phase * 2.0)) * body_bounce * run_blend, blend)
 	actor.model.glide_amount = glide_blend

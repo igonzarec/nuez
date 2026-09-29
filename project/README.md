@@ -21,7 +21,7 @@ No requiere plugins, descargas, .NET ni una solución C#. La ardilla utiliza el 
 | Planear | Pulsar Espacio ya en el aire y mantenerlo | Pulsar A / cruz ya en el aire y mantenerlo |
 | Interactuar | E | Botón oeste (X / cuadrado) |
 | Correr rápido | Mantener Shift | Mantener L1 o R1 mientras mueves el stick |
-| Pausa | Escape | Menú / Start |
+| Pausa | Escape | Menú / Start, si el reinicio rápido está desactivado |
 | Menús | Ratón, flechas, Tab, Enter | Cruceta y botón sur; este para volver |
 
 El cursor permanece visible y libre, incluso durante el arrastre. Mover el ratón sin mantener el botón derecho no cambia la cámara; puedes salir de la ventana y usar otras aplicaciones.
@@ -53,7 +53,7 @@ Valores ajustables en el Inspector de `scenes/player.tscn`:
 | Landing Threshold / Hard Landing Speed | 2,5 / 18 unidades/s |
 | Snap Distance / Walkable Slope Degrees | 0,35 / 48° |
 
-En el hijo **Animation** encontrarás los grupos **Ritmo y transiciones**, **Cuerpo**, **Salto y aterrizaje**, **Postura de planeo** y **Planeo · modelo artesanal**. `Idle` se activa al no haber desplazamiento: detiene el clip de movimiento y restablece la pose de reposo real del rig (piernas y brazos rectos), sin aplicar movimiento adicional. Ahí también se ajustan inclinación, apertura/cierre de membranas, velocidad de `GlideStart`, velocidad de `Glide` y temblor de brazos/piernas.
+En el hijo **Animation** encontrarás los grupos **Ritmo y transiciones**, **Cuerpo**, **Salto y aterrizaje**, **Postura de planeo** y **Planeo · modelo artesanal**. `Idle` se activa al no haber desplazamiento: detiene el clip de movimiento y restablece la pose de reposo real del rig (piernas y brazos rectos), sin aplicar movimiento adicional. Durante Glide, `Glide Lean Degrees` conserva la postura base; una entrada de movimiento y R1/Shift pueden sumar inclinación adicional. Ahí también se ajustan inclinación, apertura/cierre de membranas, velocidad de `GlideStart`, velocidad de `Glide` y temblor de brazos/piernas.
 
 El audio ya no incluye el acorde grave continuo. La música usa notas suaves separadas por silencios; los pasos emplean ruido filtrado breve sin tono grave sostenido. Los bucles arrancan una sola vez, después de aplicar los volúmenes guardados.
 
@@ -72,7 +72,9 @@ La mezcla tiene +6 dB respecto a la versión anterior: música −13 dB, efectos
 Los datos se almacenan en `%APPDATA%/LanternTrail/` en Windows:
 
 - `expedition_v3.json`: IDs de semillas recogidas y faroles encendidos, punto seguro, tiempo y final.
-- `settings.json`: volumen general, música, efectos, sensibilidad, pantalla completa y acabado pixelado.
+- `settings.json`: volumen general, música, efectos, sensibilidad, pantalla completa, acabado pixelado y reinicio rápido.
+
+Cada sesión, incluso al elegir **Continuar**, comienza junto al farol de la cima. Los faroles que se restauren durante esa sesión siguen siendo los puntos de recuperación al caer. En **Ajustes**, `Reinicio rápido · Start` está activado por defecto: al pulsar Start/Menú con mando mientras exploras, vuelves a la cima sin alterar el progreso ni tu último farol de recuperación. Al desactivarlo, Start vuelve a abrir el menú de pausa.
 
 Se guarda al recoger, encender, pausar, salir al título, cerrar la ventana y cada 15 segundos durante la exploración. La escritura usa un archivo temporal antes de sustituir el guardado. **Nueva expedición** pide confirmar antes de reemplazar una partida existente. Los archivos de versiones anteriores permanecen intactos y no se cargan porque pertenecen al mapa anterior.
 
@@ -109,6 +111,8 @@ Valores físicos en el Inspector de `SquirrelExplorer`:
 Valores visuales en `SquirrelExplorer → Animation`:
 
 - **Postura de planeo**: inclinación normal, inclinación extra con R1 y rapidez de apertura/cierre.
+- **Banking de planeo**: roll visual hacia el interior de la curva. Usa el ángulo firmado entre rumbo y dirección pedida, y el giro de yaw real mientras la curva termina; incluye límite de grados, ángulo necesario para alcanzar ese límite, suavizado e inversión visual. El roll se aplica alrededor del eje longitudinal local después del pitch: al girar a la izquierda bajan los miembros izquierdos y suben los derechos (o viceversa, según `Glide Bank Invert`). No modifica la física.
+- **Curvatura del planeo**: reducción de control, giro máximo por segundo, reducción de ese giro a alta velocidad, conservación de velocidad en curvas, velocidad de giro visual exclusiva de Glide y relación entre orientación visual y trayectoria física; impide invertir el rumbo de inmediato sin hacer que el modelo se sienta desconectado.
 - **Planeo · modelo artesanal**: velocidad de `Glide`, velocidad de `GlideStart`, grados y frecuencia del temblor de miembros.
 
 El modelo no cambia de posición por sus clips: el `CharacterBody3D` mueve al jugador por el mundo y las acciones de Blender mueven huesos y Shape Keys de manera local.

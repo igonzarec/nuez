@@ -4,6 +4,8 @@ extends Node3D
 const ROUTE: Array[Vector2] = [Vector2(0, 25), Vector2(-10, 22), Vector2(-22, 12), Vector2(-25, -2), Vector2(-18, -19), Vector2(-3, -28), Vector2(17, -21), Vector2(26, -4), Vector2(21, 12), Vector2(9, 19), Vector2(-7, 15), Vector2(-15, 3), Vector2(-10, -10), Vector2(3, -16), Vector2(13, -5), Vector2(7, 6), Vector2(0, 2), Vector2(0, -4)]
 const SEEDS: Array[Vector2] = [Vector2(-4, 23.8), Vector2(-10, 22), Vector2(-20, 13.7), Vector2(-23, -7), Vector2(-3, -28), Vector2(26, -4), Vector2(-13, -2), Vector2(3, -16), Vector2(9, 2), Vector2(-14, -22), Vector2(19, -19), Vector2(14, 17), Vector2(-9, 15), Vector2(6, -10), Vector2(0, -2)]
 const LAMP_POINTS: Array[Vector2] = [Vector2(-22, 12), Vector2(-15, 3), Vector2(0, -4)]
+# Punto de inicio junto al farol de la cima, con espacio para no aparecer dentro de él.
+const SUMMIT_SPAWN_POINT := Vector2(2.2, -4.0)
 var lamps: Array[TrailLamp] = []
 var seeds: Array[LightFragment] = []
 var guide: TrailInteractable
@@ -28,6 +30,9 @@ static func height_at(x: float, z: float) -> float:
 
 static func point(x: float, z: float, lift := 0.0) -> Vector3:
 	return Vector3(x, height_at(x, z) + lift, z)
+
+static func summit_spawn(lift := 0.15) -> Vector3:
+	return point(SUMMIT_SPAWN_POINT.x, SUMMIT_SPAWN_POINT.y, lift)
 
 static func mat(color: Color, emission := 0.0) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()

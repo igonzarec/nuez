@@ -78,9 +78,29 @@ signal respawned
 ## Frenado vertical al desplegar durante una caída rápida, en unidades/s².
 ## Ejemplo: 18 frena progresivamente; 35 estabiliza antes, sin detenerse en seco.
 @export_range(5.0, 60.0) var glide_braking := 30.0
-## Control horizontal mientras planea, como fracción del control en suelo.
-## Ejemplo: 0,4 da giros amplios; 0,7 permite corregir con facilidad. Usa WASD o stick izquierdo.
+## Control horizontal y de rumbo físico mientras planea.
+## Ejemplo: 0,1 casi no permite corregir; 0,7 conserva la curvatura configurada; 1 hace que la trayectoria siga la palanca de inmediato.
 @export_range(0.1, 1.0) var glide_air_control := 0.7
+@export_group("Curvatura del planeo")
+## Reducción adicional del control al intentar girar a mucha velocidad durante Glide.
+## Ejemplo: 0 conserva el control actual; 0,35 suaviza las curvas; 1 produce curvas muy amplias a velocidad máxima.
+@export_range(0.0, 1.0, 0.01) var glide_high_speed_turn_reduction := 0.35
+## Máximo cambio de rumbo durante Glide, en grados por segundo.
+## Ejemplo: 60 da vueltas amplias; 105 es equilibrado; 240 permite cambios de rumbo mucho más rápidos.
+## Un valor menor obliga a describir curvas más amplias, incluso al mantener la dirección contraria o al comenzar desde reposo.
+@export_range(10.0, 360.0, 1.0) var glide_turn_rate_degrees := 105.0
+## Multiplicador del giro máximo al alcanzar la velocidad objetivo de Glide.
+## Ejemplo: 1 conserva el mismo giro a cualquier velocidad; 0,55 da una trayectoria más amplia al ir rápido; 0,25 es muy pesado.
+@export_range(0.1, 1.0, 0.01) var glide_high_speed_turn_rate_multiplier := 0.55
+## Relación entre la orientación visual y el rumbo físico durante Glide.
+## Ejemplo: 0 hace que el modelo siga solo la trayectoria; 0,35 da respuesta inmediata sin desconectarse; 1 reproduce un giro visual instantáneo.
+@export_range(0.0, 1.0, 0.01) var glide_visual_turn_follow := 0.35
+## Rapidez con que el modelo gira visualmente durante Glide; no cambia la trayectoria física.
+## Ejemplo: 4 hace que el cuerpo acompañe con calma; 10 es fluido; 20 hace que mire al nuevo rumbo casi de inmediato.
+@export_range(1.0, 30.0, 0.1) var glide_visual_turn_speed := 10.0
+## Fracción de la velocidad horizontal que se conserva al describir una curva durante Glide.
+## Ejemplo: 0 permite que el giro reduzca velocidad de forma normal; 0,85 se siente fluido; 1 conserva toda la velocidad al cambiar de rumbo.
+@export_range(0.0, 1.0, 0.01) var glide_turn_speed_retention := 0.85
 @export_group("Planeo con sprint · R1")
 ## Multiplica la velocidad horizontal de planeo mientras mantienes R1/Shift.
 @export_range(1.0, 2.5, 0.01) var glide_sprint_speed_multiplier := 1.15
@@ -114,6 +134,17 @@ var slide_velocity := Vector3.ZERO
 var is_gliding := false
 var is_glide_sprinting := false
 var glide_button_pressed_in_air := false
+## Intensidad de entrada horizontal actual para que la postura de Glide sepa
+## si la ardilla está intentando avanzar o simplemente está cayendo.
+var glide_movement_intent := 0.0
+## Rumbo visual e intensidad lateral solicitados durante Glide. Se separan de
+## la trayectoria física para dar respuesta inmediata sin giros instantáneos.
+var glide_facing_direction := Vector3.ZERO
+var glide_turn_intent := 0.0
+## Ángulo horizontal firmado entre el rumbo actual y el pedido. Solo lo usa
+## el modelo para hacer bank/roll; nunca modifica la trayectoria física.
+var glide_signed_turn_angle := 0.0
+var glide_motion_heading := Vector3.ZERO
 
 func _steep_support() -> Vector3:
 	# Sample beneath the feet, never a forward wall. Leave a real jump untouched.
@@ -158,6 +189,12 @@ func react(kind: String) -> void:
 
 func set_controls(enabled: bool) -> void:
 	control_enabled = enabled
+	if not enabled:
+		glide_movement_intent = 0.0
+		glide_facing_direction = Vector3.ZERO
+		glide_turn_intent = 0.0
+		glide_signed_turn_angle = 0.0
+		glide_motion_heading = Vector3.ZERO
 	input_grace = 0.16 if enabled else 0.0
 	buffer_left = 0
 	# The paused tree freezes the body. Preserve momentum and the jump arc:
@@ -180,6 +217,11 @@ func respawn() -> void:
 	is_gliding = false
 	is_glide_sprinting = false
 	glide_button_pressed_in_air = false
+	glide_movement_intent = 0.0
+	glide_facing_direction = Vector3.ZERO
+	glide_turn_intent = 0.0
+	glide_signed_turn_angle = 0.0
+	glide_motion_heading = Vector3.ZERO
 	slide_velocity = Vector3.ZERO
 	reaction_time = 0
 	landing_time = 0
@@ -236,6 +278,7 @@ func _physics_process(delta: float) -> void:
 		feedback.emit("jump")
 		animator.jump_started()
 	var direction := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	glide_movement_intent = direction.length()
 	# Movement follows the visible orbit, not its unsmoothed target yaw.
 	var yaw := camera_rig.rotation.y if camera_rig else 0.0
 	var desired := Vector3(direction.x, 0, direction.y).rotated(Vector3.UP, yaw)
@@ -243,14 +286,62 @@ func _physics_process(delta: float) -> void:
 	if is_glide_sprinting:
 		target_speed *= glide_sprint_speed_multiplier
 	var planar := Vector3(velocity.x, 0, velocity.z)
+	var planar_speed_before_turn := planar.length()
+	var glide_turn_amount := 0.0
 	if grounded and planar.length_squared() > 0.0001:
 		# Recover surface speed before accelerating; otherwise projecting to a slope
 		# repeatedly shrinks the horizontal speed on every physics tick.
 		planar = planar.normalized() * previous_motion.length()
-	var braking := direction.length_squared() < 0.0025 or planar.dot(desired) < -0.05 or planar.length() > target_speed * direction.length() + 0.1
+	if not is_gliding:
+		glide_motion_heading = Vector3.ZERO
+	elif glide_motion_heading.length_squared() <= 0.0001:
+		glide_motion_heading = planar.normalized() if planar.length_squared() > 0.0001 else Vector3.FORWARD.rotated(Vector3.UP, model.rotation.y)
+	if is_gliding and desired.length_squared() > 0.0001:
+		# Limita el cambio de dirección real, no solo la aceleración. Así mantener
+		# la dirección opuesta dibuja una curva y nunca voltea instantáneamente.
+		# Si apenas se mueve, usa el frente actual del modelo para impedir también
+		# un giro instantáneo desde reposo durante Glide.
+		var speed_ratio := clampf(planar.length() / maxf(0.1, target_speed), 0.0, 1.0)
+		var turn_rate_scale := lerpf(1.0, glide_high_speed_turn_rate_multiplier, speed_ratio)
+		# Hasta 0,7 se dosifica el giro configurado. De 0,7 a 1 el rumbo
+		# gana seguimiento directo, para que 1 signifique control físico total.
+		var direct_control := smoothstep(0.7, 1.0, glide_air_control)
+		var turn_rate_control := minf(glide_air_control / 0.7, 1.0)
+		var max_turn_angle := deg_to_rad(glide_turn_rate_degrees) * turn_rate_scale * turn_rate_control * delta
+		var current_heading := planar.normalized() if planar.length_squared() > 0.0001 else glide_motion_heading
+		var requested_heading := desired.normalized()
+		var requested_turn := current_heading.signed_angle_to(requested_heading, Vector3.UP)
+		glide_signed_turn_angle = requested_turn
+		# La animación responde al rumbo pedido al instante, aunque la trayectoria
+		# se limite abajo para conservar una curva física amplia.
+		glide_facing_direction = requested_heading
+		glide_turn_intent = clampf(requested_turn / (PI * 0.5), -1.0, 1.0) * glide_visual_turn_follow
+		var limited_heading := current_heading.rotated(Vector3.UP, clampf(requested_turn, -max_turn_angle, max_turn_angle))
+		var controlled_heading := limited_heading.slerp(requested_heading, direct_control).normalized()
+		desired = controlled_heading * desired.length()
+	else:
+		glide_facing_direction = Vector3.ZERO
+		glide_turn_intent = 0.0
+		glide_signed_turn_angle = 0.0
+	var braking := direction.length_squared() < 0.0025 or planar.length() > target_speed * direction.length() + 0.1
+	# En tierra, invertir dirección desacelera antes de avanzar. Durante Glide,
+	# el rumbo ya se curva arriba: no aplicar ese freno extra mantiene la inercia.
+	if not is_gliding:
+		braking = braking or planar.dot(desired) < -0.05
 	var rate := deceleration if braking else acceleration
 	var air_steering := glide_air_control if is_gliding else air_control
+	if is_gliding and planar.length_squared() > 0.0001 and desired.length_squared() > 0.0001:
+		# A alta velocidad, cambiar mucho de rumbo requiere una curva más amplia.
+		# Avanzar recto conserva el control completo; solo se atenúan los giros.
+		var speed_ratio := clampf(planar.length() / maxf(0.1, target_speed), 0.0, 1.0)
+		var direction_change := clampf(1.0 - planar.normalized().dot(desired.normalized()), 0.0, 1.0)
+		glide_turn_amount = direction_change
+		var direct_control := smoothstep(0.7, 1.0, glide_air_control)
+		air_steering *= 1.0 - glide_high_speed_turn_reduction * (1.0 - direct_control) * speed_ratio * direction_change
 	planar = planar.move_toward(desired * target_speed, rate * (1.0 if grounded else air_steering) * delta)
+	if is_gliding and glide_turn_amount > 0.001 and planar.length_squared() > 0.0001:
+		var retained_speed := planar_speed_before_turn * glide_turn_speed_retention
+		planar = planar.normalized() * maxf(planar.length(), retained_speed)
 	velocity.x = planar.x
 	velocity.z = planar.z
 	if grounded and not jump_consumed and planar.length_squared() > 0.0001:
@@ -278,14 +369,22 @@ func _physics_process(delta: float) -> void:
 		apply_floor_snap()
 	var actual := (global_position - position_before_move) / delta
 	var actual_planar := Vector3(actual.x, 0, actual.z)
+	if is_gliding and actual_planar.length_squared() > 0.0001:
+		glide_motion_heading = actual_planar.normalized()
 	horizontal_speed = actual_planar.length()
 	motion_acceleration = motion_acceleration.lerp((actual_planar - previous_motion) / delta, 1.0 - exp(-12.0 * delta))
 	previous_motion = actual if is_on_floor() else actual_planar
 	angular_velocity = 0
-	if horizontal_speed > 0.12:
+	var facing_planar := actual_planar
+	if is_gliding and glide_facing_direction.length_squared() > 0.0001:
+		var motion_heading := glide_motion_heading if glide_motion_heading.length_squared() > 0.0001 else Vector3.FORWARD.rotated(Vector3.UP, model.rotation.y)
+		var visual_turn := motion_heading.signed_angle_to(glide_facing_direction, Vector3.UP) * glide_visual_turn_follow
+		facing_planar = motion_heading.rotated(Vector3.UP, visual_turn)
+	if facing_planar.length_squared() > 0.0001:
 		var old_yaw := model.rotation.y
-		var target_angle := atan2(-actual_planar.x, -actual_planar.z)
-		var angle_step := wrapf(target_angle - old_yaw, -PI, PI) * (1.0 - exp(-turn_speed * delta))
+		var target_angle := atan2(-facing_planar.x, -facing_planar.z)
+		var visual_turn_speed := glide_visual_turn_speed if is_gliding else turn_speed
+		var angle_step := wrapf(target_angle - old_yaw, -PI, PI) * (1.0 - exp(-visual_turn_speed * delta))
 		model.rotation.y = wrapf(old_yaw + angle_step, -PI, PI)
 		angular_velocity = angle_step / delta
 	if not grounded and is_on_floor():
