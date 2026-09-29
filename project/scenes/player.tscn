@@ -5,30 +5,21 @@
 
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
+walk_member_animation_speed = 2.35
+run_member_animation_speed = 2.87
+jump_velocity = 9.129
+hard_landing_speed = 7.808
 
 [node name="Animation" type="Node" parent="." unique_id=46449727]
 script = ExtResource("2")
 stride_length = 2.355
 cadence_multiplier = 1.12
 blend_speed = 22.592
-step_height = 0.16
-step_reach = 0.134
-stance_ratio = 0.519
-run_crouch = 0.09
-foot_roll_degrees = 3.8209999999999997
-arm_spread_degrees = 10.462
 body_bounce = 0.06
-torso_twist_degrees = 12.0
 run_lean_degrees = 6.681
-run_squash = 0.038
-sprint_exaggeration = 1.496
 acceleration_lean = 0.184
 turn_lean = 0.0
-tail_air_drop = 0.3
-tail_air_stretch = 0.3
-tail_air_response = 22.9
-arm_air_lift_degrees = 45.663
-arm_fall_elbow_degrees = 4.244
-arm_air_drop = 0.004
-arm_air_stretch = 0.004
-arm_air_response = 18.143
+run_squash = 0.038
+glide_lean_degrees = 50.0
+handmade_glide_flutter_speed = 2.0
+handmade_glide_tremor_degrees = 8.0

@@ -8,6 +8,12 @@ extends Node3D
 @export var orbit_smoothing := 10.0
 @export var field_of_view := 52.0
 @export var stick_speed := 1.8
+@export_group("Vista durante planeo")
+## Ángulo de cámara mientras planea. Un valor más negativo coloca la vista más por arriba.
+@export_range(-85.0, -10.0, 0.5) var glide_pitch_degrees := -64.0
+## Rapidez de la transición entre la vista normal y la vista de planeo.
+@export_range(1.0, 20.0, 0.1) var glide_camera_speed := 6.0
+@export_group("Desenfoque de distancia")
 @export_group("Desenfoque de distancia")
 @export var distant_blur_enabled := true
 ## A partir de esta distancia de la camara comienza el desenfoque.
@@ -19,6 +25,7 @@ var target: ExplorerPlayer
 var enabled := false
 var yaw := 0.0
 var pitch := deg_to_rad(-48.0)
+var glide_view_blend := 0.0
 var camera: Camera3D
 var blur_mesh: MeshInstance3D
 var blur_material: ShaderMaterial
@@ -47,6 +54,7 @@ func _ready() -> void:
 		snap()
 
 func snap() -> void:
+	glide_view_blend = 1.0 if target and target.is_gliding else 0.0
 	pitch = _clamp_pitch(pitch)
 	global_position = target.global_position + Vector3.UP * 1.15
 	rotation = Vector3(pitch, yaw, 0)
@@ -68,7 +76,12 @@ func _physics_process(delta: float) -> void:
 		yaw = wrapf(yaw - stick.x * stick_speed * delta, -PI, PI)
 		pitch = _clamp_pitch(pitch - stick.y * stick_speed * 0.4 * delta)
 	pitch = _clamp_pitch(pitch)
-	rotation.x = lerp_angle(rotation.x, pitch, 1.0 - exp(-orbit_smoothing * delta))
+	# One camera only: smoothly blend its orbit angle between the normal view
+	# and the more elevated glide view. No camera is swapped or teleported.
+	var glide_target := 1.0 if target.is_gliding else 0.0
+	glide_view_blend = lerpf(glide_view_blend, glide_target, 1.0 - exp(-glide_camera_speed * delta))
+	var view_pitch := lerp_angle(pitch, deg_to_rad(glide_pitch_degrees), glide_view_blend)
+	rotation.x = lerp_angle(rotation.x, view_pitch, 1.0 - exp(-orbit_smoothing * delta))
 	rotation.y = lerp_angle(rotation.y, yaw, 1.0 - exp(-orbit_smoothing * delta))
 	global_position = global_position.lerp(target.global_position + Vector3.UP * 1.15, 1.0 - exp(-follow_speed * delta))
 	_place_camera()
@@ -82,7 +95,8 @@ func _place_camera() -> void:
 	# Project the smoothed follow position onto a sphere around the real player.
 	# Follow lag, sprinting, jumps and nearby geometry can never shorten the radius.
 	var orbit_yaw := atan2(offset.x, offset.z)
-	var orbit_pitch := _clamp_pitch(-atan2(offset.y, Vector2(offset.x, offset.z).length()))
+	# rotation.x is already the smoothly blended normal/glide orbit angle.
+	var orbit_pitch := rotation.x
 	var direction := Basis.from_euler(Vector3(orbit_pitch, orbit_yaw, 0)).z
 	camera.global_position = anchor + direction * distance
 	camera.look_at(anchor)

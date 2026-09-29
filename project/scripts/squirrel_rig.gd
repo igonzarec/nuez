@@ -1,134 +1,162 @@
 class_name SquirrelRig
 extends Node3D
-## Render-interpolated procedural poses for the optimized weighted user model.
+## Contenedor visual del personaje artesanal. Solo carga playertest2.
 
-const VISUAL := preload("res://assets/squirrel/squirrel_visual.scn")
-var skeleton: Skeleton3D
-var current_rotations: Array[Quaternion] = []
-var previous_rotations: Array[Quaternion] = []
-var current_positions: Array[Vector3] = []
-var previous_positions: Array[Vector3] = []
-var current_scales: Array[Vector3] = []
-var previous_scales: Array[Vector3] = []
-var tail_rotation := Vector3.ZERO
-var bone_indices: Dictionary = {}
+const PLAYERTES2_VISUAL := preload("res://assets/playertest2/playertest2.glb")
+
 var glide_amount := 0.0
-var glide_membrane: MeshInstance3D
-var membrane_mesh := ArrayMesh.new()
-var membrane_material := StandardMaterial3D.new()
+var tail_rotation := Vector3.ZERO
+var playertest2_animation: AnimationPlayer
+var playertest2_run := &""
+var playertest2_glide_start := &""
+var playertest2_glide_loop := &""
+var glide_active := false
+var glide_started := false
+var glide_membranes: Array[MeshInstance3D] = []
+var playertest2_skeleton: Skeleton3D
+var glide_tremor_degrees := 0.0
+var glide_tremor_speed := 12.0
+var glide_tremor_clock := 0.0
+const GLIDE_TREMOR_BONES := [&"arm_left", &"arm_right", &"leg_left", &"leg_right"]
 
 func _ready() -> void:
-	var visual := VISUAL.instantiate()
-	add_child(visual)
-	skeleton = visual.find_child("Skeleton3D", true, false) as Skeleton3D
-	for i in skeleton.get_bone_count():
-		bone_indices[skeleton.get_bone_name(i)] = i
-		current_rotations.append(Quaternion.IDENTITY)
-		current_positions.append(skeleton.get_bone_rest(i).origin)
-		current_scales.append(Vector3.ONE)
-	reset_interpolation()
-	glide_membrane = MeshInstance3D.new()
-	glide_membrane.name = "GlidingMembranes"
-	glide_membrane.mesh = membrane_mesh
-	membrane_material.vertex_color_use_as_albedo = true
-	membrane_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	membrane_material.roughness = 1.0
-	membrane_material.metallic_specular = 0.1
-	glide_membrane.material_override = membrane_material
-	glide_membrane.visible = false
-	add_child(glide_membrane)
+	var handmade_visual := PLAYERTES2_VISUAL.instantiate()
+	handmade_visual.name = "NuezPlayerTest2"
+	# Blender exporta el frente en sentido opuesto al movimiento del controlador.
+	handmade_visual.rotation.y = PI
+	add_child(handmade_visual)
+	_find_glide_membranes(handmade_visual)
+	playertest2_skeleton = _find_skeleton(handmade_visual)
+	# Se ejecuta después del AnimationPlayer para aplicar el temblor encima del clip Glide.
+	process_priority = 100
+	playertest2_animation = handmade_visual.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	if not playertest2_animation:
+		return
+	for animation_name in playertest2_animation.get_animation_list():
+		var animation_text := String(animation_name)
+		if animation_text.ends_with("Run"):
+			playertest2_run = animation_name
+		elif animation_text.ends_with("GlideStart"):
+			playertest2_glide_start = animation_name
+		elif animation_text.ends_with("Glide"):
+			playertest2_glide_loop = animation_name
+	if not playertest2_run.is_empty():
+		playertest2_animation.play(playertest2_run)
+		playertest2_animation.pause()
 
-func begin_pose() -> void:
-	previous_rotations.assign(current_rotations)
-	previous_positions.assign(current_positions)
-	previous_scales.assign(current_scales)
+func update_handmade_run(speed: float, walk_speed: float, run_speed: float, walk_member_speed: float, run_member_speed: float) -> void:
+	if glide_active:
+		return
+	if not playertest2_animation or playertest2_run.is_empty():
+		return
+	if speed > 0.12:
+		if playertest2_animation.current_animation != playertest2_run:
+			playertest2_animation.play(playertest2_run)
+		elif not playertest2_animation.is_playing():
+			playertest2_animation.play()
+		var run_blend := clampf((speed - walk_speed) / maxf(0.01, run_speed - walk_speed), 0.0, 1.0)
+		playertest2_animation.speed_scale = lerpf(walk_member_speed, run_member_speed, run_blend)
+	else:
+		playertest2_animation.pause()
 
-func pose(bone: String, euler: Vector3) -> void:
-	current_rotations[bone_indices[bone]] = Quaternion.from_euler(euler)
+func update_handmade_glide(amount: float, flutter_speed: float, start_speed := 1.0, tremor_degrees := 0.0, tremor_speed := 12.0) -> void:
+	var should_glide := amount > 0.08
+	glide_active = should_glide
+	glide_tremor_degrees = tremor_degrees * amount
+	glide_tremor_speed = tremor_speed
+	_set_membrane_amount(amount)
+	if not playertest2_animation:
+		return
 
-func smooth_pose(bone: String, euler: Vector3, weight: float) -> void:
-	var index: int = bone_indices[bone]
-	current_rotations[index] = current_rotations[index].slerp(Quaternion.from_euler(euler), weight)
+	if should_glide:
+		if not glide_started:
+			glide_started = true
+			if not playertest2_glide_start.is_empty():
+				playertest2_animation.play(playertest2_glide_start, -1.0, start_speed)
+				if not playertest2_glide_loop.is_empty():
+					playertest2_animation.queue(playertest2_glide_loop)
+			elif not playertest2_glide_loop.is_empty():
+				playertest2_animation.play(playertest2_glide_loop, -1.0, flutter_speed)
+		elif playertest2_animation.current_animation == playertest2_glide_loop:
+			playertest2_animation.speed_scale = flutter_speed
+	elif glide_started:
+		glide_started = false
+		_clear_glide_tremor()
+		if playertest2_animation.current_animation == playertest2_glide_start or playertest2_animation.current_animation == playertest2_glide_loop:
+			playertest2_animation.stop()
 
-func deform_tail(flex: float, drop: float, stretch: float, sideways := 0.0) -> void:
-	var index: int = bone_indices["tail_tip"]
-	# Weighted translation bends the narrow attachment like a soft shear, while
-	# nonuniform scaling squashes/stretches the large curl and preserves volume.
-	current_positions[index] = skeleton.get_bone_rest(index).origin + Vector3(sideways, -flex * drop, flex * drop * 0.22)
-	var vertical := 1.0 - flex * stretch * 0.65
-	var lengthwise := 1.0 + flex * stretch
-	current_scales[index] = Vector3(1.0 / sqrt(vertical * lengthwise), vertical, lengthwise)
 
-func deform_arms(flex: float, drop: float, stretch: float) -> void:
-	# Keep shoulders attached; weighted elbow displacement bends the lower arms.
-	for bone in ["forearm_left", "forearm_right"]:
-		var index: int = bone_indices[bone]
-		current_positions[index] = skeleton.get_bone_rest(index).origin + Vector3(0, -flex * drop, 0)
-		var lengthwise := 1.0 + absf(flex) * stretch
-		var width := 1.0 / sqrt(lengthwise)
-		current_scales[index] = Vector3(width, lengthwise, width)
+func _find_glide_membranes(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		# El exportador conserva los nombres de malla Plane/Plane.001, pero ambas
+		# membranas comparten esta Shape Key exclusiva.
+		if mesh_instance.mesh and mesh_instance.mesh.get_blend_shape_count() > 0:
+			glide_membranes.append(mesh_instance)
+	for child in node.get_children():
+		_find_glide_membranes(child)
 
-func leg_pose(side: int, target: Vector3, foot_pitch: float) -> void:
-	# Two-bone sagittal IK keeps the ankle level as the hip and knee bend.
-	var hip := 4 if side == 0 else 7
-	var hip_position := skeleton.get_bone_global_rest(hip).origin
-	var offset := target - hip_position
-	var length := clampf(Vector2(offset.y, offset.z).length(), 0.06, 0.339)
-	var bend := acos(clampf(length / 0.34, 0.0, 1.0))
-	var direction := atan2(-offset.z, -offset.y)
-	current_rotations[hip] = Quaternion(Vector3.RIGHT, direction + bend)
-	current_rotations[hip + 1] = Quaternion(Vector3.RIGHT, -2 * bend)
-	current_rotations[hip + 2] = Quaternion(Vector3.RIGHT, -direction + bend + foot_pitch)
 
+func _find_skeleton(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node as Skeleton3D
+	for child in node.get_children():
+		var child_skeleton := _find_skeleton(child)
+		if child_skeleton:
+			return child_skeleton
+	return null
+
+
+func _set_membrane_amount(amount: float) -> void:
+	for membrane in glide_membranes:
+		if is_instance_valid(membrane):
+			var shape_index: int = -1
+			for candidate_index: int in membrane.mesh.get_blend_shape_count():
+				if membrane.mesh.get_blend_shape_name(candidate_index) == &"membrana_abierta":
+					shape_index = candidate_index
+					break
+			if shape_index >= 0:
+				membrane.set_blend_shape_value(shape_index, clampf(amount, 0.0, 1.0))
+
+
+func _process(delta: float) -> void:
+	if not glide_active or glide_tremor_degrees <= 0.0 or not playertest2_skeleton:
+		return
+	glide_tremor_clock += delta * glide_tremor_speed
+	# Vuelve a evaluar la pose del clip antes de sumar el temblor. Así el giro
+	# adicional no se acumula de un frame al siguiente.
+	if playertest2_animation:
+		playertest2_animation.advance(0.0)
+	var amplitude := deg_to_rad(glide_tremor_degrees)
+	for bone_offset in GLIDE_TREMOR_BONES.size():
+		var bone_index: int = playertest2_skeleton.find_bone(GLIDE_TREMOR_BONES[bone_offset])
+		if bone_index < 0:
+			continue
+		var phase: float = glide_tremor_clock + float(bone_offset) * 1.83
+		var roll: float = sin(phase * 1.7) * amplitude
+		var pitch: float = cos(phase * 2.3) * amplitude * 0.45
+		var current_rotation: Quaternion = playertest2_skeleton.get_bone_pose_rotation(bone_index)
+		playertest2_skeleton.set_bone_pose_rotation(bone_index, current_rotation * Quaternion.from_euler(Vector3(pitch, 0.0, roll)))
+
+
+func _clear_glide_tremor() -> void:
+	if not playertest2_skeleton:
+		return
+	for bone_name in GLIDE_TREMOR_BONES:
+		var bone_index: int = playertest2_skeleton.find_bone(bone_name)
+		if bone_index >= 0:
+			playertest2_skeleton.reset_bone_pose(bone_index)
+
+# Compatibilidad temporal con el controlador de movimiento. El modelo nuevo
+# usa sus propias animaciones y no necesita el antiguo esqueleto procedural.
+func begin_pose() -> void: pass
+func pose(_bone: String, _euler: Vector3) -> void: pass
+func smooth_pose(_bone: String, _euler: Vector3, _weight: float) -> void: pass
+func deform_tail(_flex: float, _drop: float, _stretch: float, _sideways := 0.0) -> void: pass
+func deform_arms(_flex: float, _drop: float, _stretch: float) -> void: pass
+func leg_pose(_side: int, _target: Vector3, _foot_pitch: float) -> void: pass
 func reset_interpolation() -> void:
-	previous_rotations.assign(current_rotations)
-	previous_positions.assign(current_positions)
-	previous_scales.assign(current_scales)
-
-func _process(_delta: float) -> void:
-	var fraction := Engine.get_physics_interpolation_fraction()
-	for i in current_rotations.size():
-		skeleton.set_bone_pose_rotation(i, previous_rotations[i].slerp(current_rotations[i], fraction))
-		skeleton.set_bone_pose_position(i, previous_positions[i].lerp(current_positions[i], fraction))
-		skeleton.set_bone_pose_scale(i, previous_scales[i].lerp(current_scales[i], fraction))
-	_update_membranes()
-
-func _skin_point(bone: String, rest_point: Vector3) -> Vector3:
-	var index: int = bone_indices[bone]
-	return skeleton.get_bone_global_pose(index) * skeleton.get_bone_global_rest(index).affine_inverse() * rest_point
-
-func _update_membranes() -> void:
-	glide_membrane.visible = glide_amount > 0.015
-	if not glide_membrane.visible: return
-	var vertices := PackedVector3Array()
-	var normals := PackedVector3Array()
-	var colors := PackedColorArray()
-	for side in [-1, 1]:
-		var suffix := "left" if side < 0 else "right"
-		var shoulder := _skin_point("spine", Vector3(side * 0.25, 0.94, 0.055))
-		var waist := _skin_point("spine", Vector3(side * 0.22, 0.46, 0.055))
-		var hand := _skin_point("forearm_" + suffix, Vector3(side * 0.395, 0.49, 0.035))
-		var foot := _skin_point("foot_" + suffix, Vector3(side * 0.17, 0.09, 0.055))
-		hand = shoulder.lerp(hand, glide_amount)
-		foot = waist.lerp(foot, glide_amount)
-		var edge := hand.lerp(foot, 0.5)
-		edge.x -= side * 0.055 * glide_amount
-		edge.z += 0.045 * glide_amount
-		var center := (shoulder + waist + hand + foot) * 0.25 + Vector3(0, 0, 0.05 * glide_amount)
-		var outline := [shoulder, hand, edge, foot, waist]
-		for triangle in outline.size():
-			var a: Vector3 = outline[triangle]
-			var b: Vector3 = outline[(triangle+1)%outline.size()]
-			var normal := (a-center).cross(b-center).normalized()
-			var color := Color("a76a35").lerp(Color("c98c49"), float(triangle % 3) * 0.22)
-			for point: Vector3 in [center, a, b]:
-				vertices.append(point)
-				normals.append(normal)
-				colors.append(color)
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_COLOR] = colors
-	membrane_mesh.clear_surfaces()
-	membrane_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	glide_active = false
+	glide_started = false
+	_set_membrane_amount(0.0)
+	_clear_glide_tremor()

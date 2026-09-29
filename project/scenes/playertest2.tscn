@@ -1,0 +1,51 @@
+[gd_scene format=3 uid="uid://pfb4i1ufiqci"]
+
+[ext_resource type="PackedScene" uid="uid://b2buwrxrdguj8" path="res://assets/playertest2/playertest2.glb" id="1_model"]
+[ext_resource type="Script" uid="uid://lfrv1nphvn5p" path="res://scripts/playertest2.gd" id="2_script"]
+
+[sub_resource type="Environment" id="Environment_test"]
+background_mode = 1
+background_color = Color(0.08, 0.12, 0.18, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.55, 0.67, 0.85, 1)
+ambient_light_energy = 0.7
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="Floor_material"]
+albedo_color = Color(0.11, 0.16, 0.22, 1)
+roughness = 0.92
+
+[sub_resource type="PlaneMesh" id="Plane_test"]
+size = Vector2(12, 12)
+
+[node name="PlayerTest2" type="Node3D" unique_id=782205436]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.048329353, -1.1391253)
+script = ExtResource("2_script")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1573943765]
+environment = SubResource("Environment_test")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=1643965665]
+transform = Transform3D(0.88294756, 0.3488854, -0.3141378, 0, 0.66913056, 0.74314487, 0.46947157, -0.656158, 0.5908072, 0, 0, 0)
+light_energy = 2.1
+shadow_enabled = true
+
+[node name="FillLight" type="OmniLight3D" parent="." unique_id=1999383550]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 2, 2.5)
+light_color = Color(0.55, 0.72, 1, 1)
+light_energy = 2.4
+omni_range = 8.0
+
+[node name="Model" type="Node3D" parent="." unique_id=34720311]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.273, 0.58, 0)
+
+[node name="NuezRunRig" parent="Model" unique_id=440828839 instance=ExtResource("1_model")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.87523836, 0)
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=226152647]
+material_override = SubResource("Floor_material")
+mesh = SubResource("Plane_test")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1496677344]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 3.8)
+current = true

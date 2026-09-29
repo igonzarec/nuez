@@ -32,11 +32,7 @@ La cámara conserva un radio fijo de **14,4 unidades** desde el punto de enfoque
 
 Últimos ajustes: cola elástica que baja su extremo al subir en un salto y lo levanta al caer, con flexión y estiramiento/compresión interpolados; dos marcas blancas de la nuca corregidas mediante UV locales de pelaje (textura y archivo original intactos). Las pendientes no caminables permiten resbalar suavemente, dirigir el deslizamiento de lado y saltar. El fondo tiene desenfoque progresivo por profundidad; la ardilla cercana y la interfaz permanecen nítidas. Todos estos valores están documentados en `docs/animation_tuning.md`.
 
-El original de Downloads permanece intacto. `assets/squirrel/squirrel_optimized.glb` reduce la geometría de **989.198 a 27.410 triángulos** (97,2 % menos). Conserva la cabeza y el pelaje original, con reparación local de las UV de la nuca y brazos reconstruidos como tubos simétricos independientes del torso. Incluye 15 huesos y pesos para torso, cabeza, hombros, codos, patas y cola. `squirrel_visual.scn` es la escena nativa precalculada que usa el juego; no procesa la malla al comenzar una partida. Para regenerar ambos desde el original:
-
-```powershell
-godot --headless --path . --script tests/prepare_squirrel.gd -- "C:/Users/USER/Downloads/model.glb"
-```
+El personaje jugable es el modelo artesanal `assets/playertest2/playertest2.glb`, con sus propias acciones `Run` y `Glide`. El rig y la forma de planeo se editan en `playertest2.blend` antes de volver a exportarlo.
 
 El movimiento comienza en el primer tick físico. La aceleración se aplica al vector completo, el frenado es gradual y más fuerte, y la orientación sigue el desplazamiento real. El salto conserva su arco al pausar o abrir diálogo. La adherencia al suelo evita deslizamiento en reposo; la velocidad real determina el ritmo de las patas. La animación mezcla reposo, carrera, despegue, subida, caída y aterrizaje. Recoger/interactuar se superpone sin bloquear el movimiento. Los aterrizajes dependen de la velocidad del impacto. Incluye apoyo de patas mediante rayos al suelo e IK de dos huesos, interpolación de poses, inclinación contenida y cola amortiguada.
 

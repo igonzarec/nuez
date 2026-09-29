@@ -17,6 +17,11 @@ static func install() -> void:
 		event.button_index = buttons[action]
 		if not InputMap.action_has_event(action, event):
 			InputMap.action_add_event(action, event)
+	# R1 también activa sprint; L1 se conserva para no romper controles existentes.
+	var sprint_r1 := InputEventJoypadButton.new()
+	sprint_r1.button_index = JOY_BUTTON_RIGHT_SHOULDER
+	if not InputMap.action_has_event("sprint", sprint_r1):
+		InputMap.action_add_event("sprint", sprint_r1)
 	var axes := {"move_left": [JOY_AXIS_LEFT_X, -1.0], "move_right": [JOY_AXIS_LEFT_X, 1.0], "move_forward": [JOY_AXIS_LEFT_Y, -1.0], "move_back": [JOY_AXIS_LEFT_Y, 1.0], "look_left": [JOY_AXIS_RIGHT_X, -1.0], "look_right": [JOY_AXIS_RIGHT_X, 1.0], "look_up": [JOY_AXIS_RIGHT_Y, -1.0], "look_down": [JOY_AXIS_RIGHT_Y, 1.0]}
 	for action: String in axes:
 		if not InputMap.has_action(action):

@@ -8,9 +8,15 @@ signal respawned
 ## Velocidad normal máxima sobre el suelo, en unidades por segundo; no cambia el ritmo visual por sí sola.
 ## Ejemplo: 4 permite explorar despacio; 6 recorre más terreno. Sprint Speed debe ser mayor para notar la carrera rápida.
 @export_range(0.1, 20.0) var walk_speed := 5.6
-## Velocidad máxima al mantener Shift o LB/L1 y moverse, en unidades por segundo.
+## Velocidad máxima al mantener Shift, L1 o R1 y moverse, en unidades por segundo.
 ## Ejemplo: 7 da un sprint moderado; 10 uno más rápido. Las patas adaptan su ritmo a la velocidad real.
 @export_range(0.1, 25.0) var sprint_speed := 8.0
+@export_group("Animación del modelo artesanal")
+## Rapidez del ciclo Run cuando el personaje camina. No modifica el movimiento ni la distancia recorrida.
+@export_range(0.1, 3.0, 0.01) var walk_member_animation_speed := 0.72
+## Rapidez del ciclo Run al mantener sprint. No modifica la velocidad física del personaje.
+@export_range(0.1, 3.0, 0.01) var run_member_animation_speed := 1.35
+@export_group("Ground movement")
 ## Rapidez para alcanzar la velocidad deseada en el suelo, en unidades/s². La entrada empieza a actuar de inmediato.
 ## Ejemplo: 20 tarda aproximadamente 0,28 s en alcanzar 5,6 desde reposo; 40 tarda 0,14 s. Menor valor da más peso.
 @export_range(1.0, 100.0) var acceleration := 32.0
@@ -60,8 +66,8 @@ signal respawned
 ## Ejemplo: 0 no permite dirigir de lado; 0,2 da una corrección leve; 0,4 ofrece más control.
 @export_range(0.0, 0.5) var slide_steering := 0.2
 @export_group("Planeo")
-## Permite desplegar membranas al volver a pulsar salto en el aire; otra pulsación las recoge.
-## Ejemplo: activado permite planear; desactivado conserva únicamente el salto normal.
+## Permite desplegar membranas al mantener presionado Brincar durante la caída.
+## Al soltar Brincar, la ardilla recoge las membranas inmediatamente.
 @export var glide_enabled := true
 ## Límite de caída durante planeo, en unidades/s. Nunca añade impulso hacia arriba.
 ## Ejemplo: 2 prolonga el descenso; 4 baja más rápido. No cambia el salto normal.
@@ -75,6 +81,13 @@ signal respawned
 ## Control horizontal mientras planea, como fracción del control en suelo.
 ## Ejemplo: 0,4 da giros amplios; 0,7 permite corregir con facilidad. Usa WASD o stick izquierdo.
 @export_range(0.1, 1.0) var glide_air_control := 0.7
+@export_group("Planeo con sprint · R1")
+## Multiplica la velocidad horizontal de planeo mientras mantienes R1/Shift.
+@export_range(1.0, 2.5, 0.01) var glide_sprint_speed_multiplier := 1.15
+## Aumenta el límite de caída durante el planeo rápido, en unidades/s.
+@export_range(0.0, 6.0, 0.1) var glide_sprint_fall_speed_bonus := 0.8
+## Gravedad adicional durante el planeo rápido. Súbela para que caiga antes.
+@export_range(0.0, 1.0, 0.01) var glide_sprint_gravity_scale_bonus := 0.12
 
 var control_enabled := true
 var spawn_position := Vector3.ZERO
@@ -99,6 +112,7 @@ var previous_motion := Vector3.ZERO
 var is_sliding := false
 var slide_velocity := Vector3.ZERO
 var is_gliding := false
+var is_glide_sprinting := false
 
 func _steep_support() -> Vector3:
 	# Sample beneath the feet, never a forward wall. Leave a real jump untouched.
@@ -163,6 +177,7 @@ func respawn() -> void:
 	jump_consumed = false
 	is_sliding = false
 	is_gliding = false
+	is_glide_sprinting = false
 	slide_velocity = Vector3.ZERO
 	reaction_time = 0
 	landing_time = 0
@@ -185,19 +200,20 @@ func _physics_process(delta: float) -> void:
 		coyote_left = maxf(0, coyote_left - delta)
 	buffer_left = maxf(0, buffer_left - delta)
 	if Input.is_action_just_pressed("jump") and input_grace <= 0:
-		if glide_enabled and not grounded and not is_sliding and (jump_consumed or coyote_left <= 0):
-			is_gliding = not is_gliding
-			buffer_left = 0
-		else:
-			buffer_left = jump_buffer
-	if not glide_enabled: is_gliding = false
+		buffer_left = jump_buffer
+	# Planear requiere mantener Brincar mientras la ardilla ya va descendiendo.
+	# Soltarlo, tocar suelo o volver a subir recoge las membranas.
+	is_gliding = glide_enabled and not grounded and not is_sliding and jump_consumed and velocity.y <= 0.0 and Input.is_action_pressed("jump")
+	is_glide_sprinting = is_gliding and Input.is_action_pressed("sprint")
 	if grounded:
 		velocity.y = 0
 	elif is_gliding and velocity.y <= 0:
-		if velocity.y < -glide_fall_speed:
-			velocity.y = move_toward(velocity.y, -glide_fall_speed, glide_braking * delta)
+		var glide_fall_limit := glide_fall_speed + (glide_sprint_fall_speed_bonus if is_glide_sprinting else 0.0)
+		var glide_gravity := glide_gravity_scale + (glide_sprint_gravity_scale_bonus if is_glide_sprinting else 0.0)
+		if velocity.y < -glide_fall_limit:
+			velocity.y = move_toward(velocity.y, -glide_fall_limit, glide_braking * delta)
 		else:
-			velocity.y = maxf(-glide_fall_speed, velocity.y - gravity * glide_gravity_scale * delta)
+			velocity.y = maxf(-glide_fall_limit, velocity.y - gravity * glide_gravity * delta)
 	else:
 		velocity.y -= gravity * delta
 	if buffer_left > 0 and coyote_left > 0 and not jump_consumed:
@@ -214,6 +230,8 @@ func _physics_process(delta: float) -> void:
 	var yaw := camera_rig.rotation.y if camera_rig else 0.0
 	var desired := Vector3(direction.x, 0, direction.y).rotated(Vector3.UP, yaw)
 	var target_speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+	if is_glide_sprinting:
+		target_speed *= glide_sprint_speed_multiplier
 	var planar := Vector3(velocity.x, 0, velocity.z)
 	if grounded and planar.length_squared() > 0.0001:
 		# Recover surface speed before accelerating; otherwise projecting to a slope
@@ -276,3 +294,5 @@ func _physics_process(delta: float) -> void:
 		respawn()
 		return
 	animator.tick(delta, horizontal_speed)
+	if not is_gliding:
+		model.update_handmade_run(horizontal_speed, walk_speed, sprint_speed, walk_member_animation_speed, run_member_animation_speed)
