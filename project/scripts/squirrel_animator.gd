@@ -67,6 +67,7 @@ var jump_start := 0.0
 var locomotion_state := "idle"
 var body_pitch := 0.0
 var body_roll := 0.0
+var body_bank := 0.0
 
 func jump_started() -> void:
 	jump_start = 0.10
@@ -80,6 +81,7 @@ func reset() -> void:
 	actor.model.scale = Vector3.ONE
 	body_pitch = 0.0
 	body_roll = 0.0
+	body_bank = 0.0
 	actor.model.reset_body_tilt()
 	actor.model.reset_interpolation()
 
@@ -139,8 +141,9 @@ func tick(delta: float, speed: float) -> void:
 		bank_signal = signf(bank_signal) * maxf(absf(bank_signal), absf(turning_bank))
 	var glide_roll := clampf(bank_signal * max_glide_roll * bank_direction, -max_glide_roll, max_glide_roll)
 	var roll_blend := 1.0 - exp(-(glide_bank_blend_speed if glide_blend > 0.001 else blend_speed) * delta)
-	body_roll = lerp_angle(body_roll, run_roll + glide_roll, roll_blend)
-	actor.model.set_body_tilt(body_pitch, body_roll)
+	body_roll = lerp_angle(body_roll, run_roll, roll_blend)
+	body_bank = lerp_angle(body_bank, glide_roll, roll_blend)
+	actor.model.set_body_tilt(body_pitch, body_roll, body_bank)
 	actor.model.position.x = lerpf(actor.model.position.x, sin(gait_phase) * body_sway * run_blend, blend)
 	actor.model.position.y = lerpf(actor.model.position.y, (0.5 - 0.5 * cos(gait_phase * 2.0)) * body_bounce * run_blend, blend)
 	actor.model.glide_amount = glide_blend

@@ -185,13 +185,14 @@ func _clear_glide_tremor() -> void:
 		if bone_index >= 0:
 			playertest2_skeleton.reset_bone_pose(bone_index)
 
-func set_body_tilt(pitch: float, roll: float) -> void:
+func set_body_tilt(pitch: float, roll: float, bank: float = 0.0) -> void:
 	if not body_pivot:
 		return
-	# Yaw queda en SquirrelRig. El pivote aplica pitch y después roll en el eje
-	# longitudinal local, por lo que alas, brazos, patas y cola se alabean como
-	# un cuerpo único aun cuando la ardilla ya está inclinada hacia delante.
-	body_pivot.quaternion = Quaternion(Vector3.RIGHT, pitch) * Quaternion(Vector3.FORWARD, roll)
+	# El modelo está erguido en reposo: su eje cadera-cabeza es +Y, no -Z.
+	# Los productos actúan de derecha a izquierda: primero bank sobre el torso,
+	# después pitch lleva también ese eje hacia la postura horizontal de Glide.
+	# El balanceo terrestre conserva su eje -Z; el yaw sigue en SquirrelRig.
+	body_pivot.quaternion = Quaternion(Vector3.RIGHT, pitch) * Quaternion(Vector3.FORWARD, roll) * Quaternion(Vector3.UP, bank)
 
 func reset_body_tilt() -> void:
 	if body_pivot:
