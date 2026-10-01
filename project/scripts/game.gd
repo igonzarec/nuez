@@ -80,8 +80,8 @@ func _build_session(data: Dictionary) -> void:
 	player.camera_rig = camera_rig
 	camera_rig.sensitivity = settings.sensitivity
 	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
-	# R2 / C reutiliza el clic suave de interfaz como confirmación del recentrado.
-	camera_rig.recenter_requested.connect(func() -> void: audio.play("ui"))
+	# R2 / C tiene un sonido propio para que el recentrado se sienta distinguible.
+	camera_rig.recenter_requested.connect(func() -> void: audio.play("camera_recenter"))
 	interaction = TrailInteraction.new()
 	interaction.process_mode = Node.PROCESS_MODE_PAUSABLE
 	interaction.player = player

@@ -33,6 +33,8 @@ func _ready() -> void:
 		voices.append(voice)
 	for kind: String in ["jump", "land", "step", "climb", "collect", "ignite", "ui", "back", "deny", "complete"]:
 		sounds[kind] = _tone(kind)
+	# Sonido dedicado para R2/C; no reutiliza el clic genérico de los menús.
+	sounds["camera_recenter"] = preload("res://audio/camera_recenter.wav")
 	music = _loop("Music", _ambience(false), -13)
 	wind = _loop("SFX", _ambience(true), -23)
 
@@ -51,6 +53,9 @@ func play(kind: String) -> void:
 	next_voice = (next_voice + 1) % voices.size()
 	voice.stream = sounds[kind]
 	voice.volume_db = -14 if kind == "step" else -5
+	# El swish de recentrado debe distinguirse del ambiente y de la interfaz.
+	if kind == "camera_recenter":
+		voice.volume_db = -2
 	if kind == "climb":
 		voice.volume_db = climb_volume_db
 	if DisplayServer.get_name() != "headless":
