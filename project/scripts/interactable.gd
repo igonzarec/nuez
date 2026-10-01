@@ -32,4 +32,4 @@ func show_prompt(showing: bool, gamepad: bool) -> void:
 	if prompt_pin:
 		prompt_pin.key_text = TrailInput.interaction_glyph() if gamepad else "E"
 		prompt_pin.refresh()
-		prompt_pin.visible = showing and available
+		prompt_pin.call("set_prompt_visible", showing and available)
