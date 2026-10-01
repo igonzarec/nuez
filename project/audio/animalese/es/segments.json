@@ -1,0 +1,169 @@
+{
+  "source": "spanish abc.wav",
+  "threshold_db": -38,
+  "silence_seconds": 0.25,
+  "segments": [
+    {
+      "letter": "a",
+      "file": "a.wav",
+      "start_seconds": 0.595,
+      "end_seconds": 0.895
+    },
+    {
+      "letter": "b",
+      "file": "b.wav",
+      "start_seconds": 1.325,
+      "end_seconds": 1.815
+    },
+    {
+      "letter": "c",
+      "file": "c.wav",
+      "start_seconds": 2.225,
+      "end_seconds": 2.795
+    },
+    {
+      "letter": "d",
+      "file": "d.wav",
+      "start_seconds": 3.155,
+      "end_seconds": 3.655
+    },
+    {
+      "letter": "e",
+      "file": "e.wav",
+      "start_seconds": 4.145,
+      "end_seconds": 4.525
+    },
+    {
+      "letter": "f",
+      "file": "f.wav",
+      "start_seconds": 5.035,
+      "end_seconds": 5.525
+    },
+    {
+      "letter": "g",
+      "file": "g.wav",
+      "start_seconds": 5.935,
+      "end_seconds": 6.345
+    },
+    {
+      "letter": "h",
+      "file": "h.wav",
+      "start_seconds": 6.815,
+      "end_seconds": 7.395
+    },
+    {
+      "letter": "i",
+      "file": "i.wav",
+      "start_seconds": 7.705,
+      "end_seconds": 8.105
+    },
+    {
+      "letter": "j",
+      "file": "j.wav",
+      "start_seconds": 8.475,
+      "end_seconds": 9.035
+    },
+    {
+      "letter": "k",
+      "file": "k.wav",
+      "start_seconds": 9.405,
+      "end_seconds": 9.755
+    },
+    {
+      "letter": "l",
+      "file": "l.wav",
+      "start_seconds": 10.265,
+      "end_seconds": 10.805
+    },
+    {
+      "letter": "m",
+      "file": "m.wav",
+      "start_seconds": 11.145,
+      "end_seconds": 11.685
+    },
+    {
+      "letter": "n",
+      "file": "n.wav",
+      "start_seconds": 12.055,
+      "end_seconds": 12.625
+    },
+    {
+      "letter": "ñ",
+      "file": "enye.wav",
+      "start_seconds": 12.965,
+      "end_seconds": 13.505
+    },
+    {
+      "letter": "o",
+      "file": "o.wav",
+      "start_seconds": 13.875,
+      "end_seconds": 14.235
+    },
+    {
+      "letter": "p",
+      "file": "p.wav",
+      "start_seconds": 14.785,
+      "end_seconds": 15.155
+    },
+    {
+      "letter": "q",
+      "file": "q.wav",
+      "start_seconds": 15.675,
+      "end_seconds": 16.105
+    },
+    {
+      "letter": "r",
+      "file": "r.wav",
+      "start_seconds": 16.565,
+      "end_seconds": 17.155
+    },
+    {
+      "letter": "s",
+      "file": "s.wav",
+      "start_seconds": 17.485,
+      "end_seconds": 18.045
+    },
+    {
+      "letter": "t",
+      "file": "t.wav",
+      "start_seconds": 18.415,
+      "end_seconds": 18.785
+    },
+    {
+      "letter": "u",
+      "file": "u.wav",
+      "start_seconds": 19.325,
+      "end_seconds": 19.735
+    },
+    {
+      "letter": "v",
+      "file": "v.wav",
+      "start_seconds": 20.015,
+      "end_seconds": 20.505
+    },
+    {
+      "letter": "w",
+      "file": "w.wav",
+      "start_seconds": 20.975,
+      "end_seconds": 21.575
+    },
+    {
+      "letter": "x",
+      "file": "x.wav",
+      "start_seconds": 22.105,
+      "end_seconds": 22.665
+    },
+    {
+      "letter": "y",
+      "file": "y.wav",
+      "start_seconds": 22.885,
+      "end_seconds": 23.515
+    },
+    {
+      "letter": "z",
+      "file": "z.wav",
+      "start_seconds": 23.955,
+      "end_seconds": 24.355
+    }
+  ]
+}

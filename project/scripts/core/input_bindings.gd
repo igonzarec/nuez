@@ -1,7 +1,26 @@
 class_name TrailInput
 extends RefCounted
 
+static var active_device := -1
+
+static func interaction_glyph() -> String:
+	var device_name := Input.get_joy_name(active_device).to_lower() if active_device >= 0 else ""
+	if "playstation" in device_name or "sony" in device_name or "dualsense" in device_name or "dualshock" in device_name or "ps4" in device_name or "ps5" in device_name:
+		return "×"
+	return "X"
+
 static func install() -> void:
+	if not InputMap.has_action("camera_forward"):
+		InputMap.add_action("camera_forward", 0.5)
+	var recenter_key := InputEventKey.new()
+	recenter_key.physical_keycode = KEY_C
+	if not InputMap.action_has_event("camera_forward", recenter_key):
+		InputMap.action_add_event("camera_forward", recenter_key)
+	var recenter_trigger := InputEventJoypadMotion.new()
+	recenter_trigger.axis = JOY_AXIS_TRIGGER_RIGHT
+	recenter_trigger.axis_value = 1.0
+	if not InputMap.action_has_event("camera_forward", recenter_trigger):
+		InputMap.action_add_event("camera_forward", recenter_trigger)
 	var keys := {"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN], "move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT], "jump": [KEY_SPACE], "sprint": [KEY_SHIFT], "interact": [KEY_E], "pause": [KEY_ESCAPE]}
 	for action: String in keys:
 		if not InputMap.has_action(action):

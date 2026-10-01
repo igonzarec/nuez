@@ -3,7 +3,7 @@ extends RefCounted
 
 const SAVE_PATH := "user://expedition_v3.json"
 const SETTINGS_PATH := "user://settings.json"
-const DEFAULT_SETTINGS := {"master": 0.8, "music": 0.45, "sfx": 0.75, "sensitivity": 1.0, "fullscreen": false, "pixel_size": 2.0, "fast_reset_enabled": true}
+const DEFAULT_SETTINGS := {"master": 0.8, "music": 0.45, "sfx": 0.75, "climb_sfx": 0.5, "sensitivity": 1.0, "fullscreen": false, "pixel_size": 2.0, "fast_reset_enabled": true}
 var save_path := SAVE_PATH
 var settings_path := SETTINGS_PATH
 
@@ -50,10 +50,11 @@ func write_json(path: String, data: Dictionary) -> bool:
 func load_settings() -> Dictionary:
 	var result := DEFAULT_SETTINGS.duplicate()
 	var loaded := read_json(settings_path)
-	for key: String in ["master", "music", "sfx", "sensitivity"]:
+	for key: String in ["master", "music", "sfx", "climb_sfx", "sensitivity"]:
 		if loaded.get(key) is float or loaded.get(key) is int:
 			result[key] = clampf(float(loaded[key]), 0.2 if key == "sensitivity" else 0.0, 2.5 if key == "sensitivity" else 1.0)
 	result.fullscreen = loaded.get("fullscreen", false) == true
 	result.pixel_size = clampf(float(loaded.get("pixel_size", 2.0)), 1, 4)
 	result.fast_reset_enabled = loaded.get("fast_reset_enabled", true) == true
+	result.glide_forward_enabled = loaded.get("glide_forward_enabled", false) == true
 	return result

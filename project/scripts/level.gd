@@ -75,6 +75,7 @@ func _ready() -> void:
 	_lighting()
 	_terrain()
 	_decorate()
+	add_child(preload("res://scripts/cliff.gd").new())
 	_objects()
 	_weather()
 	title_camera = Camera3D.new()
@@ -122,7 +123,8 @@ func _path_distance(p: Vector2) -> float:
 func _terrain() -> void:
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for z in range(-40, 38, 2):
+	# El terreno natural continúa hasta el paredón, sin plataforma artificial.
+	for z in range(-74, 38, 2):
 		for x in range(-38, 38, 2):
 			var corners: Array[Vector3] = [point(x, z), point(x + 2, z), point(x, z + 2), point(x + 2, z + 2)]
 			for index in [0, 1, 2, 1, 3, 2]:
@@ -159,7 +161,7 @@ func _terrain() -> void:
 	body.add_child(collision)
 	add_child(body)
 	# Boundaries sit behind the perimeter boulders and trees.
-	for item: Array in [[Vector3(-35, 9, 0), Vector3(1, 48, 80)], [Vector3(35, 9, 0), Vector3(1, 48, 80)], [Vector3(0, 9, -37), Vector3(76, 48, 1)], [Vector3(0, 9, 35), Vector3(76, 48, 1)]]:
+	for item: Array in [[Vector3(-35, 9, -18), Vector3(1, 140, 116)], [Vector3(35, 9, -18), Vector3(1, 140, 116)], [Vector3(-25, 9, -37), Vector3(20, 140, 1)], [Vector3(25, 9, -37), Vector3(20, 140, 1)], [Vector3(0, 9, -74), Vector3(76, 140, 1)], [Vector3(0, 9, 35), Vector3(76, 140, 1)]]:
 		var wall := StaticBody3D.new()
 		wall.position = item[0]
 		var box := BoxShape3D.new()
@@ -221,6 +223,9 @@ func _rock(x: float, z: float, size: Vector3, solid := true) -> void:
 		rock.add_child(body)
 
 func _decorate() -> void:
+	# Pinos alrededor del paredón; el acceso central a la roca queda libre.
+	for pine: Vector3 in [Vector3(-7, -42, 1.25), Vector3(8, -43, 1.4), Vector3(-14, -44, 1.6), Vector3(15, -44, 1.35), Vector3(-23, -46, 1.5), Vector3(25, -47, 1.7), Vector3(-29, -54, 1.6), Vector3(29, -57, 1.45), Vector3(-28, -63, 1.8), Vector3(27, -66, 1.6), Vector3(-20, -70, 1.3), Vector3(17, -71, 1.5)]:
+		_tree(pine.x, pine.y, pine.z)
 	for p: Vector3 in [Vector3(-7, 23, 1.05), Vector3(-13, 21, 1.1), Vector3(-19, 18, 1.4), Vector3(-22, 7, 1.2), Vector3(-20, 0, 1.3), Vector3(-21, -6, 1.0), Vector3(-17, -18, 1.25), Vector3(-11, -22, 1.3), Vector3(-3, -23, 1.1), Vector3(2, -28, 1.2), Vector3(20, -23, 1.0), Vector3(24, -14, 1.15), Vector3(24, -1, 1.0), Vector3(21, 8, 1.2), Vector3(17, 19, 1.25), Vector3(10, 25, 1.1), Vector3(7, -4, 1.1), Vector3(2, 4, 1.2), Vector3(-3, -2, 0.9)]:
 		_tree(p.x, p.y, p.z)
 	# Fixed clusters frame the route without covering its central sightline.
@@ -231,7 +236,8 @@ func _decorate() -> void:
 		_rock(-33, z, Vector3(2.4, 2.7 + (i % 3), 2.4))
 		_rock(33, z, Vector3(2.1, 2.0 + (i % 2), 2.3))
 	for i in 10:
-		_rock(-25 + i * 5, -35, Vector3(3.2, 3.6, 2.4))
+		if absf(-25 + i * 5) > 10:
+			_rock(-25 + i * 5, -35, Vector3(3.2, 3.6, 2.4))
 		_tree(-25 + i * 5, 33, 1.3)
 	_rock(-5, 5, Vector3(1.8, 1.2, 1.7))
 	_rock(-18, -10, Vector3(1.8, 1.0, 2.0))
@@ -310,9 +316,6 @@ func _decorate() -> void:
 	log_shape.shape = log_mesh.create_convex_shape()
 	log_body.add_child(log_shape)
 	log_node.add_child(log_body)
-	for i in 7:
-		var mountain := part(self, cylinder(15, 0, 25 + i % 3 * 8, 5), Color("779697"), Vector3(-65 + i * 22, 4, -66))
-		mountain.rotation.y = i * 0.8
 
 func _grass_and_waymarks() -> void:
 	var grass_mesh := SurfaceTool.new()
@@ -383,12 +386,15 @@ func _resident(location: Vector2, color: Color, rabbit := false) -> Node3D:
 	return resident
 
 func _objects() -> void:
-	_sign(Vector2(1.4, 20.5), "welcome", "PASO DE BRUMA", ["La montaña se ha tornado peligrosa. La nieve apagó los faroles y nuestros vecinos esperan para regresar.", "Recoge semillas de luz y restaura los tres faroles. Cada uno necesita 3 semillas. Después vuelve con Mara, junto al refugio."])
+	var welcome := _sign(Vector2(1.4, 20.5), "welcome", "PASO DE BRUMA", ["La montaña se ha tornado peligrosa. La nieve apagó los faroles y nuestros vecinos esperan para regresar.", "Recoge semillas de luz y restaura los tres faroles. Cada uno necesita 3 semillas. Después vuelve con Mara, junto al refugio."])
+	welcome.dialogue_resource = load("res://dialogue/paso_de_bruma.dialogue") as DialogueResource
+	welcome.dialogue_title = "start"
 	_sign(Vector2(-27, -1), "log", "HUELLAS EN LA NIEVE", ["Un tronco caído, un salto pequeño. Espacio / A para saltar. También puedes rodearlo: aquí nadie tiene prisa."])
 	_sign(Vector2(2, -4), "overlook", "CIMA DEL ECO", ["La montaña se puede rodear entera. Abajo está el refugio; el sendero en espiral te lleva de vuelta. Gracias por traer la luz hasta aquí."])
 	guide = TrailInteractable.new()
 	guide.interaction_id = "mara"
-	guide.display_name = "Mara · guardiana del sendero"
+	guide.display_name = "Mara"
+	guide.dialogue_subtitle = "Guardiana"
 	guide.verb = "Hablar con Mara"
 	guide.position = point(-3, 21)
 	add_child(guide)

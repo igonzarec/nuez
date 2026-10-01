@@ -124,6 +124,15 @@ func _begin(name_value: String, width := 460.0, left_aligned := false) -> void:
 	page = VBoxContainer.new()
 	page.add_theme_constant_override("separation", 12)
 	frame.add_child(page)
+	if name_value in ["settings", "controls"]:
+		frame.remove_child(page)
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(width - 56, 560)
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.follow_focus = true
+		frame.add_child(scroll)
+		page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(page)
 	first_button = null
 
 func _heading(kicker: String, title: String, body := "") -> void:
@@ -192,7 +201,7 @@ func dialogue(speaker: String, text: String) -> void:
 func settings(values: Dictionary) -> void:
 	_begin("settings", 510)
 	_heading("A TU RITMO", "Ajustes")
-	for item: Array in [["master", "Volumen general"], ["music", "Música"], ["sfx", "Sonidos"], ["sensitivity", "Sensibilidad del ratón"]]:
+	for item: Array in [["master", "Volumen general"], ["music", "Música"], ["sfx", "Sonidos"], ["climb_sfx", "Raspado de escalada"], ["sensitivity", "Sensibilidad del ratón"]]:
 		var row := HBoxContainer.new()
 		page.add_child(row)
 		var name_label := _label(item[1], 17)
@@ -218,6 +227,12 @@ func settings(values: Dictionary) -> void:
 	fast_reset.button_pressed = values.get("fast_reset_enabled", true)
 	fast_reset.toggled.connect(func(value: bool) -> void: setting_changed.emit("fast_reset_enabled", value))
 	page.add_child(fast_reset)
+	var glide_camera := CheckButton.new()
+	glide_camera.text = "Cámara al frente durante planeo"
+	glide_camera.tooltip_text = "Mantiene la cámara detrás del personaje mirando hacia su frente. R2 / C recentra una vez aunque esté desactivado."
+	glide_camera.button_pressed = values.get("glide_forward_enabled", false)
+	glide_camera.toggled.connect(func(value: bool) -> void: setting_changed.emit("glide_forward_enabled", value))
+	page.add_child(glide_camera)
 	var pixel_label := _label("Acabado pixelado", 17)
 	page.add_child(pixel_label)
 	var pixels := HSlider.new()
@@ -227,7 +242,35 @@ func settings(values: Dictionary) -> void:
 	pixels.value = values.get("pixel_size", 2)
 	pixels.value_changed.connect(func(value: float) -> void: setting_changed.emit("pixel_size", value))
 	page.add_child(pixels)
+	_button("Controles · teclado y mando", "controls")
 	_button("Guardar y volver", "settings_back")
+	_focus()
+
+func controls_menu() -> void:
+	_begin("controls", 660)
+	_heading("REFERENCIA", "Controles")
+	_button("Volver a ajustes", "controls_back")
+	for entry: Array in [
+		["Moverse", "WASD / flechas · stick izquierdo"],
+		["Cámara", "Clic derecho + arrastrar · stick derecho"],
+		["Cámara al frente", "C · R2 / RT (una vez por pulsación)"],
+		["Saltar", "Espacio · cruz (PlayStation) / A (Xbox)"],
+		["Planear", "En el aire: pulsa otra vez salto y mantén. Suelta para caer."],
+		["Escalar", "Mantén salto cerca de roca escalable, mirando hacia ella.\nMuévete con WASD / stick; suelta salto para desprenderte."],
+		["Correr / planeo rápido", "Mantén Shift · L1 o R1 / LB o RB"],
+		["Interactuar", "E · cuadrado / X (Xbox). Cerca y en el suelo, cruz / A también habla en lugar de saltar."],
+		["Diálogo", "E / Enter / Espacio · cuadrado o cruz / X o A.\nCompleta la página mientras escribe; después avanza.\nFlechas / cruceta: respuestas. Esc / círculo / B: cerrar."],
+		["Pausa / volver", "Esc · círculo / B. Start también, si reinicio rápido está desactivado."],
+		["Reinicio rápido", "Start: vuelve a la cima junto al farol durante exploración, si el ajuste está activado."],
+		["Menús", "Flechas / cruceta: navegar; Enter / cruz / A: aceptar.\nIzquierda / derecha: ajustar deslizadores."]]:
+		page.add_child(_label(entry[0], 21, Color("e4c582")))
+		var detail := _label(entry[1], 17)
+		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		detail.custom_minimum_size.x = 540
+		# Permite recorrer la referencia con cruceta; el scroll sigue el foco.
+		detail.focus_mode = Control.FOCUS_ALL
+		page.add_child(detail)
+	_button("Volver a ajustes", "controls_back")
 	_focus()
 
 func completion(data: Dictionary) -> void:
@@ -250,7 +293,7 @@ func close() -> void:
 
 func set_gamepad(value: bool) -> void:
 	gamepad = value
-	controls.text = "Stick izq. mover   Stick der. cámara   A/cruz salto/planeo   X/cuadrado interactuar   LB/L1 correr   Menú pausa" if value else "WASD mover    Clic derecho + arrastrar: cámara    Espacio salto/planeo    E interactuar    Shift correr    Esc pausa"
+	controls.text = "Stick izq. mover   Stick der. cámara   A/cruz saltar o hablar cerca   X/cuadrado interactuar   L1/R1 correr" if value else "WASD mover    Clic derecho + arrastrar: cámara    Espacio salto/planeo    E interactuar    Shift correr    Esc pausa"
 
 func update_hud(data: Dictionary) -> void:
 	counts.text = "Semillas  %02d     ·     Faroles  %d / 3" % [data.collected.size() - data.lamps.size() * 3, data.lamps.size()]

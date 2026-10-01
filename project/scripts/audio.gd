@@ -7,6 +7,8 @@ var next_voice := 0
 var music: AudioStreamPlayer
 var wind: AudioStreamPlayer
 var ambience_started := false
+## Volumen del raspado de agarres. -14 dB es suave; -8 dB destaca sobre el viento.
+@export_range(-40.0, 0.0, 1.0) var climb_volume_db := -12.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -29,7 +31,7 @@ func _ready() -> void:
 		voice.bus = "SFX"
 		add_child(voice)
 		voices.append(voice)
-	for kind: String in ["jump", "land", "step", "collect", "ignite", "ui", "back", "deny", "complete"]:
+	for kind: String in ["jump", "land", "step", "climb", "collect", "ignite", "ui", "back", "deny", "complete"]:
 		sounds[kind] = _tone(kind)
 	music = _loop("Music", _ambience(false), -13)
 	wind = _loop("SFX", _ambience(true), -23)
@@ -49,10 +51,13 @@ func play(kind: String) -> void:
 	next_voice = (next_voice + 1) % voices.size()
 	voice.stream = sounds[kind]
 	voice.volume_db = -14 if kind == "step" else -5
+	if kind == "climb":
+		voice.volume_db = climb_volume_db
 	if DisplayServer.get_name() != "headless":
 		voice.play()
 
 func apply(settings: Dictionary) -> void:
+	climb_volume_db = linear_to_db(maxf(0.00001, float(settings.get("climb_sfx", 0.5)))) - 6.0
 	for pair: Array in [["Master", "master"], ["Music", "music"], ["SFX", "sfx"]]:
 		var index := AudioServer.get_bus_index(pair[0])
 		AudioServer.set_bus_volume_db(index, linear_to_db(maxf(0.0001, settings[pair[1]])))
@@ -85,6 +90,7 @@ func _tone(kind: String) -> AudioStreamWAV:
 	var duration := 0.22
 	if kind == "step": duration = 0.10
 	if kind == "land": duration = 0.16
+	if kind == "climb": duration = 0.19
 	if kind in ["ignite", "complete"]:
 		duration = 1.4
 	var count := int(22050 * duration)
@@ -109,6 +115,11 @@ func _tone(kind: String) -> AudioStreamWAV:
 		if kind in ["land", "step"]:
 			soft_noise = lerpf(soft_noise, rng.randf_range(-1, 1), 0.28)
 			value = soft_noise * 0.65
+		if kind == "climb":
+			# Raspado granular con dos pequeños contactos, distinto del paso sordo.
+			var noise := rng.randf_range(-1.0, 1.0)
+			soft_noise = lerpf(soft_noise, noise, 0.12)
+			value = (noise - soft_noise) * (0.16 + 0.3 * pow(absf(sin(u * PI * 2.0)), 6))
 		value *= minf(1, t * 100) * pow(1.0 - u, 2)
 		samples.encode_s16(i * 2, int(value * 26000))
 	return _wav(samples)

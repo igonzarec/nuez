@@ -1,0 +1,65 @@
+extends RefCounted
+const ES := {
+	"a": preload("res://audio/animalese/es/a.wav"),
+	"b": preload("res://audio/animalese/es/b.wav"),
+	"c": preload("res://audio/animalese/es/c.wav"),
+	"d": preload("res://audio/animalese/es/d.wav"),
+	"e": preload("res://audio/animalese/es/e.wav"),
+	"f": preload("res://audio/animalese/es/f.wav"),
+	"g": preload("res://audio/animalese/es/g.wav"),
+	"h": preload("res://audio/animalese/es/h.wav"),
+	"i": preload("res://audio/animalese/es/i.wav"),
+	"j": preload("res://audio/animalese/es/j.wav"),
+	"k": preload("res://audio/animalese/es/k.wav"),
+	"l": preload("res://audio/animalese/es/l.wav"),
+	"m": preload("res://audio/animalese/es/m.wav"),
+	"n": preload("res://audio/animalese/es/n.wav"),
+	"ñ": preload("res://audio/animalese/es/enye.wav"),
+	"o": preload("res://audio/animalese/es/o.wav"),
+	"p": preload("res://audio/animalese/es/p.wav"),
+	"q": preload("res://audio/animalese/es/q.wav"),
+	"r": preload("res://audio/animalese/es/r.wav"),
+	"s": preload("res://audio/animalese/es/s.wav"),
+	"t": preload("res://audio/animalese/es/t.wav"),
+	"u": preload("res://audio/animalese/es/u.wav"),
+	"v": preload("res://audio/animalese/es/v.wav"),
+	"w": preload("res://audio/animalese/es/w.wav"),
+	"x": preload("res://audio/animalese/es/x.wav"),
+	"y": preload("res://audio/animalese/es/y.wav"),
+	"z": preload("res://audio/animalese/es/z.wav"),
+}
+const EN := {
+	"a": preload("res://audio/animalese/en/a.wav"),
+	"b": preload("res://audio/animalese/en/b.wav"),
+	"c": preload("res://audio/animalese/en/c.wav"),
+	"d": preload("res://audio/animalese/en/d.wav"),
+	"e": preload("res://audio/animalese/en/e.wav"),
+	"f": preload("res://audio/animalese/en/f.wav"),
+	"g": preload("res://audio/animalese/en/g.wav"),
+	"h": preload("res://audio/animalese/en/h.wav"),
+	"i": preload("res://audio/animalese/en/i.wav"),
+	"j": preload("res://audio/animalese/en/j.wav"),
+	"k": preload("res://audio/animalese/en/k.wav"),
+	"l": preload("res://audio/animalese/en/l.wav"),
+	"m": preload("res://audio/animalese/en/m.wav"),
+	"n": preload("res://audio/animalese/en/n.wav"),
+	"o": preload("res://audio/animalese/en/o.wav"),
+	"p": preload("res://audio/animalese/en/p.wav"),
+	"q": preload("res://audio/animalese/en/q.wav"),
+	"r": preload("res://audio/animalese/en/r.wav"),
+	"s": preload("res://audio/animalese/en/s.wav"),
+	"t": preload("res://audio/animalese/en/t.wav"),
+	"u": preload("res://audio/animalese/en/u.wav"),
+	"v": preload("res://audio/animalese/en/v.wav"),
+	"w": preload("res://audio/animalese/en/w.wav"),
+	"x": preload("res://audio/animalese/en/x.wav"),
+	"y": preload("res://audio/animalese/en/y.wav"),
+	"z": preload("res://audio/animalese/en/z.wav"),
+}
+static func get_letter(letter: String, language: int) -> AudioStream:
+	var normalized := letter.to_lower()
+	for pair in ["áa", "ée", "íi", "óo", "úu", "üu"]:
+		normalized = normalized.replace(pair[0], pair[1])
+	if language == 1:
+		return EN.get(normalized.replace("ñ", "n")) as AudioStream
+	return ES.get(normalized) as AudioStream

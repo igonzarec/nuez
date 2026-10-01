@@ -1,0 +1,10 @@
+~ start
+Letrero: La nieve apagó los faroles. Cada uno necesita tres semillas de luz para volver a guiar el camino.
+- ¿Qué debo hacer?
+	=> objective
+- Entendido.
+	=> END
+
+~ objective
+Letrero: Explora el sendero, recoge semillas y restaura los tres faroles. Después habla con Mara, junto al refugio.
+=> END

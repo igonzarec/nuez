@@ -20,6 +20,14 @@ config/use_custom_user_dir=true
 config/custom_user_dir_name="LanternTrail"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
+[autoload]
+
+DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
+
+[dialogue_manager]
+
+runtime/balloon_path="res://ui/dialogue/squirrel_dialogue_balloon.tscn"
+
 [display]
 
 window/size/viewport_width=1280
@@ -31,6 +39,14 @@ window/stretch/mode="canvas_items"
 [dotnet]
 
 project/assembly_name="Explorer Squirrel- Lantern Trail"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/dialogue_manager/plugin.cfg")
+
+[internationalization]
+
+locale/translations_pot_files=PackedStringArray("res://dialogue/paso_de_bruma.dialogue")
 
 [physics]
 

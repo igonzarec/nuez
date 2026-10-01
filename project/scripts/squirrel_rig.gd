@@ -20,6 +20,11 @@ var glide_tremor_degrees := 0.0
 var glide_tremor_speed := 12.0
 var glide_tremor_clock := 0.0
 var idle_active := false
+var climb_active := false
+var climb_phase := 0.0
+var climb_visual_speed := 0.0
+var climb_amplitude := 0.0
+var climb_cadence := 0.7
 const GLIDE_TREMOR_BONES := [&"arm_left", &"arm_right", &"leg_left", &"leg_right"]
 
 func _ready() -> void:
@@ -75,6 +80,31 @@ func update_handmade_run(speed: float, walk_member_speed: float, run_member_spee
 			playertest2_animation.play(playertest2_run)
 		playertest2_animation.seek(0.0, true)
 		playertest2_animation.pause()
+
+func update_climb(speed: float, amplitude: float, cadence: float) -> void:
+	if not climb_active and playertest2_animation:
+		playertest2_animation.stop()
+	climb_active = true
+	glide_active = false
+	glide_started = false
+	idle_active = false
+	glide_amount = 0.0
+	climb_visual_speed = speed
+	climb_amplitude = deg_to_rad(amplitude)
+	climb_cadence = cadence
+	_set_membrane_amount(0.0)
+	position = Vector3.ZERO
+	scale = Vector3.ONE
+	set_body_tilt(-0.08, 0.0)
+
+func end_climb() -> void:
+	if not climb_active:
+		return
+	climb_active = false
+	climb_visual_speed = 0.0
+	if playertest2_skeleton:
+		_reset_idle_pose()
+	reset_body_tilt()
 
 func update_handmade_glide(amount: float, flutter_speed: float, start_speed := 1.0, tremor_degrees := 0.0, tremor_speed := 12.0) -> void:
 	var should_glide := amount > 0.08
@@ -146,6 +176,19 @@ func _set_membrane_amount(amount: float) -> void:
 
 func _process(delta: float) -> void:
 	if not playertest2_skeleton:
+		return
+	if climb_active:
+		climb_phase += climb_visual_speed * climb_cadence * TAU * delta
+		_reset_idle_pose()
+		for bone_name in GLIDE_TREMOR_BONES:
+			var bone_index := playertest2_skeleton.find_bone(bone_name)
+			if bone_index < 0:
+				continue
+			var side := 1.0 if String(bone_name).ends_with("left") else -1.0
+			var arm := String(bone_name).begins_with("arm")
+			var stroke := sin(climb_phase + (0.0 if arm else PI)) * side * climb_amplitude
+			var pose := Vector3(-0.7 + stroke if arm else 0.25 + stroke, 0.0, side * (0.2 if arm else 0.1))
+			playertest2_skeleton.set_bone_pose_rotation(bone_index, Quaternion.from_euler(pose))
 		return
 	if idle_active:
 		# Idle no utiliza el primer frame de Run: ese frame puede contener una

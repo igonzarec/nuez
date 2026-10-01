@@ -15,6 +15,9 @@ var settings: Dictionary
 var dialogue_pages: Array[String] = []
 var dialogue_speaker := ""
 var dialogue_finishes_game := false
+var dialogue_manager_resource: DialogueResource
+var dialogue_manager_target: TrailInteractable
+var dialogue_manager_balloon: Node
 var ending_time := 0.0
 var autosave_time := 0.0
 var using_gamepad := false
@@ -46,6 +49,7 @@ func _ready() -> void:
 	add_child(ui)
 	ui.action.connect(_on_action)
 	ui.setting_changed.connect(_on_setting)
+	DialogueManager.dialogue_ended.connect(_on_dialogue_manager_ended)
 	_build_session(store.fresh())
 	_apply_settings()
 	show_title()
@@ -75,6 +79,9 @@ func _build_session(data: Dictionary) -> void:
 	level.add_child(camera_rig)
 	player.camera_rig = camera_rig
 	camera_rig.sensitivity = settings.sensitivity
+	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
+	# R2 / C reutiliza el clic suave de interfaz como confirmación del recentrado.
+	camera_rig.recenter_requested.connect(func() -> void: audio.play("ui"))
 	interaction = TrailInteraction.new()
 	interaction.process_mode = Node.PROCESS_MODE_PAUSABLE
 	interaction.player = player
@@ -90,7 +97,10 @@ func _build_session(data: Dictionary) -> void:
 func _set_state(value: State) -> void:
 	state = value
 	var playing := state == State.PLAYING
-	get_tree().paused = state not in [State.PLAYING, State.ENDING]
+	# Dialogue Manager usa una interfaz propia que debe seguir procesando. El
+	# personaje queda inmóvil mediante set_controls, sin congelar su globo.
+	var manager_dialogue := state == State.DIALOGUE and dialogue_manager_resource != null
+	get_tree().paused = state not in [State.PLAYING, State.ENDING] and not manager_dialogue
 	player.set_controls(playing)
 	camera_rig.enabled = playing
 	interaction.enabled = playing
@@ -98,7 +108,9 @@ func _set_state(value: State) -> void:
 		interaction.clear()
 	# Keep the desktop cursor free in gameplay as well as menus.
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	ui.hud.visible = state in [State.PLAYING, State.PAUSED, State.DIALOGUE] or (state == State.SETTINGS and settings_return != State.TITLE)
+	# Durante una conversación el globo ocupa el protagonismo: ocultamos el HUD
+	# de exploración, que se restaura automáticamente al volver a jugar.
+	ui.hud.visible = state in [State.PLAYING, State.PAUSED] or (state == State.SETTINGS and settings_return != State.TITLE)
 
 func show_title() -> void:
 	_set_state(State.TITLE)
@@ -134,15 +146,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			State.PLAYING: pause_game()
 			State.PAUSED: resume_game()
 			State.DIALOGUE: _close_dialogue()
-			State.SETTINGS: _settings_back()
+			State.SETTINGS:
+				if ui.panel_name == "controls":
+					ui.settings(settings)
+				else:
+					_settings_back()
 			State.CONFIRM: show_title()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("interact"):
 		if state == State.PLAYING:
 			interact()
-		elif state == State.DIALOGUE:
+		elif state == State.DIALOGUE and dialogue_manager_resource == null:
 			advance_dialogue()
-		get_viewport().set_input_as_handled()
+		if dialogue_manager_resource == null:
+			get_viewport().set_input_as_handled()
 
 func _is_fast_reset_event(event: InputEvent) -> bool:
 	if state != State.PLAYING or settings.get("fast_reset_enabled", true) != true:
@@ -164,9 +181,18 @@ func _input(event: InputEvent) -> void:
 	if not is_instance_valid(ui) or not is_instance_valid(interaction):
 		return
 	if event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf(event.axis_value) > 0.25):
+		TrailInput.active_device = event.device
 		_set_device(true)
 	elif event is InputEventKey or event is InputEventMouseButton:
 		_set_device(false)
+	# La cruz de PlayStation es JOY_BUTTON_A; la X de Xbox es JOY_BUTTON_X.
+	# Ambos pueden interactuar en tierra. Consumir antes de la física evita saltos.
+	if state == State.PLAYING and is_instance_valid(interaction.selected):
+		var contextual_accept := event is InputEventJoypadButton and event.is_action_pressed("ui_accept") and player.is_on_floor() and not player.is_climbing
+		if event.is_action_pressed("interact") or contextual_accept:
+			player.consume_interaction_press()
+			get_viewport().set_input_as_handled()
+			interact()
 
 func _set_device(gamepad: bool) -> void:
 	if using_gamepad == gamepad:
@@ -189,13 +215,15 @@ func interact() -> void:
 	player.react("interact")
 	if target is TrailLamp:
 		restore_lamp(target)
+	elif target.has_dialogue():
+		open_resource_dialogue(target)
 	elif target.interaction_id == "mara":
 		if progress.lamps.size() == 3:
-			open_dialogue(target.display_name, ["¡Mira! Los tres faroles brillan otra vez. Nuestros vecinos ya pueden bajar sin perderse.", "Gracias por cuidar el camino, pequeña exploradora. Vamos al refugio: hay algo caliente esperándonos."], true)
+			open_dialogue(target.display_name, ["¡Mira! Los tres faroles brillan otra vez. Nuestros vecinos ya pueden bajar sin perderse.", "Gracias por cuidar el camino, pequeña exploradora. Vamos al refugio: hay algo caliente esperándonos."], true, target.dialogue_subtitle)
 		else:
-			open_dialogue(target.display_name, ["Soy Mara. Esta nevada nos tomó por sorpresa: los vecinos esperan arriba, sin una luz que los guíe.", "Cada farol necesita tres semillas de luz. Las encontrarás junto al sendero y en rincones tranquilos. Cuando los tres brillen, vuelve conmigo."])
+			open_dialogue(target.display_name, ["Soy Mara. Esta nevada nos tomó por sorpresa: los vecinos esperan arriba, sin una luz que los guíe.", "Cada farol necesita tres semillas de luz. Las encontrarás junto al sendero y en rincones tranquilos. Cuando los tres brillen, vuelve conmigo."], false, target.dialogue_subtitle)
 	else:
-		open_dialogue(target.display_name, target.pages)
+		open_dialogue(target.display_name, target.pages, false, target.dialogue_subtitle)
 
 func restore_lamp(lamp: TrailLamp) -> bool:
 	if state != State.PLAYING or lamp.is_lit:
@@ -228,31 +256,80 @@ func _on_seed(seed_node: LightFragment) -> void:
 	ui.update_hud(progress)
 	_save()
 
-func open_dialogue(speaker: String, pages: Array, finishes := false) -> void:
+func open_dialogue(speaker: String, pages: Array, finishes := false, subtitle := "") -> void:
+	# Capturar antes del cambio de estado: este puede limpiar la selección.
+	var speaker_target: Node3D = interaction.selected
+	dialogue_manager_resource = null
+	dialogue_manager_target = null
+	dialogue_manager_balloon = null
 	dialogue_speaker = speaker
 	dialogue_pages.assign(pages)
 	dialogue_finishes_game = finishes
 	_set_state(State.DIALOGUE)
+	dialogue_manager_balloon = preload("res://ui/dialogue/squirrel_dialogue_balloon.tscn").instantiate()
+	add_child(dialogue_manager_balloon)
+	dialogue_manager_balloon.set_speaker_name(speaker, subtitle)
+	dialogue_manager_balloon.set_follow_target(speaker_target)
+	dialogue_manager_balloon.close_requested.connect(_close_dialogue)
+	dialogue_manager_balloon.advance_requested.connect(advance_dialogue)
 	_show_dialogue_page()
+
+## Abre un archivo .dialogue del plugin, conservando nuestro estado de juego,
+## detección 3D y botón E / X. El contenido puede incluir respuestas y ramas.
+func open_resource_dialogue(target: TrailInteractable) -> void:
+	if target.dialogue_resource == null:
+		return
+	dialogue_manager_resource = target.dialogue_resource
+	dialogue_manager_target = target
+	dialogue_finishes_game = false
+	dialogue_pages.clear()
+	_set_state(State.DIALOGUE)
+	dialogue_manager_balloon = DialogueManager.show_dialogue_balloon(
+		dialogue_manager_resource,
+		target.dialogue_title,
+		[self, target]
+	)
+	dialogue_manager_balloon.set_follow_target(target)
+	dialogue_manager_balloon.close_requested.connect(_close_dialogue)
 
 func _show_dialogue_page() -> void:
 	if dialogue_pages.is_empty():
 		_close_dialogue()
 		return
 	audio.play("ui")
-	ui.dialogue(dialogue_speaker, dialogue_pages.pop_front())
+	dialogue_manager_balloon.show_manual(dialogue_speaker, dialogue_pages.pop_front())
 
 func advance_dialogue() -> void:
 	if state == State.DIALOGUE:
 		_show_dialogue_page()
 
 func _close_dialogue() -> void:
+	if dialogue_manager_resource != null:
+		var resource := dialogue_manager_resource
+		if is_instance_valid(dialogue_manager_balloon):
+			dialogue_manager_balloon.queue_free()
+		DialogueManager.dialogue_ended.emit(resource)
+		return
+	if is_instance_valid(dialogue_manager_balloon):
+		dialogue_manager_balloon.queue_free()
+	dialogue_manager_balloon = null
 	ui.close()
 	dialogue_pages.clear()
 	if dialogue_finishes_game and progress.lamps.size() == 3:
 		begin_ending()
 	else:
 		_set_state(State.PLAYING)
+
+func _on_dialogue_manager_ended(resource: DialogueResource) -> void:
+	if dialogue_manager_resource == null or resource != dialogue_manager_resource:
+		return
+	dialogue_manager_resource = null
+	dialogue_manager_target = null
+	dialogue_manager_balloon = null
+	dialogue_pages.clear()
+	dialogue_finishes_game = false
+	ui.close()
+	_set_state(State.PLAYING)
 
 func pause_game() -> void:
 	_save()
@@ -316,6 +393,8 @@ func _on_action(command: String) -> void:
 			_set_state(State.SETTINGS)
 			ui.settings(settings)
 		"settings_back": _settings_back()
+		"controls": ui.controls_menu()
+		"controls_back": ui.settings(settings)
 		"advance": advance_dialogue()
 		"quit":
 			get_tree().quit()
@@ -334,6 +413,7 @@ func _on_setting(key: String, value: Variant) -> void:
 	_apply_settings()
 
 func _apply_settings() -> void:
+	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
 	audio.apply(settings)
 	pixel_material.set_shader_parameter("pixel_size", settings.get("pixel_size", 2.0))
 	camera_rig.sensitivity = settings.sensitivity

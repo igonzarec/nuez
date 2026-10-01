@@ -1,0 +1,183 @@
+[gd_scene format=3 uid="uid://cuiic30byxhpo"]
+
+[ext_resource type="Script" uid="uid://cn6ep1vqegwv1" path="res://ui/dialogue/squirrel_dialogue_balloon.gd" id="1"]
+[ext_resource type="PackedScene" uid="uid://ckvgyvclnwggo" path="res://addons/dialogue_manager/dialogue_label.tscn" id="2"]
+[ext_resource type="Script" uid="uid://bb52rsfwhkxbn" path="res://addons/dialogue_manager/dialogue_responses_menu.gd" id="3"]
+[ext_resource type="Script" uid="uid://cagmyu03jyy5w" path="res://ui/dialogue/cloud_shape.gd" id="4"]
+[ext_resource type="Script" path="res://ui/dialogue/paged_dialogue_label.gd" id="5"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_unq84"]
+content_margin_left = 24.0
+content_margin_top = 8.0
+content_margin_right = 20.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxFlat" id="response"]
+content_margin_left = 24.0
+content_margin_top = 10.0
+content_margin_right = 24.0
+content_margin_bottom = 10.0
+bg_color = Color(1, 0.97, 0.86, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[sub_resource type="StyleBoxFlat" id="focus"]
+content_margin_left = 24.0
+content_margin_top = 10.0
+content_margin_right = 24.0
+content_margin_bottom = 10.0
+bg_color = Color(1, 0.78, 0.3, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[node name="SquirrelDialogueBalloon" type="CanvasLayer" unique_id=287651281]
+process_mode = 3
+layer = 100
+script = ExtResource("1")
+
+[node name="Balloon" type="Control" parent="." unique_id=1590962525]
+unique_name_in_owner = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DialogueBox" type="Control" parent="Balloon" unique_id=1363579578]
+layout_mode = 1
+anchors_preset = 0
+offset_left = 328.0
+offset_top = 286.99994
+offset_right = 1288.0
+offset_bottom = 527.0
+grow_horizontal = 2
+grow_vertical = 0
+scale = Vector2(0.65, 0.65)
+mouse_filter = 2
+script = ExtResource("4")
+presentation_mode = 1
+breathing_percent = 2.8
+breathing_period = 2.7
+text_margins = Vector4(95.375, 30, 80, 35)
+text_color = Color(0.329812, 0.29441562, 0.2413364, 1)
+text_size = 34
+name_offset = Vector2(-43.85, -29.295)
+name_text_size = 42
+subtitle_text_size = 26
+name_line_spacing = -13
+subtitle_brush_offset = 14.0
+title_content_gap = 0.0
+preview_subtitle = "Guardiana del sendero"
+
+[node name="Content" type="MarginContainer" parent="Balloon/DialogueBox" unique_id=1570898218]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 95
+theme_override_constants/margin_top = 80
+theme_override_constants/margin_right = 80
+theme_override_constants/margin_bottom = 35
+
+[node name="TextViewport" type="Control" parent="Balloon/DialogueBox/Content"]
+layout_mode = 2
+clip_contents = true
+mouse_filter = 2
+
+[node name="DialogueLabel" parent="Balloon/DialogueBox/Content/TextViewport" unique_id=1960715282 instance=ExtResource("2")]
+unique_name_in_owner = true
+layout_mode = 0
+anchor_right = 0.0
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.329812, 0.29441562, 0.2413364, 1)
+theme_override_constants/line_separation = 4
+theme_override_font_sizes/normal_font_size = 34
+text = "Hola, aquí va el texto que yo quisiera que tú leas cuando esté el personaje hablando."
+script = ExtResource("5")
+
+[node name="SpeakerPill" type="PanelContainer" parent="Balloon/DialogueBox" unique_id=899611292]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = -43.85
+offset_top = -29.295
+offset_right = 286.15
+offset_bottom = 67.705
+rotation = -0.10471976
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_unq84")
+
+[node name="CharacterLabel" type="RichTextLabel" parent="Balloon/DialogueBox/SpeakerPill" unique_id=1949109569]
+unique_name_in_owner = true
+clip_contents = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(1, 1, 1, 1)
+theme_override_constants/line_separation = -13
+theme_override_font_sizes/normal_font_size = 42
+bbcode_enabled = true
+text = "Mara"
+scroll_active = false
+
+[node name="ArrowAnchor" type="Control" parent="Balloon/DialogueBox" unique_id=1771734928]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_top = -3.0
+offset_bottom = -3.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="Progress" type="Polygon2D" parent="Balloon/DialogueBox/ArrowAnchor" unique_id=1597084490]
+unique_name_in_owner = true
+position = Vector2(0, -9.782178)
+scale = Vector2(36, 24)
+color = Color(1, 0.7607843, 0.10980392, 1)
+antialiased = true
+polygon = PackedVector2Array(-0.5, 0, 0.5, 0, 0.52, 0.15, 0.12, 0.9, 0, 1, -0.12, 0.9, -0.52, 0.15)
+
+[node name="ResponsesMenu" type="VBoxContainer" parent="Balloon" unique_id=787248860]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = 90.0
+offset_top = -465.0
+offset_right = 460.0
+offset_bottom = -325.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 10
+script = ExtResource("3")
+response_template = NodePath("ResponseExample")
+
+[node name="ResponseExample" type="Button" parent="Balloon/ResponsesMenu" unique_id=653056769]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.35, 0.24, 1)
+theme_override_colors/font_hover_color = Color(0.4, 0.35, 0.24, 1)
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("response")
+theme_override_styles/hover = SubResource("focus")
+theme_override_styles/focus = SubResource("focus")
+text = "Respuesta"
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1851361922]
+unique_name_in_owner = true
+
+[connection signal="gui_input" from="Balloon" to="." method="_on_balloon_gui_input"]
+[connection signal="response_selected" from="Balloon/ResponsesMenu" to="." method="_on_responses_menu_response_selected"]

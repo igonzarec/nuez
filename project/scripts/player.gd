@@ -109,6 +109,29 @@ signal respawned
 ## Gravedad adicional durante el planeo rápido. Súbela para que caiga antes.
 @export_range(0.0, 1.0, 0.01) var glide_sprint_gravity_scale_bonus := 0.12
 
+@export_group("Escalada")
+## Mantener Brincar agarra roca escalable si está cerca y enfrente.
+@export var climb_enabled := true
+## Metros por segundo sobre la pared. Ejemplo: 2 es pausado; 4 sube rápido.
+@export_range(0.5, 8.0, 0.1) var climb_speed := 3.0
+## Alcance del agarre desde el centro del cuerpo. Ejemplo: 0,9 requiere acercarse; 1,3 es permisivo.
+@export_range(0.6, 1.5, 0.05) var climb_grab_distance := 1.1
+## Desviación máxima mirando hacia la roca. 25 exige entrar de frente; 45 permite entradas diagonales.
+@export_range(5.0, 60.0, 1.0) var climb_facing_angle_degrees := 30.0
+## Distancia del centro a la pared; debe superar el radio de la cápsula (0,42).
+@export_range(0.46, 0.6, 0.01) var climb_wall_distance := 0.5
+## Impulso hacia fuera al soltar Brincar. Ejemplo: 2 facilita separarse y después planear.
+@export_range(0.5, 5.0, 0.1) var climb_detach_speed := 2.0
+## Amplitud de brazos y piernas sobre la postura de agarre, en grados.
+@export_range(0.0, 40.0, 0.5) var climb_member_degrees := 14.0
+## Ciclos de miembros por metro escalado. Cero conserva la postura de agarre.
+@export_range(0.0, 3.0, 0.05) var climb_member_speed := 0.7
+## Distancia recorrida entre sonidos de agarre. 0,7 da un ritmo moderado; 0,3 es frecuente.
+@export_range(0.2, 2.0, 0.05) var climb_sound_spacing := 0.7
+
+var is_climbing := false
+var climb_motion := 0.0
+var climbing: Node
 var control_enabled := true
 var spawn_position := Vector3.ZERO
 var camera_rig: TrailCamera
@@ -128,6 +151,12 @@ var horizontal_speed := 0.0
 var motion_acceleration := Vector3.ZERO
 var angular_velocity := 0.0
 var jump_consumed := false
+var interaction_press_consumed := false
+
+func consume_interaction_press() -> void:
+	interaction_press_consumed = true
+	buffer_left = 0.0
+	glide_button_pressed_in_air = false
 var previous_motion := Vector3.ZERO
 var is_sliding := false
 var slide_velocity := Vector3.ZERO
@@ -182,6 +211,9 @@ func _ready() -> void:
 	add_child(model)
 	animator = get_node("Animation") as SquirrelAnimator
 	animator.actor = self
+	climbing = preload("res://scripts/climbing.gd").new()
+	climbing.actor = self
+	add_child(climbing)
 
 func react(kind: String) -> void:
 	reaction_kind = kind
@@ -204,6 +236,9 @@ func set_controls(enabled: bool) -> void:
 	angular_velocity = 0
 
 func respawn() -> void:
+	if climbing:
+		climbing.reset()
+	model.end_climb()
 	global_position = spawn_position + Vector3.UP * 0.12
 	velocity = Vector3.ZERO
 	previous_motion = Vector3.ZERO
@@ -232,7 +267,12 @@ func respawn() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not control_enabled: return
+	if interaction_press_consumed:
+		if not Input.is_action_pressed("jump"):
+			interaction_press_consumed = false
 	input_grace = maxf(0, input_grace - delta)
+	if not interaction_press_consumed and climbing.tick(delta):
+		return
 	var grounded := is_on_floor()
 	var steep_normal := _steep_support()
 	is_sliding = steep_normal != Vector3.ZERO
@@ -244,7 +284,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		coyote_left = maxf(0, coyote_left - delta)
 	buffer_left = maxf(0, buffer_left - delta)
-	var jump_pressed_this_frame := Input.is_action_just_pressed("jump")
+	var jump_pressed_this_frame := Input.is_action_just_pressed("jump") and not interaction_press_consumed
 	# El planeo necesita una pulsación nueva estando ya en el aire. Esto evita
 	# que mantener Brincar desde el despegue lo active al comenzar a caer.
 	if jump_pressed_this_frame and not grounded and not is_sliding:
@@ -255,7 +295,7 @@ func _physics_process(delta: float) -> void:
 	# convertir accidentalmente una caída en un salto de coyote.
 	if jump_pressed_this_frame and input_grace <= 0 and not glide_button_pressed_in_air:
 		buffer_left = jump_buffer
-	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and Input.is_action_pressed("jump")
+	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and Input.is_action_pressed("jump") and not interaction_press_consumed
 	is_glide_sprinting = is_gliding and Input.is_action_pressed("sprint")
 	if grounded:
 		velocity.y = 0

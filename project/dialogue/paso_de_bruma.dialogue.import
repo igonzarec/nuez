@@ -1,0 +1,16 @@
+[remap]
+
+importer="dialogue_manager"
+importer_version=15
+type="Resource"
+uid="uid://ynqbgicm4jmv"
+path="res://.godot/imported/paso_de_bruma.dialogue-cbf2490fc41cb1f32d045f9cdf316d98.tres"
+
+[deps]
+
+source_file="res://dialogue/paso_de_bruma.dialogue"
+dest_files=["res://.godot/imported/paso_de_bruma.dialogue-cbf2490fc41cb1f32d045f9cdf316d98.tres"]
+
+[params]
+
+defaults=true

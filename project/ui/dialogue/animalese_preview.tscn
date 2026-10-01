@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://ieacrfuxnq1n"]
+
+[ext_resource type="Script" uid="uid://bhp0rt03xu7nt" path="res://ui/dialogue/animalese_preview.gd" id="1"]
+
+[node name="AnimalesePreview" type="Control" unique_id=1091097078]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Instructions" type="Label" parent="." unique_id=2057983407]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 40.0
+offset_right = 900.0
+offset_bottom = 300.0
+theme_override_font_sizes/font_size = 24
+text = "PRUEBA DE VOZ · ANIMALESE
+
+Selecciona AnimalesePreview en el árbol.
+Inspector → Profile: pitch, idioma, filtros, distorsión y ritmo.
+Pulsa Reproducir ejemplo / Escuchar abecedario / Detener.
+
+El recurso mara.tres es compartido con la voz de Mara.
+Duplica el recurso para crear otro personaje.
+No se reproduce audio automáticamente."
+
+[node name="Play" type="Button" parent="." unique_id=568314844]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 330.0
+offset_right = 280.0
+offset_bottom = 385.0
+text = "Reproducir (F6)"
+
+[node name="Stop" type="Button" parent="." unique_id=988747466]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 330.0
+offset_right = 470.0
+offset_bottom = 385.0
+text = "Detener (F6)"
