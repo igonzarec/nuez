@@ -1,0 +1,25 @@
+[gd_resource type="AudioBusLayout" format=3 uid="uid://beko10tig1mrv"]
+
+[sub_resource type="AudioEffectHighPassFilter" id="AudioEffectHighPassFilter_j3pel"]
+cutoff_hz = 450.0
+
+[sub_resource type="AudioEffectLowPassFilter" id="AudioEffectLowPassFilter_g28q7"]
+cutoff_hz = 5500.0
+
+[sub_resource type="AudioEffectDistortion" id="AudioEffectDistortion_n8wo2"]
+mode = 1
+drive = 0.12
+
+[resource]
+bus/1/name = &"Animalese_2417865347945"
+bus/1/solo = false
+bus/1/mute = false
+bus/1/bypass_fx = false
+bus/1/volume_db = 0.0
+bus/1/send = &"Master"
+bus/1/effect/0/effect = SubResource("AudioEffectHighPassFilter_j3pel")
+bus/1/effect/0/enabled = true
+bus/1/effect/1/effect = SubResource("AudioEffectLowPassFilter_g28q7")
+bus/1/effect/1/enabled = true
+bus/1/effect/2/effect = SubResource("AudioEffectDistortion_n8wo2")
+bus/1/effect/2/enabled = true
