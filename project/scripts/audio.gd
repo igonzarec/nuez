@@ -7,6 +7,25 @@ var next_voice := 0
 var music: AudioStreamPlayer
 var wind: AudioStreamPlayer
 var ambience_started := false
+var deploy: AudioStreamPlayer
+var gliding: AudioStreamPlayer
+var glide_fade: Tween
+var glide_active := false
+var deploy_left := -1.0
+var glide_fade_in := 0.3
+var glide_fade_out := 0.4
+var deploy_delay := 0.0
+var glide_volume := 1.0
+var glide_random_start := true
+var glide_layers: Array[AudioStreamPlayer] = []
+var glide_layer := 0
+var glide_mix := 1.0
+var glide_crossfade := 0.6
+var glide_crossfade_duration := 0.6
+var glide_envelope := 0.0:
+	set(value):
+		glide_envelope = value
+		_update_glide_volumes()
 ## Volumen del raspado de agarres. -14 dB es suave; -8 dB destaca sobre el viento.
 @export_range(-40.0, 0.0, 1.0) var climb_volume_db := -12.0
 
@@ -37,6 +56,112 @@ func _ready() -> void:
 	sounds["camera_recenter"] = preload("res://audio/camera_recenter.wav")
 	music = _loop("Music", _ambience(false), -13)
 	wind = _loop("SFX", _ambience(true), -23)
+	deploy = _loop("SFX", preload("res://audio/deploy2.wav"), 0.0)
+	deploy.process_mode = Node.PROCESS_MODE_PAUSABLE
+	var glide_stream := preload("res://audio/WhistlingWind.wav").duplicate() as AudioStreamWAV
+	# El bucle se hace entre dos voces; evita el salto brusco de final a inicio.
+	glide_stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	gliding = _loop("SFX", glide_stream, 0.0)
+	glide_layers = [gliding, _loop("SFX", glide_stream, 0.0)]
+	for layer in glide_layers:
+		layer.process_mode = Node.PROCESS_MODE_PAUSABLE
+		layer.volume_linear = 0.0
+
+func bind_gliding(actor: ExplorerPlayer) -> void:
+	set_gliding(false)
+	glide_fade_in = actor.gliding_fade_in
+	glide_fade_out = actor.gliding_fade_out
+	deploy_delay = actor.deploy_delay
+	deploy.volume_linear = actor.deploy_volume
+	deploy.pitch_scale = actor.deploy_pitch
+	glide_volume = actor.gliding_volume
+	for layer in glide_layers:
+		layer.pitch_scale = actor.gliding_pitch
+	glide_random_start = actor.gliding_random_start
+	glide_crossfade = minf(actor.gliding_loop_crossfade, gliding.stream.get_length() / actor.gliding_pitch * 0.25)
+	actor.gliding_changed.connect(set_gliding)
+	actor.tree_exiting.connect(set_gliding.bind(false))
+
+func _process(delta: float) -> void:
+	# TrailAudio sigue activo en menús; el retraso debe usar tiempo de juego.
+	if get_tree().paused:
+		return
+	if deploy_left >= 0.0:
+		deploy_left -= delta
+		if deploy_left <= 0.0:
+			deploy_left = -1.0
+			if glide_active and DisplayServer.get_name() != "headless":
+				deploy.play()
+	_tick_glide_loop(delta)
+
+func _glide_start_position() -> float:
+	# Reserva dos transiciones y un margen para no escoger un fragmento demasiado corto.
+	var reserve := (glide_crossfade * 2.0 + 0.2) * gliding.pitch_scale
+	return randf() * maxf(0.0, gliding.stream.get_length() - reserve) if glide_random_start else 0.0
+
+func _update_glide_volumes() -> void:
+	if glide_layers.is_empty():
+		return
+	# Curva de potencia constante para sostener el nivel durante el solapamiento.
+	glide_layers[glide_layer].volume_linear = glide_envelope * sin(glide_mix * PI * 0.5)
+	glide_layers[1 - glide_layer].volume_linear = glide_envelope * cos(glide_mix * PI * 0.5)
+
+func _stop_glide_layers() -> void:
+	for layer in glide_layers:
+		layer.stop()
+
+func _tick_glide_loop(delta: float) -> void:
+	if DisplayServer.get_name() == "headless" or glide_layers.is_empty():
+		return
+	if glide_mix < 1.0:
+		glide_mix = minf(1.0, glide_mix + delta / maxf(0.001, glide_crossfade_duration))
+		_update_glide_volumes()
+		if glide_mix >= 1.0:
+			glide_layers[1 - glide_layer].stop()
+	if not glide_active or glide_mix < 1.0:
+		return
+	var current := glide_layers[glide_layer]
+	var remaining := (current.stream.get_length() - current.get_playback_position()) / current.pitch_scale
+	if not current.playing:
+		remaining = 0.0
+	if remaining <= glide_crossfade + 0.1:
+		glide_crossfade_duration = minf(glide_crossfade, maxf(0.001, remaining - 0.025))
+		glide_layer = 1 - glide_layer
+		glide_mix = 0.0
+		_update_glide_volumes()
+		glide_layers[glide_layer].play(_glide_start_position())
+
+func set_gliding(active: bool) -> void:
+	if glide_active == active:
+		return
+	glide_active = active
+	deploy_left = -1.0
+	if glide_fade:
+		glide_fade.kill()
+	if active:
+		if deploy_delay <= 0.0:
+			if DisplayServer.get_name() != "headless":
+				deploy.play()
+		else:
+			deploy_left = deploy_delay
+		# Al volver a desplegar durante el fade out, parte de silencio otra vez.
+		_stop_glide_layers()
+		glide_layer = 0
+		glide_mix = 1.0
+		glide_envelope = 0.0
+		if DisplayServer.get_name() != "headless":
+			gliding.play(_glide_start_position())
+	var duration := glide_fade_in if active else glide_fade_out
+	var target_volume := glide_volume if active else 0.0
+	if duration <= 0.0:
+		glide_envelope = target_volume
+		if not active:
+			_stop_glide_layers()
+		return
+	glide_fade = create_tween().bind_node(gliding).set_pause_mode(Tween.TWEEN_PAUSE_BOUND)
+	glide_fade.tween_property(self, "glide_envelope", target_volume, duration)
+	if not active:
+		glide_fade.tween_callback(_stop_glide_layers)
 
 func _loop(bus: String, stream: AudioStreamWAV, gain: float) -> AudioStreamPlayer:
 	var voice := AudioStreamPlayer.new()

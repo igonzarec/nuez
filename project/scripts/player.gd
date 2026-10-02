@@ -3,6 +3,7 @@ extends CharacterBody3D
 
 signal feedback(kind: String)
 signal respawned
+signal gliding_changed(active: bool)
 
 @export_group("Ground movement")
 ## Velocidad normal máxima sobre el suelo, en unidades por segundo; no cambia el ritmo visual por sí sola.
@@ -69,6 +70,33 @@ signal respawned
 ## Permite desplegar membranas al pulsar Brincar una vez que la ardilla ya está en el aire.
 ## Mantener Brincar desde el salto no activa el planeo; al soltarlo, las membranas se recogen inmediatamente.
 @export var glide_enabled := true
+@export_group("Audio del planeo")
+## Volumen de deploy: 0 = silencio, 1 = original, 2 = doble amplitud.
+## Se combina con Sonidos y Volumen general del menú de ajustes.
+@export_range(0.0, 2.0, 0.01) var deploy_volume := 1.0
+## Pitch de deploy: 1 = original, 0,5 = más grave, 2 = más agudo.
+## También cambia la velocidad y duración de reproducción.
+@export_range(0.25, 4.0, 0.01) var deploy_pitch := 1.0
+## Volumen objetivo de los fades: 0 = silencio, 1 = original, 2 = doble amplitud.
+## Se combina con Sonidos y Volumen general del menú de ajustes.
+@export_range(0.0, 2.0, 0.01) var gliding_volume := 1.0
+## Pitch del bucle: 1 = original. Valores menores lo hacen más grave y lento.
+## No modifica la duración configurada de los fades.
+@export_range(0.25, 4.0, 0.01) var gliding_pitch := 1.0
+## Empieza cada planeo en un punto aleatorio de gliding; conserva el fade in.
+## También elige un punto aleatorio para cada repetición con solapamiento.
+@export var gliding_random_start := true
+## Segundos de solapamiento: la siguiente voz entra mientras la anterior se apaga.
+## Se limita automáticamente para dejar suficiente audio con el pitch elegido.
+@export_range(0.05, 5.0, 0.01, "suffix:s") var gliding_loop_crossfade := 0.6
+## Segundos desde la entrada en Glide hasta deploy. 0 lo reproduce inmediatamente.
+## Si termina el planeo antes del retraso, se cancela el sonido pendiente.
+@export_range(0.0, 10.0, 0.01, "or_greater", "suffix:s") var deploy_delay := 0.0
+## Segundos para subir gliding desde silencio hasta Gliding Volume.
+@export_range(0.0, 10.0, 0.01, "or_greater", "suffix:s") var gliding_fade_in := 0.3
+## Segundos para bajar gliding hasta silencio al terminar el planeo.
+@export_range(0.0, 10.0, 0.01, "or_greater", "suffix:s") var gliding_fade_out := 0.4
+@export_group("Planeo")
 ## Límite de caída durante planeo, en unidades/s. Nunca añade impulso hacia arriba.
 ## Ejemplo: 2 prolonga el descenso; 4 baja más rápido. No cambia el salto normal.
 @export_range(1.0, 8.0) var glide_fall_speed := 2.6
@@ -160,7 +188,12 @@ func consume_interaction_press() -> void:
 var previous_motion := Vector3.ZERO
 var is_sliding := false
 var slide_velocity := Vector3.ZERO
-var is_gliding := false
+var is_gliding := false:
+	set(value):
+		if is_gliding == value:
+			return
+		is_gliding = value
+		gliding_changed.emit(value)
 var is_glide_sprinting := false
 var glide_button_pressed_in_air := false
 ## Intensidad de entrada horizontal actual para que la postura de Glide sepa

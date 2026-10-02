@@ -1,5 +1,17 @@
 extends Node3D
 
+## Coordinador principal de la partida. Aquí se conectan por ahora mapa, jugador,
+## cámara, UI, audio, diálogos, guardado y los estados globales de la expedición.
+##
+## Posible división futura, cuando este archivo haga difícil encontrar o cambiar
+## una responsabilidad concreta:
+## - GameSession: crear/reiniciar sesión y gestionar mapa + jugador.
+## - DialogueController: abrir/cerrar diálogos y sus transiciones de estado.
+## - ProgressController: semillas, faroles, guardado automático y final.
+## No separar todavía sólo por tamaño: hoy este archivo funciona como un punto de
+## coordinación útil para un proyecto pequeño. Extraer cuando cada bloque tenga
+## reglas propias suficientes para justificar su propio script.
+
 enum State { TITLE, PLAYING, DIALOGUE, PAUSED, SETTINGS, ENDING, COMPLETE, CONFIRM }
 var state := State.TITLE
 var settings_return := State.TITLE
@@ -73,6 +85,7 @@ func _build_session(data: Dictionary) -> void:
 	player.position = TrailLevel.summit_spawn()
 	level.add_child(player)
 	player.feedback.connect(audio.play)
+	audio.bind_gliding(player)
 	player.respawned.connect(func() -> void: ui.toast("De vuelta en un lugar seguro."))
 	camera_rig = load("res://scenes/camera_rig.tscn").instantiate() as TrailCamera
 	camera_rig.target = player
