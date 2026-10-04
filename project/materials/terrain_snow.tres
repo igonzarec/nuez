@@ -1,0 +1,20 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://23y8b0egxrbc"]
+
+[ext_resource type="Shader" uid="uid://bj8qvfxtyxml2" path="res://shaders/terrain_snow.gdshader" id="1"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1")
+shader_parameter/snow_color = Color(0.88, 0.94, 0.98, 1)
+shader_parameter/rock_color = Color(0.29, 0.32, 0.34, 1)
+shader_parameter/roughness = 0.0
+shader_parameter/grain_enabled = false
+shader_parameter/grain_scale = 40.0
+shader_parameter/grain_strength = 0.30000001192093
+shader_parameter/grain_distance_fade = 1.0
+shader_parameter/micro_relief = 0.045
+shader_parameter/shading_softness = 1.0
+shader_parameter/flat_detail_strength = 0.0
+shader_parameter/flat_detail_scale = 2.0
+shader_parameter/snow_brightness = 1.0
+shader_parameter/flat_brightness = 1.0

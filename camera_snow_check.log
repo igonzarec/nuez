@@ -1,0 +1,6 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+Snow terrain: 1922 triangles; collision generated.
+Snow playground ready. Spawn: (0.0, 9.625875, 30.0)

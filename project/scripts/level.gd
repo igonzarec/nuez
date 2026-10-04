@@ -156,6 +156,7 @@ func _terrain() -> void:
 	var valley := part(self, cylinder(90, 90, 0.8, 32), Color.WHITE, Vector3(0, -0.62, -4))
 	valley.material_override = ground_mat
 	var body := StaticBody3D.new()
+	body.collision_layer = 1 | 4 # Mundo caminable + Camera Blocker.
 	var collision := CollisionShape3D.new()
 	collision.shape = mesh.create_trimesh_shape()
 	body.add_child(collision)
@@ -163,6 +164,7 @@ func _terrain() -> void:
 	# Boundaries sit behind the perimeter boulders and trees.
 	for item: Array in [[Vector3(-35, 9, -18), Vector3(1, 140, 116)], [Vector3(35, 9, -18), Vector3(1, 140, 116)], [Vector3(-25, 9, -37), Vector3(20, 140, 1)], [Vector3(25, 9, -37), Vector3(20, 140, 1)], [Vector3(0, 9, -74), Vector3(76, 140, 1)], [Vector3(0, 9, 35), Vector3(76, 140, 1)]]:
 		var wall := StaticBody3D.new()
+		wall.collision_layer = 1 | 4
 		wall.position = item[0]
 		var box := BoxShape3D.new()
 		box.size = item[1]
@@ -184,6 +186,7 @@ func _tree(x: float, z: float, size: float) -> void:
 		part(tree, cylinder(width, 0, 2.0), Color("41683b").lightened(layer * 0.05), Vector3(0, 2.0 + layer * 0.85, 0))
 		part(tree, cylinder(width * 0.48, 0, 0.92), Color("dbe7dd"), Vector3(0, 2.55 + layer * 0.85, 0))
 	var body := StaticBody3D.new()
+	body.collision_layer = 1 | 4
 	var collision := CollisionShape3D.new()
 	var shape := CylinderShape3D.new()
 	shape.radius = 0.23
@@ -217,6 +220,7 @@ func _rock(x: float, z: float, size: Vector3, solid := true) -> void:
 	rock.rotation.z = sin(x + z) * 0.18
 	if solid:
 		var body := StaticBody3D.new()
+		body.collision_layer = 1 | 4
 		var collision := CollisionShape3D.new()
 		collision.shape = rock.mesh.create_convex_shape()
 		body.add_child(collision)
@@ -294,6 +298,7 @@ func _decorate() -> void:
 	welcome_light.omni_range = 5
 	cabin.add_child(welcome_light)
 	var cabin_body := StaticBody3D.new()
+	cabin_body.collision_layer = 1 | 4
 	var cabin_shape := CollisionShape3D.new()
 	var cabin_box := BoxShape3D.new()
 	cabin_box.size = Vector3(5.1, 5, 4)
@@ -312,6 +317,7 @@ func _decorate() -> void:
 	var log_node := part(self, log_mesh, Color("8a7565"), point(-24.5, -1.0, 0.3))
 	log_node.rotation.z = PI / 2
 	var log_body := StaticBody3D.new()
+	log_body.collision_layer = 1 | 4
 	var log_shape := CollisionShape3D.new()
 	log_shape.shape = log_mesh.create_convex_shape()
 	log_body.add_child(log_shape)

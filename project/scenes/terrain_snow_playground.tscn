@@ -1,0 +1,138 @@
+[gd_scene format=3 uid="uid://w6gpl23dwaoy"]
+
+[ext_resource type="Script" uid="uid://dcvma4d55ftdc" path="res://scripts/snow/terrain_snow_playground.gd" id="1"]
+[ext_resource type="Script" uid="uid://d0digq12f70jv" path="res://scripts/snow/snow_terrain.gd" id="2"]
+[ext_resource type="PackedScene" uid="uid://cxx8kxdv0kl5c" path="res://assets/terrain/terrain_v01_climbable_blockout.glb" id="3"]
+[ext_resource type="Material" uid="uid://23y8b0egxrbc" path="res://materials/terrain_snow.tres" id="4"]
+[ext_resource type="Script" uid="uid://dwvobsw40ki1k" path="res://scripts/snow/snow_zone.gd" id="5"]
+[ext_resource type="PackedScene" uid="uid://c7dhmu1ixjqkr" path="res://scenes/player.tscn" id="6"]
+[ext_resource type="PackedScene" uid="uid://bq8cdc30dyhr6" path="res://scenes/camera_rig.tscn" id="7"]
+[ext_resource type="Script" uid="uid://c2qwvur5vxqs1" path="res://scripts/snow/snow_weather.gd" id="8"]
+[ext_resource type="Script" uid="uid://rb7u7dp2iu6a" path="res://scripts/snow/snow_step_audio.gd" id="9"]
+[ext_resource type="PackedScene" path="res://scenes/props/snow_pine.tscn" id="11_0urhb"]
+
+[sub_resource type="Environment" id="Environment_snow"]
+background_mode = 1
+background_color = Color(0.42, 0.58, 0.68, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.68, 0.79, 0.92, 1)
+ambient_light_energy = 0.35
+
+[sub_resource type="LabelSettings" id="Label_help"]
+font_size = 17
+outline_size = 5
+outline_color = Color(0.08, 0.12, 0.18, 1)
+
+[node name="TerrainSnowPlayground" type="Node3D" unique_id=165106990]
+script = ExtResource("1")
+
+[node name="SnowTerrain" type="Node3D" parent="." unique_id=1648765002]
+script = ExtResource("2")
+source = ExtResource("3")
+snow_material = ExtResource("4")
+
+[node name="SnowZones" type="Node3D" parent="SnowTerrain" unique_id=365502227]
+
+[node name="SnowdriftWide" type="Marker3D" parent="SnowTerrain/SnowZones" unique_id=886433779]
+transform = Transform3D(1.5, 0, 0, 0, 1, 0, 0, 0, 0.8, 15, 0, 20)
+script = ExtResource("5")
+
+[node name="SnowdriftSmall" type="Marker3D" parent="SnowTerrain/SnowZones" unique_id=1965992933]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -51.019146, 46.97996, -86.79222)
+script = ExtResource("5")
+radius = 28.5
+depth = 10.4
+
+[node name="ClearingExample" type="Marker3D" parent="SnowTerrain/SnowZones" unique_id=678561165]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 0, 50)
+script = ExtResource("5")
+operation = 1
+enabled = false
+radius = 12.0
+softness = 0.65
+
+[node name="PlayerStart" type="Marker3D" parent="." unique_id=211995251]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 65, 30)
+
+[node name="SquirrelExplorer" parent="." unique_id=413883362 instance=ExtResource("6")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 65, 30)
+walkable_slope_degrees = 60.0
+climb_enabled = false
+
+[node name="CameraRig" parent="." unique_id=424448141 instance=ExtResource("7")]
+
+[node name="Snowfall" type="Node3D" parent="." unique_id=1456788096]
+script = ExtResource("8")
+ceiling = 40.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1777293449]
+environment = SubResource("Environment_snow")
+
+[node name="Sunlight" type="DirectionalLight3D" parent="." unique_id=1901687294]
+transform = Transform3D(0.8480481, 0.3938068, -0.35458517, 0, 0.66913056, 0.74314487, 0.52991927, -0.63022256, 0.5674549, 0, 0, 0)
+light_color = Color(1, 0.96, 0.89, 1)
+light_energy = 0.65
+shadow_enabled = true
+directional_shadow_max_distance = 220.0
+
+[node name="SnowStepAudio" type="Node" parent="." unique_id=1507846909]
+script = ExtResource("9")
+
+[node name="Help" type="CanvasLayer" parent="." unique_id=1937505374]
+
+[node name="Controls" type="Label" parent="Help" unique_id=7576253]
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 800.0
+offset_bottom = 75.0
+text = "WASD: caminar · Shift: correr · Espacio: saltar / planear
+Clic derecho: cámara · C: recentrar · R: volver al inicio · Esc: pausa"
+label_settings = SubResource("Label_help")
+
+[node name="SnowPine" parent="." unique_id=1084036797 instance=ExtResource("11_0urhb")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -93.502884, 46.718685, 41.11496)
+
+[node name="SnowPine2" parent="." unique_id=202832089 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.7400421, 0, -0.6725606, 0, 1, 0, 0.6725606, 0, 0.7400421, -45.15074, 23.379963, 22.442467)
+
+[node name="SnowPine4" parent="." unique_id=1408474741 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.7400421, 0, -0.6725606, 0, 1, 0, 0.6725606, 0, 0.7400421, -48.9992, 23.370296, -8.251476)
+
+[node name="SnowPine5" parent="." unique_id=1835842824 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.7400421, 0, -0.6725606, 0, 1, 0, 0.6725606, 0, 0.7400421, 0.47621155, 4.5383186, 12.387154)
+
+[node name="SnowPine6" parent="." unique_id=179802520 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.7400421, 0, -0.6725606, 0, 1, 0, 0.6725606, 0, 0.7400421, 23.575043, 17.389935, 54.61955)
+
+[node name="SnowPine3" parent="." unique_id=399202583 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.7400421, 0, -0.6725606, 0, 1, 0, 0.6725606, 0, 0.7400421, -48.43611, 52.397446, -70.520935)
+
+[node name="SnowPine7" parent="." unique_id=599454185 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.7400421, 0, -0.6725606, 0, 1, 0, 0.6725606, 0, 0.7400421, -47.83287, 29.97689, 47.24978)
+
+[node name="SnowPine8" parent="." unique_id=1618796030 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.7400421, 0, -0.6725606, 0, 1, 0, 0.6725606, 0, 0.7400421, -24.483955, 22.49997, 45.974342)
+
+[node name="SnowPine9" parent="." unique_id=1570731251 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -24.483955, 10.6353035, -9.006638)
+
+[node name="SnowPine10" parent="." unique_id=1722499357 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -24.483955, 10.6353035, 10.527784)
+
+[node name="SnowPine11" parent="." unique_id=1576410187 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -68.223526, 33.750813, 10.383593)
+
+[node name="SnowPine12" parent="." unique_id=1052552742 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -61.376022, 52.971004, -69.37008)
+
+[node name="SnowPine13" parent="." unique_id=144471095 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -71.54386, 51.79435, -75.75085)
+
+[node name="SnowPine14" parent="." unique_id=1957847677 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -65.450836, 53.489216, -79.36586)
+
+[node name="SnowPine15" parent="." unique_id=443272962 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -56.28926, 55.363712, -79.36586)
+
+[node name="SnowPine16" parent="." unique_id=192528424 instance=ExtResource("11_0urhb")]
+transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -71.206474, 51.9157, -82.78557)

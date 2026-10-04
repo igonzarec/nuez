@@ -39,6 +39,8 @@ func _add_terrain_collision() -> void:
 		return
 	var body := StaticBody3D.new()
 	body.name = "MountainCollision"
+	# Jugador en la capa 1 y cámara en Camera Blocker (capa 3, valor 4).
+	body.collision_layer = 1 | 4
 	mesh_instance.add_child(body)
 	var collision := CollisionShape3D.new()
 	collision.shape = mesh_instance.mesh.create_trimesh_shape()

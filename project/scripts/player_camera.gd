@@ -6,7 +6,13 @@ signal recenter_requested
 
 @export_range(10.0, 30.0) var distance := 14.4
 @export var pitch_degrees := -48.0
-@export_range(0.0, 10.0) var vertical_range_degrees := 6.0
+## Margen vertical alrededor de Pitch Degrees cuando Full Vertical Orbit está apagado.
+@export_range(0.0, 180.0) var vertical_range_degrees := 6.0
+## Permite mirar desde arriba o abajo del personaje con ratón o stick derecho.
+@export var full_vertical_orbit := false
+## Límites de inclinación manual. ±89 evita la singularidad de mirar exactamente vertical.
+@export_range(-89.0, 89.0, 1.0) var minimum_pitch := -89.0
+@export_range(-89.0, 89.0, 1.0) var maximum_pitch := 89.0
 @export var follow_speed := 8.0
 @export var orbit_smoothing := 10.0
 @export var field_of_view := 52.0
@@ -56,12 +62,28 @@ signal recenter_requested
 @export_range(15.0, 40.0) var blur_start := 18.0
 @export_range(1.0, 30.0) var blur_transition := 12.0
 @export_range(0.0, 6.0) var blur_strength := 3.0
+@export_group("Colisión de cámara")
+## Evita que la cámara entre en las superficies marcadas como Camera Blocker.
+@export var camera_collision_enabled := true
+## Capas físicas que bloquean la cámara. Camera Blocker usa la capa 3 (valor 4).
+@export_flags_3d_physics var camera_collision_mask := 4
+## Radio de la esfera que comprueba el trayecto. Mayor valor evita que se cuele por bordes.
+@export_range(0.05, 2.0, 0.01, "or_greater") var camera_collision_radius := 0.35
+## Separación extra, en metros, entre la esfera de cámara y el obstáculo.
+@export_range(0.0, 2.0, 0.01) var camera_collision_margin := 0.12
+## Límite absoluto: la cámara nunca se acerca más que esta distancia a la ardilla.
+@export_range(1.0, 30.0, 0.1) var camera_minimum_distance := 5.5
+## Rapidez con que la cámara vuelve a su distancia normal después de dejar el obstáculo.
+@export_range(1.0, 40.0, 0.5) var camera_collision_smoothing := 18.0
+## Si una cámara empieza dentro de una superficie, la devuelve al alcance mínimo seguro.
+@export var camera_collision_recovery := true
 var sensitivity := 1.0
 var target: ExplorerPlayer
 var enabled := false
 var yaw := 0.0
 var pitch := deg_to_rad(-48.0)
 var glide_view_blend := 0.0
+var _manual_vertical_override := false
 var forward_tracking := false
 var forward_velocity := 0.0
 var manual_pause_left := 0.0
@@ -75,6 +97,20 @@ var recenter_timed_delta := 0.0
 var camera: Camera3D
 var blur_mesh: MeshInstance3D
 var blur_material: ShaderMaterial
+@export_group("Separación de siluetas")
+## Dibuja una línea donde una superficie cercana tapa otra lejana, aunque tengan el mismo color.
+@export var depth_outline_enabled := false
+## Intensidad de la línea; prueba 0,15–0,3 para un borde discreto.
+@export_range(0.0, 1.0, 0.01) var depth_outline_opacity := 0.25
+## Anchura de muestreo en píxeles de pantalla.
+@export_range(0.5, 4.0, 0.25) var depth_outline_width := 1.0
+## Salto de profundidad en metros necesario para marcar el borde. Mayor valor elimina detalles menores.
+@export_range(0.05, 5.0, 0.05) var depth_outline_threshold := 0.5
+## Color de los contornos.
+@export var depth_outline_color := Color(0.2, 0.3, 0.35)
+var _outline_mesh: MeshInstance3D
+var _outline_material: ShaderMaterial
+var _camera_distance := -1.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -93,9 +129,22 @@ func _ready() -> void:
 	blur_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	blur_material = ShaderMaterial.new()
 	blur_material.shader = preload("res://shaders/distant_blur.gdshader")
-	blur_material.render_priority = 100
+	# La captura de pantalla 3D contiene sólo opacos. Dibujar el blur después
+	# de las transparencias las tapaba con esa captura (copos y huellas incluidos).
+	# Reservamos -128 para el fondo desenfocado; transparencias normales usan 0.
+	blur_material.render_priority = -128
 	blur_mesh.material_override = blur_material
 	camera.add_child(blur_mesh)
+	_outline_mesh = MeshInstance3D.new()
+	_outline_mesh.mesh = quad
+	_outline_mesh.position.z = -0.5
+	_outline_mesh.extra_cull_margin = 16384
+	_outline_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_outline_material = ShaderMaterial.new()
+	_outline_material.shader = preload("res://shaders/depth_outline.gdshader")
+	_outline_material.render_priority = 101
+	_outline_mesh.material_override = _outline_material
+	camera.add_child(_outline_mesh)
 	if target:
 		snap()
 
@@ -106,6 +155,7 @@ func snap() -> void:
 	recenter_timed_active = false
 	recenter_timed_clock = 0.0
 	glide_view_blend = 1.0 if target and target.is_gliding else 0.0
+	_camera_distance = distance
 	pitch = _clamp_pitch(pitch)
 	global_position = target.global_position + Vector3.UP * 1.15
 	rotation = Vector3(pitch, yaw, 0)
@@ -117,6 +167,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	# No capture, confinement or cursor warping, including while dragging.
 	if enabled and event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0:
 		_pause_front_follow()
+		if full_vertical_orbit and absf(event.relative.y) > 0.01:
+			_manual_vertical_override = true
 		yaw = wrapf(yaw - event.relative.x * 0.0025 * sensitivity, -PI, PI)
 		pitch = _clamp_pitch(pitch - event.relative.y * 0.001 * sensitivity)
 
@@ -129,10 +181,13 @@ func _physics_process(delta: float) -> void:
 		var stick := Input.get_vector("look_left", "look_right", "look_up", "look_down")
 		if stick.length_squared() > 0.001:
 			_pause_front_follow()
+		if full_vertical_orbit and absf(stick.y) > 0.01:
+			_manual_vertical_override = true
 		if Input.is_action_just_pressed("camera_forward"):
 			recenter_yaw = target.model.rotation.y
 			manual_pause_left = 0
 			pitch = deg_to_rad(pitch_degrees)
+			_manual_vertical_override = false
 			recenter_requested.emit()
 			if recenter_mode == 0:
 				_maybe_snap_recenter()
@@ -153,7 +208,7 @@ func _physics_process(delta: float) -> void:
 	pitch = _clamp_pitch(pitch)
 	# One camera only: smoothly blend its orbit angle between the normal view
 	# and the more elevated glide view. No camera is swapped or teleported.
-	var glide_target := 1.0 if target.is_gliding else 0.0
+	var glide_target := 1.0 if target.is_gliding and not (full_vertical_orbit and _manual_vertical_override) else 0.0
 	glide_view_blend = lerpf(glide_view_blend, glide_target, 1.0 - exp(-glide_camera_speed * delta))
 	var view_pitch := lerp_angle(pitch, deg_to_rad(glide_pitch_degrees), glide_view_blend)
 	rotation.x = lerp_angle(rotation.x, view_pitch, 1.0 - exp(-orbit_smoothing * delta))
@@ -166,7 +221,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		rotation.y = lerp_angle(rotation.y, yaw, 1.0 - exp(-orbit_smoothing * delta))
 	global_position = global_position.lerp(target.global_position + Vector3.UP * 1.15, 1.0 - exp(-follow_speed * delta))
-	_place_camera()
+	_place_camera(delta)
 
 func _pause_front_follow() -> void:
 	manual_pause_left = forward_manual_pause
@@ -236,9 +291,11 @@ func _follow_front(target_yaw: float, delta: float) -> void:
 			yaw = wrapf(yaw + signf(error) * minf(absf(step), absf(error)), -PI, PI)
 
 func _clamp_pitch(value: float) -> float:
+	if full_vertical_orbit:
+		return clampf(value, deg_to_rad(minf(minimum_pitch, maximum_pitch)), deg_to_rad(maxf(minimum_pitch, maximum_pitch)))
 	return clampf(value, deg_to_rad(pitch_degrees - vertical_range_degrees), deg_to_rad(pitch_degrees + vertical_range_degrees))
 
-func _place_camera() -> void:
+func _place_camera(delta := 0.0) -> void:
 	var anchor := target.global_position + Vector3.UP * 1.15
 	var offset := global_position + global_basis.z * distance - anchor
 	# Project the smoothed follow position onto a sphere around the real player.
@@ -247,10 +304,48 @@ func _place_camera() -> void:
 	# rotation.x is already the smoothly blended normal/glide orbit angle.
 	var orbit_pitch := rotation.x
 	var direction := Basis.from_euler(Vector3(orbit_pitch, orbit_yaw, 0)).z
-	camera.global_position = anchor + direction * distance
+	var desired_distance := _camera_safe_distance(anchor, direction)
+	if _camera_distance < 0.0 or delta <= 0.0:
+		_camera_distance = desired_distance
+	elif desired_distance < _camera_distance:
+		# Entrar en una pared debe ser inmediato; suavizarlo permitiría ver el interior.
+		_camera_distance = desired_distance
+	else:
+		_camera_distance = lerpf(_camera_distance, desired_distance, 1.0 - exp(-camera_collision_smoothing * delta))
+	camera.global_position = anchor + direction * _camera_distance
 	camera.look_at(anchor)
 	camera.fov = field_of_view
 	blur_mesh.visible = distant_blur_enabled and camera.is_current()
 	blur_material.set_shader_parameter("focus_distance", blur_start)
 	blur_material.set_shader_parameter("far_transition", blur_transition)
 	blur_material.set_shader_parameter("blur_radius", blur_strength)
+	_outline_mesh.visible = depth_outline_enabled and camera.is_current()
+	_outline_material.set_shader_parameter("line_opacity", depth_outline_opacity)
+	_outline_material.set_shader_parameter("line_width", depth_outline_width)
+	_outline_material.set_shader_parameter("depth_threshold", depth_outline_threshold)
+	_outline_material.set_shader_parameter("line_color", depth_outline_color)
+
+## Consulta una esfera desde la ardilla hasta la posición deseada de la cámara.
+## La distancia mínima mantiene un encuadre consistente incluso al rozar una pared.
+func _camera_safe_distance(anchor: Vector3, direction: Vector3) -> float:
+	var minimum := minf(camera_minimum_distance, distance)
+	if not camera_collision_enabled or camera_collision_mask == 0:
+		return distance
+	var sphere := SphereShape3D.new()
+	sphere.radius = camera_collision_radius
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = sphere
+	query.transform = Transform3D(Basis.IDENTITY, anchor)
+	query.motion = direction * distance
+	query.collision_mask = camera_collision_mask
+	if target:
+		query.exclude = [target.get_rid()]
+	var result := get_world_3d().direct_space_state.cast_motion(query)
+	if result.size() < 1 or result[0] >= 1.0:
+		return distance
+	var safe_distance := distance * result[0] - camera_collision_margin
+	# El resultado 0 significa que el volumen arrancó solapado. La distancia
+	# mínima es el fallback estable; evita dejar la cámara enterrada por un frame.
+	if safe_distance <= 0.0 and camera_collision_recovery:
+		return minimum
+	return clampf(safe_distance, minimum, distance)

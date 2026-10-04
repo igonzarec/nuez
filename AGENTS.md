@@ -14,6 +14,17 @@ entrada. Las entradas deben ser breves, amenas y técnicas: registrar qué cambi
 la decisión tomada y cualquier aprendizaje o límite útil, sin repetir manuales
 ni describir cada cambio menor.
 
+El diario debe poder leerse como una bitácora del proyecto y, a la vez, enseñar
+la decisión técnica: explicar el cambio, su motivo y un límite o aprendizaje
+útil con lenguaje claro. No sustituye la documentación de uso de cada sistema.
+
+## Colisión de terreno
+
+Durante el blockout, la malla visual puede servir como colisión para probar
+escala, rutas y movimiento. Antes de tratar un terreno como producción, preguntar
+al usuario si desea crear un proxy de colisión más simple o conservar la colisión
+visual actual. No crear ese proxy sin esa decisión explícita.
+
 ## No agregar tests por defecto
 
 No crear tests, archivos de pruebas ni ampliar suites existentes salvo que el

@@ -1,0 +1,86 @@
+[gd_scene format=3]
+
+[sub_resource type="StandardMaterial3D" id="Bark"]
+albedo_color = Color(0.396, 0.361, 0.333, 1)
+roughness = 1.0
+[sub_resource type="StandardMaterial3D" id="Leaves"]
+albedo_color = Color(0.255, 0.408, 0.231, 1)
+roughness = 1.0
+[sub_resource type="StandardMaterial3D" id="Snow"]
+albedo_color = Color(0.86, 0.91, 0.87, 1)
+roughness = 0.95
+[sub_resource type="CylinderMesh" id="Trunk"]
+material = SubResource("Bark")
+top_radius = 0.16
+bottom_radius = 0.22
+height = 2.4
+radial_segments = 8
+[sub_resource type="CylinderMesh" id="Lower"]
+material = SubResource("Leaves")
+top_radius = 0.0
+bottom_radius = 1.45
+height = 2.0
+radial_segments = 8
+[sub_resource type="CylinderMesh" id="Middle"]
+material = SubResource("Leaves")
+top_radius = 0.0
+bottom_radius = 1.14
+height = 2.0
+radial_segments = 8
+[sub_resource type="CylinderMesh" id="Upper"]
+material = SubResource("Leaves")
+top_radius = 0.0
+bottom_radius = 0.83
+height = 2.0
+radial_segments = 8
+[sub_resource type="CylinderMesh" id="SnowLower"]
+material = SubResource("Snow")
+top_radius = 0.0
+bottom_radius = 0.696
+height = 0.92
+radial_segments = 8
+[sub_resource type="CylinderMesh" id="SnowMiddle"]
+material = SubResource("Snow")
+top_radius = 0.0
+bottom_radius = 0.5472
+height = 0.92
+radial_segments = 8
+[sub_resource type="CylinderMesh" id="SnowUpper"]
+material = SubResource("Snow")
+top_radius = 0.0
+bottom_radius = 0.3984
+height = 0.92
+radial_segments = 8
+[sub_resource type="CylinderShape3D" id="Collision"]
+radius = 0.23
+height = 3.0
+
+[node name="SnowPine" type="Node3D"]
+[node name="Trunk" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.2, 0)
+mesh = SubResource("Trunk")
+[node name="LowerBranches" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2, 0)
+mesh = SubResource("Lower")
+[node name="MiddleBranches" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.85, 0)
+mesh = SubResource("Middle")
+[node name="UpperBranches" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.7, 0)
+mesh = SubResource("Upper")
+[node name="SnowCaps" type="Node3D" parent="."]
+[node name="Lower" type="MeshInstance3D" parent="SnowCaps"]
+position = Vector3(0, 2.55, 0)
+mesh = SubResource("SnowLower")
+[node name="Middle" type="MeshInstance3D" parent="SnowCaps"]
+position = Vector3(0, 3.4, 0)
+mesh = SubResource("SnowMiddle")
+[node name="Upper" type="MeshInstance3D" parent="SnowCaps"]
+position = Vector3(0, 4.25, 0)
+mesh = SubResource("SnowUpper")
+[node name="TrunkCollision" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 2
+[node name="Shape" type="CollisionShape3D" parent="TrunkCollision"]
+position = Vector3(0, 1.5, 0)
+shape = SubResource("Collision")

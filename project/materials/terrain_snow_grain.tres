@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" format=3]
+[ext_resource type="Shader" path="res://shaders/terrain_snow_detail.gdshader" id="1"]
+[resource]
+shader = ExtResource("1")
+shader_parameter/grain_scale = 7.0
+shader_parameter/grain_strength = 0.5
+shader_parameter/broad_strength = 0.12
+shader_parameter/micro_relief = 0.1

@@ -54,8 +54,11 @@ signal gliding_changed(active: bool)
 ## Ejemplo: 0,20 sigue desniveles pequeños; 0,45 tolera más cambios. Demasiado alto puede pegar al personaje a bordes. Se aplica al iniciar la escena.
 @export_range(0.05, 0.8) var snap_distance := 0.35
 ## Inclinación máxima caminable, en grados desde el suelo horizontal. Las pendientes superiores con apoyo válido activan deslizamiento.
-## Ejemplo: 40 vuelve resbaladizas más laderas; 55 permite subir laderas mayores. No convierte paredes en suelo. Se aplica al iniciar la escena.
-@export_range(10.0, 60.0) var walkable_slope_degrees := 48.0
+## Ejemplo: 40 vuelve resbaladizas más laderas; 55 permite subir laderas mayores. Responde también al cambiarlo en Remote durante el juego.
+@export_range(10.0, 85.0) var walkable_slope_degrees := 48.0:
+	set(value):
+		walkable_slope_degrees = value
+		floor_max_angle = deg_to_rad(value)
 @export_group("Deslizamiento en pendientes")
 ## Rapidez con que aumenta la velocidad cuesta abajo en pendientes no caminables, en unidades/s².
 ## Ejemplo: 4 hace gradual el deslizamiento; 10 alcanza más pronto Slide Max Speed. No afecta las pendientes caminables.
@@ -174,6 +177,8 @@ var last_landing_speed := 0.0
 var coyote_left := 0.0
 var buffer_left := 0.0
 var step_time := 0.0
+## Surface-specific contact cadence; movement and animation remain independent.
+var step_frequency_multiplier := 1.0
 var input_grace := 0.0
 var horizontal_speed := 0.0
 var motion_acceleration := Vector3.ZERO
@@ -468,7 +473,7 @@ func _physics_process(delta: float) -> void:
 			feedback.emit("land")
 	if is_on_floor() and not is_sliding and horizontal_speed > 0.3:
 		step_time += delta * horizontal_speed
-		var step_distance := animator.stride_length * 0.5 / maxf(0.1, animator.cadence_multiplier)
+		var step_distance := animator.stride_length * 0.5 / maxf(0.1, animator.cadence_multiplier) / maxf(0.1, step_frequency_multiplier)
 		if step_time > step_distance:
 			step_time = fmod(step_time, step_distance)
 			feedback.emit("step")

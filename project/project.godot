@@ -23,6 +23,7 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 [autoload]
 
 DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
+ScenePause="*res://scripts/core/scene_pause.gd"
 
 [dialogue_manager]
 

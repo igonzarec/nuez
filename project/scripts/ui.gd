@@ -180,9 +180,9 @@ func confirm_new() -> void:
 	_button("Empezar de nuevo", "confirm_new")
 	_focus()
 
-func pause_menu() -> void:
+func pause_menu(preview := false) -> void:
 	_begin("pause")
-	_heading("TÓMATE TU TIEMPO", "Un respiro", "Tu progreso se guarda al recoger semillas y restaurar faroles.")
+	_heading("TÓMATE TU TIEMPO", "Un respiro", "Escena de trabajo: los ajustes se comparten con el juego." if preview else "Tu progreso se guarda al recoger semillas y restaurar faroles.")
 	_button("Seguir explorando", "resume")
 	_button("Ajustes", "settings")
 	_button("Volver al título", "title")

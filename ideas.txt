@@ -17,3 +17,11 @@ música clásica como de esos autores, Debussy
 un globito de rayitas cuando alguien te quiere decir algo. y si ya le hablaste, entonces ese globito se cierra ya.
 
 no pausar el juego cuando se interactua con un personaje
+
+cambiar sonido de pasos
+
+TODO · Perfil de sonido por superficie: nieve registrará sus seis clips; roca,
+pasto, madera y otras superficies podrán registrar los suyos. Cada escena
+jugable conservará el audio base coherente y el suelo decidirá los pasos.
+
+no veo textura de nieve en partes planas, tal vez por la luz? hay manera de poder configurar que también sea visible la textura en estas partes? tal vez ponerme también controles para eso. tal vez el material tenga que adaptarse. si quieres conserva el actual y creemos versiones diferentes. así puedo yo ver cuál me parece mejor al final.

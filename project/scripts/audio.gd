@@ -7,6 +7,10 @@ var next_voice := 0
 var music: AudioStreamPlayer
 var wind: AudioStreamPlayer
 var ambience_started := false
+## Surface playback callback: true means the footstep has already been handled.
+var step_handler: Callable
+var jump_handler: Callable
+var land_handler: Callable
 var deploy: AudioStreamPlayer
 var gliding: AudioStreamPlayer
 var glide_fade: Tween
@@ -187,6 +191,12 @@ func _loop(bus: String, stream: AudioStreamWAV, gain: float) -> AudioStreamPlaye
 	return voice
 
 func play(kind: String) -> void:
+	if kind == "jump" and jump_handler.is_valid() and jump_handler.call():
+		return
+	if kind == "land" and land_handler.is_valid() and land_handler.call():
+		return
+	if kind == "step" and step_handler.is_valid() and step_handler.call():
+		return
 	if not sounds.has(kind):
 		return
 	var voice := voices[next_voice]

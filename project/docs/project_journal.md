@@ -4,6 +4,17 @@ Una bitácora breve de decisiones y aprendizajes del proyecto. La documentación
 de referencia explica el detalle; aquí queda el contexto de cómo va creciendo
 el juego.
 
+## 2026-10-04 · Copos y huellas ocultos por el blur
+
+Al activar el blur compartido en la escena de nieve, su prioridad 100 hacía
+que dibujara una captura sin transparencias encima de copos y huellas.
+Se corrigió a -128: primero el fondo desenfocado, después esos efectos.
+Los ajustes artísticos se conservaron. Aprendizaje: cambiar un default global
+también puede alterar cómo se combinan sistemas que funcionaban por separado.
+Las hipótesis previas sobre partículas e índices de colisión no se confirmaron.
+La escena arranca en Godot 4.6; falta confirmar visualmente el resultado.
+El diagnóstico y la comprobación manual están en `terrain_snow_playground.md`.
+
 ## Base del proyecto
 
 - **Lantern Trail** es una expedición 3D corta en Godot 4.6 protagonizada por
@@ -40,6 +51,23 @@ el juego.
 - Se añadieron sonidos para movimiento, planeo, interacción y cámara. El nodo
   `TrailAudio` centraliza las conexiones de jugador y cámara para que una
   escena de vista previa reciba el mismo audio que la escena principal.
+
+## Cámara y superficies sólidas
+
+- La cámara compartida ahora consulta una esfera desde la ardilla hasta su
+  posición deseada. Las superficies de la capa física **Camera Blocker** hacen
+  que la cámara conserve su ángulo, pero se acerque antes de atravesarlas.
+- El terreno de nieve, la montaña de prueba y los sólidos principales del
+  nivel usan esa capa. El jugador sigue usando su colisión normal; la capa
+  adicional sólo sirve para decidir qué bloquea la vista.
+- El mínimo de distancia evita que un obstáculo convierta el encuadre en un
+  primer plano accidental. Radio, margen, distancia mínima, recuperación y
+  suavidad de regreso se ajustan en `CameraRig`, dentro de **Colisión de
+  cámara**. La entrada hacia un obstáculo es inmediata; la salida se suaviza.
+- Esta medida impide que el recorrido normal muestre el reverso de un terreno
+  abierto. Si más adelante se permite una cámara libre bajo el mundo, el
+  terreno también necesitará grosor o una falda visual para ocultar su cara
+  inferior.
 
 ## Primera montaña de aprendizaje
 
