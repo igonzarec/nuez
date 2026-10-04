@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://eqhp31fg7jxu"]
+
+[ext_resource type="PackedScene" uid="uid://b0o7ps66ahddy" path="res://assets/mountain/mountain_v01_blockout.glb" id="1_n16j3"]
+[ext_resource type="PackedScene" uid="uid://b2buwrxrdguj8" path="res://assets/playertest2/playertest2.glb" id="2_ntrdl"]
+
+[node name="MountainPreview" type="Node3D" unique_id=273613452]
+
+[node name="mountain_v01_blockout" parent="." unique_id=1762468839 instance=ExtResource("1_n16j3")]
+
+[node name="playertest2" parent="." unique_id=2052057573 instance=ExtResource("2_ntrdl")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -110, 0, 0)

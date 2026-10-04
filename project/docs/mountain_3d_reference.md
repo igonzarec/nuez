@@ -33,6 +33,24 @@ Evitar escalas no uniformes permanentes, por ejemplo X=2, Y=0.7, Z=3, porque
 vuelven menos intuitivas las colisiones, distancias, escalada y colocación de
 objetos.
 
+### Escala de referencia de la ardilla
+
+La escala actual del personaje jugable sirve como referencia para modelar la
+montaña y sus elementos. El modelo visual `assets/playertest2/playertest2.glb`,
+medido en su pose base e incluyendo orejas y cola, ocupa aproximadamente:
+
+| Medida | Tamaño |
+| --- | ---: |
+| Alto | 1,84 m |
+| Ancho | 1,01 m |
+| Profundidad | 1,16 m |
+
+La cápsula de colisión del jugador tiene un radio de **0,42 m** y una altura de
+**1,42 m**. La ardilla está planteada como un personaje antropomórfico; estas
+medidas no intentan representar el tamaño de una ardilla real. Para el diseño
+del entorno, puertas, repisas, rocas y espacios de paso deben sentirse
+proporcionados a esta escala.
+
 ## Rendimiento y optimización
 
 Una montaña low-poly bien hecha no tiene por qué ser pesada. Como orientación

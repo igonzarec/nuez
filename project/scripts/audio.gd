@@ -67,6 +67,17 @@ func _ready() -> void:
 		layer.process_mode = Node.PROCESS_MODE_PAUSABLE
 		layer.volume_linear = 0.0
 
+func bind_player(actor: ExplorerPlayer) -> void:
+	var feedback_callback := Callable(self, "play")
+	if not actor.feedback.is_connected(feedback_callback):
+		actor.feedback.connect(feedback_callback)
+	bind_gliding(actor)
+
+func bind_camera(camera_rig: TrailCamera) -> void:
+	var recenter_callback := Callable(self, "play").bind("camera_recenter")
+	if not camera_rig.recenter_requested.is_connected(recenter_callback):
+		camera_rig.recenter_requested.connect(recenter_callback)
+
 func bind_gliding(actor: ExplorerPlayer) -> void:
 	set_gliding(false)
 	glide_fade_in = actor.gliding_fade_in
@@ -79,8 +90,12 @@ func bind_gliding(actor: ExplorerPlayer) -> void:
 		layer.pitch_scale = actor.gliding_pitch
 	glide_random_start = actor.gliding_random_start
 	glide_crossfade = minf(actor.gliding_loop_crossfade, gliding.stream.get_length() / actor.gliding_pitch * 0.25)
-	actor.gliding_changed.connect(set_gliding)
-	actor.tree_exiting.connect(set_gliding.bind(false))
+	var gliding_callback := Callable(self, "set_gliding")
+	if not actor.gliding_changed.is_connected(gliding_callback):
+		actor.gliding_changed.connect(gliding_callback)
+	var exiting_callback := Callable(self, "set_gliding").bind(false)
+	if not actor.tree_exiting.is_connected(exiting_callback):
+		actor.tree_exiting.connect(exiting_callback)
 
 func _process(delta: float) -> void:
 	# TrailAudio sigue activo en menús; el retraso debe usar tiempo de juego.

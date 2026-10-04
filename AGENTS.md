@@ -1,5 +1,19 @@
 # Instrucciones del proyecto
 
+## Versión de Godot
+
+El proyecto usa **Godot 4.6**. Al escribir código, configurar importaciones o
+dar instrucciones del editor, usar las APIs y la interfaz compatibles con esa
+versión.
+
+## Diario del proyecto
+
+El diario técnico vive en `project/docs/project_journal.md`. Al completar una
+feature o un aprendizaje relevante, preguntar al usuario si quiere añadir una
+entrada. Las entradas deben ser breves, amenas y técnicas: registrar qué cambió,
+la decisión tomada y cualquier aprendizaje o límite útil, sin repetir manuales
+ni describir cada cambio menor.
+
 ## No agregar tests por defecto
 
 No crear tests, archivos de pruebas ni ampliar suites existentes salvo que el

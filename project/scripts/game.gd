@@ -84,8 +84,7 @@ func _build_session(data: Dictionary) -> void:
 	# siguen siendo puntos de recuperación para caídas durante la exploración.
 	player.position = TrailLevel.summit_spawn()
 	level.add_child(player)
-	player.feedback.connect(audio.play)
-	audio.bind_gliding(player)
+	audio.bind_player(player)
 	player.respawned.connect(func() -> void: ui.toast("De vuelta en un lugar seguro."))
 	camera_rig = load("res://scenes/camera_rig.tscn").instantiate() as TrailCamera
 	camera_rig.target = player
@@ -93,8 +92,8 @@ func _build_session(data: Dictionary) -> void:
 	player.camera_rig = camera_rig
 	camera_rig.sensitivity = settings.sensitivity
 	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
-	# R2 / C tiene un sonido propio para que el recentrado se sienta distinguible.
-	camera_rig.recenter_requested.connect(func() -> void: audio.play("camera_recenter"))
+	# TrailAudio conserva todas las conexiones de audio del personaje y la cámara.
+	audio.bind_camera(camera_rig)
 	interaction = TrailInteraction.new()
 	interaction.process_mode = Node.PROCESS_MODE_PAUSABLE
 	interaction.player = player
