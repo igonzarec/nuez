@@ -77,6 +77,7 @@ directional_shadow_max_distance = 220.0
 
 [node name="SnowStepAudio" type="Node" parent="." unique_id=1507846909]
 script = ExtResource("9")
+volume_db = -20.5
 
 [node name="Help" type="CanvasLayer" parent="." unique_id=1937505374]
 
