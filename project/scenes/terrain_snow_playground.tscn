@@ -10,13 +10,28 @@
 [ext_resource type="Script" uid="uid://c2qwvur5vxqs1" path="res://scripts/snow/snow_weather.gd" id="8"]
 [ext_resource type="Script" uid="uid://rb7u7dp2iu6a" path="res://scripts/snow/snow_step_audio.gd" id="9"]
 [ext_resource type="PackedScene" path="res://scenes/props/snow_pine.tscn" id="11_0urhb"]
+[ext_resource type="PackedScene" path="res://scenes/sky/stylized_sky.tscn" id="12_sky"]
 
-[sub_resource type="Environment" id="Environment_snow"]
-background_mode = 1
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_0urhb"]
+sky_top_color = Color(0.015, 0.33, 0.85, 1)
+sky_horizon_color = Color(0.52, 0.78, 0.95, 1)
+sky_curve = 0.8
+ground_bottom_color = Color(0.39, 0.585, 0.7125, 1)
+ground_horizon_color = Color(0.52, 0.78, 0.95, 1)
+sun_angle_max = 2.0
+
+[sub_resource type="Sky" id="Sky_tlnip"]
+sky_material = SubResource("ProceduralSkyMaterial_0urhb")
+
+[sub_resource type="Environment" id="Environment_e13jy"]
+background_mode = 2
 background_color = Color(0.42, 0.58, 0.68, 1)
-ambient_light_source = 3
+sky = SubResource("Sky_tlnip")
+ambient_light_source = 2
 ambient_light_color = Color(0.68, 0.79, 0.92, 1)
 ambient_light_energy = 0.35
+fog_light_color = Color(0.65, 0.78, 0.9, 1)
+fog_density = 0.0
 
 [sub_resource type="LabelSettings" id="Label_help"]
 font_size = 17
@@ -66,10 +81,10 @@ script = ExtResource("8")
 ceiling = 40.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1777293449]
-environment = SubResource("Environment_snow")
+environment = SubResource("Environment_e13jy")
 
 [node name="Sunlight" type="DirectionalLight3D" parent="." unique_id=1901687294]
-transform = Transform3D(0.8480481, 0.3938068, -0.35458517, 0, 0.66913056, 0.74314487, 0.52991927, -0.63022256, 0.5674549, 0, 0, 0)
+transform = Transform3D(0.7431448, 0.497261, -0.44773573, 0, 0.66913056, 0.7431448, 0.6691306, -0.5522643, 0.49726087, 0, 0, 0)
 light_color = Color(1, 0.96, 0.89, 1)
 light_energy = 0.65
 shadow_enabled = true
@@ -78,6 +93,11 @@ directional_shadow_max_distance = 220.0
 [node name="SnowStepAudio" type="Node" parent="." unique_id=1507846909]
 script = ExtResource("9")
 volume_db = -20.5
+
+[node name="StylizedSky" parent="." unique_id=2064470292 instance=ExtResource("12_sky")]
+environment_path = NodePath("../WorldEnvironment")
+sunlight_path = NodePath("../Sunlight")
+altitude_range = Vector2(35, 75)
 
 [node name="Help" type="CanvasLayer" parent="." unique_id=1937505374]
 

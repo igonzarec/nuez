@@ -1,0 +1,14 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/sky/sky_profile.gd" id="1"]
+[resource]
+script = ExtResource("1")
+label = "Amanecer"
+zenith = Color(0.28, 0.43, 0.7, 1)
+horizon = Color(1, 0.73, 0.6, 1)
+cloud_color = Color(1, 0.86, 0.78, 1)
+cloud_shadow = Color(0.48, 0.51, 0.68, 1)
+sun_color = Color(1, 0.74, 0.55, 1)
+sun_energy = 0.4
+sun_elevation = 10.0
+sun_azimuth = 130.0
+ambient_energy = 0.3

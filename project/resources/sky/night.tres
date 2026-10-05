@@ -1,0 +1,13 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/sky/sky_profile.gd" id="1"]
+[resource]
+script = ExtResource("1")
+label = "Noche"
+zenith = Color(0.008, 0.014, 0.055, 1)
+horizon = Color(0.055, 0.08, 0.16, 1)
+cloud_color = Color(0.16, 0.2, 0.3, 1)
+cloud_shadow = Color(0.04, 0.06, 0.12, 1)
+sun_energy = 0.0
+sun_elevation = -20.0
+ambient_color = Color(0.25, 0.34, 0.55, 1)
+ambient_energy = 0.18

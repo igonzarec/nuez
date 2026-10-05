@@ -1,0 +1,14 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+[ext_resource type="Script" path="res://scripts/sky/sky_profile.gd" id="1"]
+[resource]
+script = ExtResource("1")
+label = "Atardecer"
+zenith = Color(0.22, 0.18, 0.46, 1)
+horizon = Color(1, 0.52, 0.3, 1)
+cloud_color = Color(1, 0.78, 0.59, 1)
+cloud_shadow = Color(0.38, 0.3, 0.48, 1)
+sun_color = Color(1, 0.55, 0.3, 1)
+sun_energy = 0.45
+sun_elevation = 8.0
+ambient_color = Color(0.58, 0.48, 0.67, 1)
+ambient_energy = 0.28
