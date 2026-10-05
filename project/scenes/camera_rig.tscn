@@ -6,7 +6,7 @@
 script = ExtResource("1")
 distance = 18.0
 pitch_degrees = -40.0
-vertical_range_degrees = 12.0
+vertical_range_degrees = 22.0
 stick_speed = 2.5
 glide_pitch_degrees = -40.0
 glide_camera_speed = 3.0
