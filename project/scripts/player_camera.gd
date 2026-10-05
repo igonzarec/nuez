@@ -82,19 +82,19 @@ signal recenter_requested
 @export_range(0.0, 60.0, 1.0) var camera_obstacle_lift := 25.0
 ## Velocidad de subida de la cámara, en grados por segundo.
 @export_range(1.0, 120.0, 1.0) var camera_lift_speed := 35.0
-## Constante del ease-out al bajar a la inclinación elegida. Valores mayores frenan más tarde.
-@export_range(1.0, 90.0, 1.0) var camera_return_speed := 14.0
+## Rapidez del regreso a la inclinación elegida. Valores mayores regresan antes.
+@export_range(1.0, 90.0, 1.0) var camera_return_speed := 12.0
 ## Fracción de la velocidad anterior que se conserva como piso al llegar al objetivo.
 ## 0.2 = la cámara nunca baja más lento que el 20% de Camera Return Speed.
 @export_range(0.0, 1.0, 0.05) var camera_return_floor := 0.2
 ## Espacio libre adicional exigido para bajar. Evita oscilar al rozar el borde.
 @export_range(0.0, 2.0, 0.05) var camera_return_clearance := 0.4
 ## Tiempo continuo con espacio para bajar antes de iniciar el regreso.
-@export_range(0.0, 2.0, 0.05) var camera_return_delay := 0.35
+@export_range(0.0, 2.0, 0.05) var camera_return_delay := 0.2
 ## Cuánto tiempo, en segundos, se mantiene la elevación ganada tras un obstáculo.
 ## Evita que la cámara baje en claros breves al descender una pendiente irregular.
-## 0 = comportamiento anterior. 1.5 suave. 3-4 en montañas muy rotas.
-@export_range(0.0, 5.0, 0.1) var camera_lift_hold_time := 1.5
+## 0 = sin memoria. 0.3 ágil. 1.5 o más para montañas muy quebradas.
+@export_range(0.0, 5.0, 0.1) var camera_lift_hold_time := 0.3
 var sensitivity := 1.0
 var target: ExplorerPlayer
 var enabled := false

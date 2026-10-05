@@ -4,7 +4,6 @@
 
 [node name="OrbitCamera" type="Node3D" unique_id=1643455216]
 script = ExtResource("1")
-distance = 18.0
 pitch_degrees = -40.0
 vertical_range_degrees = 22.0
 stick_speed = 2.5
