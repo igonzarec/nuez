@@ -36,6 +36,18 @@ La noche no incorpora aún luna, estrellas ni ciclo automático.
 
 ## Nubes
 
+**Live Preview** está activado por defecto en StylizedSky y en las nubes
+individuales. Las propiedades que indican «regenerar» se reconstruyen
+automáticamente en el editor cuando dejas de modificarlas durante **Preview
+Delay** (0,35 s). Al arrastrar un slider se conserva la última malla hasta ese
+momento. Colores, dimensiones y proporciones siguen actualizándose inmediatamente.
+
+Desactiva Live Preview para hacer varios ajustes y aplicar todo con **Regenerate
+Clouds** o **Regenerate Shape**. Al reactivarlo se aplican los cambios pendientes.
+El preview sólo reconstruye en el editor, no automáticamente durante una partida.
+Cantidades altas y Roundness elevado pueden causar una pausa al reconstruir;
+la espera agrupa cambios, pero no elimina el coste de generación.
+
 Cada nube es ahora una única superficie opaca, extraída de una unión suave de
 volúmenes elipsoidales. Los lóbulos son controles de forma, no esferas visibles
 superpuestas. Las normales continuas suavizan la luz a través de las uniones.

@@ -1,0 +1,10 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+snow_normal.png (1024, 1024) RGBA8
+snow_roughness.png (1024, 1024) RGBA8
+snow_height.png (1024, 1024) RGBA8
+snow_albedo_height.png (1024, 1024) RGBA8
+snow_normal_roughness.png (1024, 1024) RGBA8
+Maximum opposite-edge RGB difference: 0.01568627357483

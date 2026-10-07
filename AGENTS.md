@@ -18,6 +18,26 @@ El diario debe poder leerse como una bitácora del proyecto y, a la vez, enseña
 la decisión técnica: explicar el cambio, su motivo y un límite o aprendizaje
 útil con lenguaje claro. No sustituye la documentación de uso de cada sistema.
 
+## Controles y documentación en el Inspector
+
+Los sistemas y componentes nuevos o modificados deben ofrecer controles de
+autoría completos y manipulables en el Inspector de Godot: exponer los valores
+que el usuario necesita ajustar para diseño, apariencia y comportamiento, con
+nombres claros, grupos y rangos apropiados. Incluir activación/desactivación
+cuando corresponda. Evitar constantes ocultas que obliguen a editar código
+para ajustes habituales de diseño.
+
+Documentar cada propiedad exportada con comentarios `##` visibles como ayuda:
+qué cambia, unidades, efecto de aumentar o reducir el valor, dependencias y
+coste de rendimiento cuando sea relevante. Indicar si se actualiza en vivo o
+requiere regeneración, y ofrecer Live Preview para geometría procedural cuando
+sea práctico, agrupando cambios costosos. Documentar también la ubicación de
+los controles y ejemplos de uso en `project/docs/`.
+
+Conservar los valores personalizados y las colocaciones manuales del usuario
+al modificar código o regenerar contenido. Los cambios de defaults deben ser
+explícitos y no sobrescribir ajustes existentes sin autorización.
+
 ## Colisión de terreno
 
 Durante el blockout, la malla visual puede servir como colisión para probar

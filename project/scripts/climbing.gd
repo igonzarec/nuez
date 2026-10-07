@@ -24,8 +24,11 @@ func _wall_hit(direction: Vector3) -> Dictionary:
 	var hit := _ray(chest, chest + direction * actor.climb_grab_distance)
 	if hit.is_empty() or not hit.collider is Node or not hit.collider.is_in_group("climbable"):
 		return {}
+	if hit.collider.has_method("allows_climb") and not hit.collider.allows_climb(hit.position):
+		return {}
 	var normal: Vector3 = hit.normal
-	if absf(normal.y) > 0.25:
+	var normal_limit: float = hit.collider.climb_normal_limit() if hit.collider.has_method("climb_normal_limit") else 0.25
+	if absf(normal.y) > normal_limit:
 		return {}
 	if direction.dot(-normal) < cos(deg_to_rad(actor.climb_facing_angle_degrees)):
 		return {}

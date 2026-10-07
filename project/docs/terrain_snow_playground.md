@@ -13,7 +13,11 @@ ejecutar esta escena. **F8** la detiene; **F5** abre el juego principal.
 WASD mueve, Shift corre, Espacio salta y permite planear con una nueva pulsación
 en el aire. Mantén clic derecho para mover la cámara; C recentra; R devuelve al
 inicio. También se conservan los controles de mando del jugador existente.
-La escalada está desactivada en esta escena por ahora.
+La escalada está activada en el nuevo **ClimbableCliff**: mantén Espacio frente
+a la roca y usa WASD para subir o desplazarte lateralmente. El test inicia
+frente a esa pared mediante **CliffTestStart**. Para volver al inicio anterior,
+vacía **Spawn Marker** en la raíz. Consulta [Acantilado escalable](climbable_cliff.md)
+para colocar repisas, cambiar sus materiales y delimitar las zonas escalables.
 
 En el árbol **Scene**, arriba a la izquierda, selecciona un nodo; sus controles
 aparecen en **Inspector**, a la derecha. Edita con el juego detenido y guarda

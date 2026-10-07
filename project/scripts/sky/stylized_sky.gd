@@ -4,7 +4,7 @@ const Cloud = preload("res://scripts/sky/stylized_cloud.gd")
 const Profile = preload("res://scripts/sky/sky_profile.gd")
 @export_group("Ambiente manual")
 ## Perfil principal. Edita el recurso para personalizar todos sus colores y luces.
-@export var primary_profile: Resource = preload("res://resources/sky/day.tres")
+@export var primary_profile: Resource = preload("res://resources/sky/snow_day.tres")
 ## Segundo perfil para una transición manual; puede dejarse vacío.
 @export var secondary_profile: Resource = preload("res://resources/sky/sunset.tres")
 ## 0 usa el principal; 1 usa el secundario. No avanza automáticamente.
@@ -59,6 +59,11 @@ const Profile = preload("res://scripts/sky/sky_profile.gd")
 ## Transición entre el color iluminado y la sombra; mayor valor suaviza en vivo.
 @export_range(0.05, 1.0, 0.01) var shading_softness := 0.75
 @export_tool_button("Regenerate Clouds") var regenerate_action = regenerate_clouds
+@export_group("Vista previa en el editor")
+## Actualiza forma y distribución tras editar sus controles. Apágalo para trabajar manualmente.
+@export var live_preview := true
+## Tiempo tras el último cambio antes de regenerar; evita reconstruir por cada paso de un slider.
+@export_range(0.1, 1.5, 0.05) var preview_delay := 0.35
 @export_group("Viento")
 ## Dirección horizontal del viento, en grados.
 @export_range(-180.0, 180.0, 1.0) var wind_direction := 20.0
@@ -71,6 +76,9 @@ var _sun: DirectionalLight3D
 var _sky_material: ProceduralSkyMaterial
 var _clouds: Node3D
 var _profile_signature := 0
+var _built_clouds: Array = []
+var _observed_clouds: Array = []
+var _preview_wait := 0.0
 
 func _ready() -> void:
 	_environment = get_node_or_null(environment_path) as WorldEnvironment if not environment_path.is_empty() else null
@@ -125,6 +133,8 @@ func regenerate_clouds() -> void:
 			continue
 		positions.append(point)
 		var cloud := Cloud.new()
+		# El cielo controla la reconstrucción del conjunto; no duplicar previews.
+		cloud.live_preview = false
 		cloud.name = "Cloud%02d" % i
 		var shape_rng := RandomNumberGenerator.new()
 		shape_rng.seed = shape_seed + i * 71
@@ -148,10 +158,25 @@ func regenerate_clouds() -> void:
 	_profile_signature = 0
 	if is_instance_valid(_environment) and is_instance_valid(_sun):
 		_apply_profile()
+	_built_clouds = _cloud_settings()
+	_observed_clouds = _built_clouds.duplicate()
+	_preview_wait = 0.0
+
+func _cloud_settings() -> Array:
+	return [cloud_count, distribution_seed, distribution_radius, minimum_spacing, altitude_range, size_range, lobes, irregularity, shape_seed, lobe_count_variation, asymmetry, lobe_size_variation, peak_height, peak_variation, base_flatness, roundness, fusion_softness]
 
 func _process(delta: float) -> void:
 	if not is_instance_valid(_environment) or not is_instance_valid(_sun):
 		return
+	if Engine.is_editor_hint() and live_preview:
+		var settings := _cloud_settings()
+		if settings != _observed_clouds:
+			_observed_clouds = settings
+			_preview_wait = 0.0
+		if settings != _built_clouds:
+			_preview_wait += delta
+			if _preview_wait >= preview_delay:
+				regenerate_clouds()
 	_apply_profile()
 	if not is_instance_valid(_clouds):
 		return

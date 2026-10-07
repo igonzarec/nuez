@@ -20,6 +20,10 @@ config/use_custom_user_dir=true
 config/custom_user_dir_name="LanternTrail"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
+[audio]
+
+buses/default_bus_layout="uid://beko10tig1mrv"
+
 [autoload]
 
 DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
@@ -43,7 +47,7 @@ project/assembly_name="Explorer Squirrel- Lantern Trail"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/dialogue_manager/plugin.cfg")
+enabled=PackedStringArray("res://addons/dialogue_manager/plugin.cfg", "res://addons/terrain_3d/plugin.cfg")
 
 [internationalization]
 

@@ -25,9 +25,16 @@ extends Node3D
 ## Anchura de transición entre luz y sombra; mayor es más suave.
 @export_range(0.05, 1.0, 0.01) var shading_softness := 0.75
 @export_tool_button("Regenerate Shape") var regenerate_action = regenerate
+## Reconstruye automáticamente la forma al editarla. Sólo actúa en el editor.
+@export var live_preview := true
+## Espera después del último cambio para agrupar el arrastre de sliders.
+@export_range(0.1, 1.5, 0.05) var preview_delay := 0.35
 var sun_direction := Vector3(0.4, 0.8, 0.3)
 var _mesh: MeshInstance3D
 var _material: ShaderMaterial
+var _built_shape: Array = []
+var _observed_shape: Array = []
+var _preview_wait := 0.0
 
 func _ready() -> void:
 	regenerate()
@@ -72,9 +79,24 @@ func regenerate() -> void:
 	_mesh.material_override = _material
 	add_child(_mesh)
 	_update_material()
+	_built_shape = _shape_settings()
+	_observed_shape = _built_shape.duplicate()
+	_preview_wait = 0.0
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if Engine.is_editor_hint() and live_preview:
+		var settings := _shape_settings()
+		if settings != _observed_shape:
+			_observed_shape = settings
+			_preview_wait = 0.0
+		if settings != _built_shape:
+			_preview_wait += delta
+			if _preview_wait >= preview_delay:
+				regenerate()
 	_update_material()
+
+func _shape_settings() -> Array:
+	return [shape_seed, lobes, irregularity, asymmetry, lobe_size_variation, peak_height, base_flatness, roundness, fusion_softness]
 
 func _update_material() -> void:
 	if not is_instance_valid(_mesh):

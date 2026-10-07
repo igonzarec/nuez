@@ -1,0 +1,12 @@
+[gd_resource type="Resource" format=3 uid="uid://c8uqxve2468pq"]
+
+[ext_resource type="Script" uid="uid://187ghy73ut7n" path="res://scripts/sky/sky_profile.gd" id="1_eso7o"]
+
+[resource]
+script = ExtResource("1_eso7o")
+zenith = Color(0.03759416, 0.41512576, 0.58637613, 1)
+horizon = Color(0.52192205, 0.69517577, 0.9999991, 1)
+sun_color = Color(0.93333334, 0.8997023, 0.6882639, 1)
+sun_energy = 0.35
+shadow_opacity = 0.95
+sun_elevation = 44.0

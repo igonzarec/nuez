@@ -1,0 +1,13 @@
+[gd_resource type="Terrain3DTextureAsset" format=3 uid="uid://c1ipmlmjpjob7"]
+
+[ext_resource type="Texture2D" uid="uid://hkp058erd2bl" path="res://assets/textures/grass_carpet/grass_albedo_height.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://ct6uvouoel3vk" path="res://assets/textures/grass_carpet/grass_normal_roughness.png" id="2"]
+
+[resource]
+name = "Grass Carpet"
+albedo_color = Color(0.5176471, 0.6117647, 0.4627451, 1)
+albedo_texture = ExtResource("1")
+normal_texture = ExtResource("2")
+normal_depth = 2.0
+ao_strength = 0.0
+roughness = -0.464

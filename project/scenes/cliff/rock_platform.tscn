@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/cliff/cliff_piece.gd" id="1"]
+
+[node name="RockPlatform" type="StaticBody3D"]
+script = ExtResource("1")
+piece_type = 1
+dimensions = Vector3(4, 1, 4)
+relief = 0.0
+rim_variation = 0.0
+bevel = 0.05
+corner_variation = 0.05
+side_relief = 0.08

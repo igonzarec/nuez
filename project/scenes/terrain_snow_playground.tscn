@@ -11,8 +11,10 @@
 [ext_resource type="Script" uid="uid://rb7u7dp2iu6a" path="res://scripts/snow/snow_step_audio.gd" id="9"]
 [ext_resource type="PackedScene" path="res://scenes/props/snow_pine.tscn" id="11_0urhb"]
 [ext_resource type="PackedScene" path="res://scenes/sky/stylized_sky.tscn" id="12_sky"]
+[ext_resource type="PackedScene" path="res://scenes/cliff/climbable_cliff.tscn" id="cliff"]
+[ext_resource type="Script" uid="uid://7ky7l8sqpvrj" path="res://scripts/action_legend.gd" id="legend"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_0urhb"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_e13jy"]
 sky_top_color = Color(0.015, 0.33, 0.85, 1)
 sky_horizon_color = Color(0.52, 0.78, 0.95, 1)
 sky_curve = 0.8
@@ -20,13 +22,13 @@ ground_bottom_color = Color(0.39, 0.585, 0.7125, 1)
 ground_horizon_color = Color(0.52, 0.78, 0.95, 1)
 sun_angle_max = 2.0
 
-[sub_resource type="Sky" id="Sky_tlnip"]
-sky_material = SubResource("ProceduralSkyMaterial_0urhb")
+[sub_resource type="Sky" id="Sky_ggyy5"]
+sky_material = SubResource("ProceduralSkyMaterial_e13jy")
 
-[sub_resource type="Environment" id="Environment_e13jy"]
+[sub_resource type="Environment" id="Environment_icy56"]
 background_mode = 2
 background_color = Color(0.42, 0.58, 0.68, 1)
-sky = SubResource("Sky_tlnip")
+sky = SubResource("Sky_ggyy5")
 ambient_light_source = 2
 ambient_light_color = Color(0.68, 0.79, 0.92, 1)
 ambient_light_energy = 0.35
@@ -40,11 +42,93 @@ outline_color = Color(0.08, 0.12, 0.18, 1)
 
 [node name="TerrainSnowPlayground" type="Node3D" unique_id=165106990]
 script = ExtResource("1")
+spawn_marker = NodePath("CliffTestStart")
+
+[node name="ClimbableCliff" parent="." unique_id=47545430 instance=ExtResource("cliff")]
+transform = Transform3D(0.09684888, 0.14834216, 0.9841825, -0.041892, 0.9885621, -0.14488012, -0.9944169, -0.027197883, 0.10195542, 59.822876, 16.034233, -105)
+collision_layer = 5
+collision_mask = 0
+terrain_path = NodePath("../SnowTerrain")
+
+[node name="RestLower" parent="ClimbableCliff/Platforms" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, 0, 0)
+visible = false
+collision_layer = 5
+collision_mask = 0
+
+[node name="RestRight" parent="ClimbableCliff/Platforms" index="1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 0, 0)
+visible = false
+collision_layer = 5
+collision_mask = 0
+
+[node name="RestUpper" parent="ClimbableCliff/Platforms" index="2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.23532, 10, -5.4683933)
+visible = false
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold01" parent="ClimbableCliff/Platforms" index="3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1.8, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold02" parent="ClimbableCliff/Platforms" index="4"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 5, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold03" parent="ClimbableCliff/Platforms" index="5"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 9.2, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold04" parent="ClimbableCliff/Platforms" index="6"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 12.8, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold05" parent="ClimbableCliff/Platforms" index="7"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 17, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold06" parent="ClimbableCliff/Platforms" index="8"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 20.6, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold07" parent="ClimbableCliff/Platforms" index="9"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 27.2, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold08" parent="ClimbableCliff/Platforms" index="10"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 30.2, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="Foothold09" parent="ClimbableCliff/Platforms" index="11"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 33.2, 1)
+collision_layer = 5
+collision_mask = 0
+
+[node name="ExampleRoute" parent="ClimbableCliff/ClimbZones" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 49.071747, 30.4259, 5.1845512)
+gizmo_extents = 7.69
+
+[node name="CliffFill" parent="ClimbableCliff" index="2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 28)
+
+[node name="CliffTestStart" type="Marker3D" parent="." unique_id=700782341]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 43, 65, -105)
 
 [node name="SnowTerrain" type="Node3D" parent="." unique_id=1648765002]
 script = ExtResource("2")
 source = ExtResource("3")
 snow_material = ExtResource("4")
+rounding_strength = 0.0
+snow_rounding_strength = 1.0
 
 [node name="SnowZones" type="Node3D" parent="SnowTerrain" unique_id=365502227]
 
@@ -72,7 +156,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 65, 30)
 [node name="SquirrelExplorer" parent="." unique_id=413883362 instance=ExtResource("6")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 65, 30)
 walkable_slope_degrees = 60.0
-climb_enabled = false
 
 [node name="CameraRig" parent="." unique_id=424448141 instance=ExtResource("7")]
 
@@ -81,7 +164,7 @@ script = ExtResource("8")
 ceiling = 40.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1777293449]
-environment = SubResource("Environment_e13jy")
+environment = SubResource("Environment_icy56")
 
 [node name="Sunlight" type="DirectionalLight3D" parent="." unique_id=1901687294]
 transform = Transform3D(0.7431448, 0.497261, -0.44773573, 0, 0.66913056, 0.7431448, 0.6691306, -0.5522643, 0.49726087, 0, 0, 0)
@@ -100,6 +183,9 @@ sunlight_path = NodePath("../Sunlight")
 altitude_range = Vector2(35, 75)
 
 [node name="Help" type="CanvasLayer" parent="." unique_id=1937505374]
+visible = false
+script = ExtResource("legend")
+show_action_legend = false
 
 [node name="Controls" type="Label" parent="Help" unique_id=7576253]
 offset_left = 20.0
@@ -157,3 +243,5 @@ transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.9731
 
 [node name="SnowPine16" parent="." unique_id=192528424 instance=ExtResource("11_0urhb")]
 transform = Transform3D(0.72020817, -0.22996481, -0.65453523, 0.17018364, 0.97319895, -0.15466526, 0.6725606, 0, 0.7400421, -71.206474, 51.9157, -82.78557)
+
+[editable path="ClimbableCliff"]

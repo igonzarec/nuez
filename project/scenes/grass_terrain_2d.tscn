@@ -1,0 +1,81 @@
+[gd_scene format=3 uid="uid://dbhq64av57erg"]
+
+[ext_resource type="Terrain3DTextureAsset" path="res://assets/textures/ground_flat_color.tres" id="1_flat"]
+[ext_resource type="Texture2D" uid="uid://oaxgxh027x0p" path="res://assets/textures/grass_card.png" id="3_card"]
+
+[sub_resource type="Gradient" id="Gradient_v6ea5"]
+offsets = PackedFloat32Array(0.2, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0, 0, 0, 1)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_j8lo7"]
+noise_type = 2
+frequency = 0.03
+cellular_jitter = 3.0
+cellular_return_type = 0
+domain_warp_enabled = true
+domain_warp_type = 1
+domain_warp_amplitude = 50.0
+domain_warp_fractal_type = 2
+domain_warp_fractal_lacunarity = 1.5
+domain_warp_fractal_gain = 1.0
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_elxva"]
+noise = SubResource("FastNoiseLite_j8lo7")
+color_ramp = SubResource("Gradient_v6ea5")
+seamless = true
+
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_u7tse"]
+_shader_parameters = {
+&"bias_distance": null,
+&"blend_sharpness": null,
+&"depth_blur": null,
+&"enable_macro_variation": null,
+&"enable_projection": null,
+&"flat_terrain_normals": null,
+&"macro_variation1": null,
+&"macro_variation2": null,
+&"macro_variation_slope": null,
+&"mipmap_bias": null,
+&"noise1_angle": null,
+&"noise1_offset": null,
+&"noise1_scale": null,
+&"noise2_scale": null,
+&"noise_texture": SubResource("NoiseTexture2D_elxva"),
+&"projection_threshold": null
+}
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_card"]
+transparency = 2
+alpha_scissor_threshold = 0.5
+alpha_antialiasing_mode = 0
+cull_mode = 2
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("3_card")
+backlight_enabled = true
+backlight = Color(0.5, 0.5, 0.5, 1)
+distance_fade_mode = 1
+distance_fade_min_distance = 128.0
+distance_fade_max_distance = 96.0
+
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_card"]
+name = "Grass Card"
+generated_type = 1
+cast_shadows = 0
+material_override = SubResource("StandardMaterial3D_card")
+generated_faces = 1
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 1287.6
+
+[sub_resource type="Terrain3DAssets" id="Terrain3DAssets_flat"]
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_card")])
+texture_list = Array[Terrain3DTextureAsset]([ExtResource("1_flat")])
+
+[node name="GrassTerrain2D" type="Node3D" unique_id=1036204419]
+
+[node name="Terrain3D" type="Terrain3D" parent="." unique_id=1343014889]
+data_directory = "res://terrain_data/terrain_data_grass"
+material = SubResource("Terrain3DMaterial_u7tse")
+assets = SubResource("Terrain3DAssets_flat")
+top_level = true
+metadata/_edit_lock_ = true

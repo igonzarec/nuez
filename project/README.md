@@ -61,6 +61,10 @@ Al subir pendientes, el controlador conserva la velocidad sobre la superficie y 
 
 ## Expedición
 
+Para el test editable de roca nevada en `terrain_snow_playground.tscn`, consulta
+[Acantilado escalable](docs/climbable_cliff.md): pared, repisas independientes,
+zonas de agarre y controles visuales con vista previa en vivo.
+
 Detrás de las rocas del norte hay un paso hacia el **Paredón de la Cruz** (frente en Z = −48). Sustituye las montañas decorativas de conos por roca escalable de 52 metros, repisas laterales y una cima nevada con cruz.
 
 Mantén **Brincar / A / cruz** cerca de la roca y mirándola de frente para agarrarte. También se agarra al llegar manteniendo el botón desde el salto; eso sigue sin activar el planeo automáticamente. Mientras estás agarrado, arriba/abajo del stick o W/S suben/bajan, y izquierda/derecha o A/D desplazan por la pared. Soltar Brincar te desprende; una nueva pulsación en el aire permite planear. La salida por el borde comprueba espacio y sube el cuerpo a la plataforma. No hay resistencia limitada.

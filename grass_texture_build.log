@@ -1,0 +1,14 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+WARNING: Loaded resource as image file, this will not work on export: 'res://assets/textures/grass_carpet/grass_source.png'. Instead, import the image file as an Image resource and load it normally as a resource.
+   at: load_from_file (core/io/image.cpp:2766)
+   GDScript backtrace (most recent call first):
+       [0] _initialize (res://../tools/build_grass_textures.gd:9)
+Saved grass_albedo.png
+Saved grass_height.png
+Saved grass_normal.png
+Saved grass_albedo_height.png
+Saved grass_normal_roughness.png
+Saved grass_neutral_albedo_height.png

@@ -1,0 +1,14 @@
+[gd_resource type="Terrain3DTextureAsset" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/grass_carpet/grass_neutral_albedo_height.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/textures/grass_carpet/grass_normal_roughness.png" id="2"]
+
+[resource]
+name = "Grass Carpet Tintable"
+albedo_color = Color(0.38, 0.55, 0.25, 1)
+albedo_texture = ExtResource("1")
+normal_texture = ExtResource("2")
+uv_scale = 1.0
+normal_depth = 0.45
+roughness = 0.0
+ao_strength = 0.0

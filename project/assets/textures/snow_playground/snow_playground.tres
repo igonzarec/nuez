@@ -1,0 +1,13 @@
+[gd_resource type="Terrain3DTextureAsset" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/snow_playground/snow_albedo_height.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/textures/snow_playground/snow_normal_roughness.png" id="2"]
+
+[resource]
+name = "Snow Playground Original"
+albedo_texture = ExtResource("1")
+normal_texture = ExtResource("2")
+uv_scale = 0.1
+normal_depth = 0.0
+roughness = 0.0
+ao_strength = 0.0
