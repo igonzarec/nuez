@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://3qaql3pm8oow" path="res://scripts/terrain3d_snow_footprints.gd" id="8_footprints"]
 [ext_resource type="Resource" uid="uid://c8uqxve2468pq" path="res://resources/sky/grass_day.tres" id="9_rof4l"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_rof4l"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_tksx7"]
 sky_top_color = Color(0.03759416, 0.41512576, 0.58637613, 1)
 sky_horizon_color = Color(0.52192205, 0.69517577, 0.9999991, 1)
 sky_curve = 0.8
@@ -18,12 +18,12 @@ ground_bottom_color = Color(0.39144152, 0.52138186, 0.74999934, 1)
 ground_horizon_color = Color(0.52192205, 0.69517577, 0.9999991, 1)
 sun_angle_max = 2.0
 
-[sub_resource type="Sky" id="Sky_tksx7"]
-sky_material = SubResource("ProceduralSkyMaterial_rof4l")
+[sub_resource type="Sky" id="Sky_045tv"]
+sky_material = SubResource("ProceduralSkyMaterial_tksx7")
 
-[sub_resource type="Environment" id="Environment_045tv"]
+[sub_resource type="Environment" id="Environment_uqour"]
 background_mode = 2
-sky = SubResource("Sky_tksx7")
+sky = SubResource("Sky_045tv")
 ambient_light_source = 2
 ambient_light_color = Color(0.68, 0.79, 0.92, 1)
 ambient_light_energy = 0.35
@@ -65,7 +65,7 @@ player_path = NodePath("../SquirrelExplorer")
 enabled = false
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1052129262]
-environment = SubResource("Environment_045tv")
+environment = SubResource("Environment_uqour")
 
 [node name="Sunlight" type="DirectionalLight3D" parent="." unique_id=332969130]
 transform = Transform3D(0.7431448, 0.4648172, -0.4813322, 0, 0.7193398, 0.69465834, 0.6691306, -0.5162318, 0.53457355, 0, 0, 0)

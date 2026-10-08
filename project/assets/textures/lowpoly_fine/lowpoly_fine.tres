@@ -1,0 +1,14 @@
+[gd_resource type="Terrain3DTextureAsset" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/lowpoly_fine/lowpoly_fine_albedo_height.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/textures/lowpoly_fine/lowpoly_fine_normal_roughness.png" id="2"]
+
+[resource]
+name = "Low Poly Fine"
+albedo_color = Color(1, 1, 1, 1)
+albedo_texture = ExtResource("1")
+normal_texture = ExtResource("2")
+normal_depth = 0.5
+ao_strength = 0.0
+roughness = 0.0
+uv_scale = 0.1

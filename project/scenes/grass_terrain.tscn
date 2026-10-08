@@ -1,9 +1,14 @@
 [gd_scene format=3 uid="uid://5kwgglwalodv"]
 
 [ext_resource type="Texture2D" uid="uid://hkp058erd2bl" path="res://assets/textures/grass_carpet/grass_albedo_height.png" id="1_mtpox"]
+[ext_resource type="Texture2D" uid="uid://oaxgxh027x0p" path="res://assets/textures/grass_card.png" id="1_sajxk"]
 [ext_resource type="Texture2D" uid="uid://bu2f0sl4qj3ff" path="res://assets/textures/lowpoly_ground/lowpoly_albedo_height.png" id="2_en2rn"]
 [ext_resource type="Texture2D" uid="uid://ct6uvouoel3vk" path="res://assets/textures/grass_carpet/grass_normal_roughness.png" id="2_r3vxe"]
 [ext_resource type="Texture2D" uid="uid://c6ex26imissu1" path="res://assets/textures/lowpoly_ground/lowpoly_normal_roughness.png" id="3_mtpox"]
+[ext_resource type="Texture2D" uid="uid://cl36lcoi78k0u" path="res://assets/textures/lowpoly_fine/lowpoly_fine_albedo_height.png" id="5_ue6v3"]
+[ext_resource type="Texture2D" uid="uid://dlewd2dboe6e6" path="res://assets/textures/lowpoly_fine/lowpoly_fine_normal_roughness.png" id="6_sajxk"]
+[ext_resource type="Texture2D" uid="uid://ee4sgcut051h" path="res://assets/textures/lowpoly_micro/lowpoly_micro_albedo_height.png" id="8_ukwe6"]
+[ext_resource type="Texture2D" uid="uid://cd1v3ubthwa3k" path="res://assets/textures/lowpoly_micro/lowpoly_micro_normal_roughness.png" id="9_bqd0c"]
 
 [sub_resource type="Gradient" id="Gradient_1a0we"]
 offsets = PackedFloat32Array(0.2, 1)
@@ -45,11 +50,13 @@ _shader_parameters = {
 &"noise_texture": SubResource("NoiseTexture2D_836qw"),
 &"projection_threshold": null
 }
+world_background = 0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ur1cc"]
 transparency = 4
 cull_mode = 2
 vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("1_sajxk")
 backlight_enabled = true
 backlight = Color(0.5, 0.5, 0.5, 1)
 distance_fade_mode = 1
@@ -64,12 +71,13 @@ last_lod = 0
 last_shadow_lod = 0
 lod0_range = 128.0
 
-[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_ue6v3"]
-name = "Low Poly Ground"
-albedo_texture = ExtResource("2_en2rn")
-normal_texture = ExtResource("3_mtpox")
-normal_depth = 1.468
-uv_scale = 0.095
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_88yd0"]
+name = "lowpoly_micro_source"
+albedo_color = Color(0.871875, 0.871875, 0.871875, 1)
+albedo_texture = ExtResource("8_ukwe6")
+normal_texture = ExtResource("9_bqd0c")
+roughness = 1.0
+uv_scale = 0.383
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_en2rn"]
 name = "grass_source"
@@ -77,9 +85,23 @@ id = 1
 albedo_texture = ExtResource("1_mtpox")
 normal_texture = ExtResource("2_r3vxe")
 
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_3pr23"]
+name = "lowpoly_fine_albedo_height"
+id = 2
+albedo_texture = ExtResource("5_ue6v3")
+normal_texture = ExtResource("6_sajxk")
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_ue6v3"]
+name = "Low Poly Ground"
+id = 3
+albedo_texture = ExtResource("2_en2rn")
+normal_texture = ExtResource("3_mtpox")
+normal_depth = 1.468
+uv_scale = 0.095
+
 [sub_resource type="Terrain3DAssets" id="Terrain3DAssets_4vitj"]
 mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_33ixn")])
-texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_ue6v3"), SubResource("Terrain3DTextureAsset_en2rn")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_88yd0"), SubResource("Terrain3DTextureAsset_en2rn"), SubResource("Terrain3DTextureAsset_3pr23"), SubResource("Terrain3DTextureAsset_ue6v3")])
 
 [node name="GrassMountainPlayground" type="Node3D" unique_id=2027448239]
 
