@@ -9,6 +9,15 @@
 [ext_resource type="Texture2D" uid="uid://dlewd2dboe6e6" path="res://assets/textures/lowpoly_fine/lowpoly_fine_normal_roughness.png" id="6_sajxk"]
 [ext_resource type="Texture2D" uid="uid://ee4sgcut051h" path="res://assets/textures/lowpoly_micro/lowpoly_micro_albedo_height.png" id="8_ukwe6"]
 [ext_resource type="Texture2D" uid="uid://cd1v3ubthwa3k" path="res://assets/textures/lowpoly_micro/lowpoly_micro_normal_roughness.png" id="9_bqd0c"]
+[ext_resource type="Texture2D" uid="uid://cdxdsv81j6ivl" path="res://assets/textures/lowpoly_dirt/lowpoly_dirt_albedo_height.png" id="10_88yd0"]
+[ext_resource type="Texture2D" uid="uid://cthgxdwqu4car" path="res://assets/textures/lowpoly_dirt/lowpoly_dirt_normal_roughness.png" id="11_j7l6w"]
+[ext_resource type="Texture2D" uid="uid://cusrubcfspafl" path="res://assets/textures/lowpoly_cliff/lowpoly_cliff_albedo_height.png" id="12_rfq74"]
+[ext_resource type="Texture2D" uid="uid://br4b6udcjut0w" path="res://assets/textures/lowpoly_cliff/lowpoly_cliff_normal_roughness.png" id="13_bnyuw"]
+[ext_resource type="Texture2D" uid="uid://dbv8el8g1q1t4" path="res://assets/textures/lowpoly_cobble/lowpoly_cobble_albedo_height.png" id="14_j5n0b"]
+[ext_resource type="Texture2D" uid="uid://fxv6nfrncafn" path="res://assets/textures/lowpoly_cobble/lowpoly_cobble_normal_roughness.png" id="15_8j61f"]
+[ext_resource type="Texture2D" uid="uid://vnr7kbpe1clp" path="res://assets/textures/lowpoly_cobble_fine/lowpoly_cobble_fine_a_albedo_height.png" id="16_cvdcj"]
+[ext_resource type="Texture2D" uid="uid://di4jpnsrytjo7" path="res://assets/textures/lowpoly_cobble_fine/lowpoly_cobble_fine_flat_normal_roughness.png" id="17_wsilg"]
+[ext_resource type="Texture2D" uid="uid://ddak1m6qbm2ea" path="res://assets/textures/lowpoly_cobble_fine/lowpoly_cobble_fine_b_albedo_height.png" id="18_wsilg"]
 
 [sub_resource type="Gradient" id="Gradient_1a0we"]
 offsets = PackedFloat32Array(0.2, 1)
@@ -77,31 +86,76 @@ albedo_color = Color(0.871875, 0.871875, 0.871875, 1)
 albedo_texture = ExtResource("8_ukwe6")
 normal_texture = ExtResource("9_bqd0c")
 roughness = 1.0
-uv_scale = 0.383
+uv_scale = 2.0
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_rfq74"]
+name = "lowpoly_dirt_albedo_height"
+id = 1
+albedo_texture = ExtResource("10_88yd0")
+normal_texture = ExtResource("11_j7l6w")
+normal_depth = 1.586
+uv_scale = 2.0
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_omwqk"]
+name = "lowpoly_cobble_fine_a_albedo_height"
+id = 2
+albedo_color = Color(0.771875, 0.6703934, 0.58736306, 1)
+albedo_texture = ExtResource("16_cvdcj")
+normal_texture = ExtResource("17_wsilg")
+normal_depth = 0.0
+uv_scale = 0.228
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_en2rn"]
 name = "grass_source"
-id = 1
+id = 3
 albedo_texture = ExtResource("1_mtpox")
 normal_texture = ExtResource("2_r3vxe")
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_3pr23"]
 name = "lowpoly_fine_albedo_height"
-id = 2
+id = 4
 albedo_texture = ExtResource("5_ue6v3")
 normal_texture = ExtResource("6_sajxk")
 
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_j5n0b"]
+name = "lowpoly_cliff_albedo_height"
+id = 5
+albedo_texture = ExtResource("12_rfq74")
+normal_texture = ExtResource("13_bnyuw")
+normal_depth = 0.0
+ao_strength = 0.254
+roughness = -0.209
+uv_scale = 2.0
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_cvdcj"]
+name = "lowpoly_cobble_albedo_height"
+id = 6
+albedo_texture = ExtResource("14_j5n0b")
+normal_texture = ExtResource("15_8j61f")
+uv_scale = 2.0
+detiling_rotation = 0.168
+detiling_shift = 0.147
+
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_ue6v3"]
 name = "Low Poly Ground"
-id = 3
+id = 7
 albedo_texture = ExtResource("2_en2rn")
 normal_texture = ExtResource("3_mtpox")
 normal_depth = 1.468
 uv_scale = 0.095
 
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_v45tt"]
+name = "lowpoly_cobble_fine_b_albedo_height"
+id = 8
+albedo_color = Color(0.9843137, 0.85490197, 0.7490196, 1)
+albedo_texture = ExtResource("18_wsilg")
+normal_texture = ExtResource("17_wsilg")
+normal_depth = 0.0
+uv_scale = 0.56
+
 [sub_resource type="Terrain3DAssets" id="Terrain3DAssets_4vitj"]
 mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_33ixn")])
-texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_88yd0"), SubResource("Terrain3DTextureAsset_en2rn"), SubResource("Terrain3DTextureAsset_3pr23"), SubResource("Terrain3DTextureAsset_ue6v3")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_88yd0"), SubResource("Terrain3DTextureAsset_rfq74"), SubResource("Terrain3DTextureAsset_omwqk"), SubResource("Terrain3DTextureAsset_en2rn"), SubResource("Terrain3DTextureAsset_3pr23"), SubResource("Terrain3DTextureAsset_j5n0b"), SubResource("Terrain3DTextureAsset_cvdcj"), SubResource("Terrain3DTextureAsset_ue6v3"), SubResource("Terrain3DTextureAsset_v45tt")])
 
 [node name="GrassMountainPlayground" type="Node3D" unique_id=2027448239]
 
