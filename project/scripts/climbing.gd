@@ -4,7 +4,6 @@ extends Node
 var actor: ExplorerPlayer
 var wall_normal := Vector3.BACK
 var cooldown := 0.0
-var sound_distance := 0.0
 var mantle_stage := 0
 var mantle_up := Vector3.ZERO
 var mantle_end := Vector3.ZERO
@@ -14,7 +13,6 @@ func reset() -> void:
 	actor.climb_motion = 0.0
 	mantle_stage = 0
 	cooldown = 0.25
-	sound_distance = 0.0
 
 func _ray(from: Vector3, to: Vector3) -> Dictionary:
 	return actor.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from, to, actor.collision_mask, [actor.get_rid()]))
@@ -104,19 +102,14 @@ func tick(delta: float) -> bool:
 	actor.velocity = tangent + wall_normal * correction
 	var before := actor.global_position
 	actor.move_and_slide()
-	var traveled := actor.global_position.distance_to(before)
-	actor.climb_motion = traveled / maxf(delta, 0.001)
+	actor.climb_motion = (actor.global_position - before).slide(wall_normal).length() / maxf(delta, 0.001)
 	actor.horizontal_speed = 0.0
 	actor.previous_motion = Vector3.ZERO
 	actor.motion_acceleration = Vector3.ZERO
 	actor.angular_velocity = 0.0
 	actor.model.rotation.y = lerp_angle(actor.model.rotation.y, atan2(wall_normal.x, wall_normal.z), 1.0 - exp(-12.0 * delta))
 	actor.animation_state = "climb"
-	actor.model.update_climb(actor.climb_motion, actor.climb_member_degrees, actor.climb_member_speed)
-	sound_distance += traveled
-	if actor.model.playertest2_climb.is_empty() and actor.climb_sound_enabled and sound_distance >= actor.climb_sound_spacing:
-		sound_distance = fmod(sound_distance, actor.climb_sound_spacing)
-		actor.feedback.emit("climb")
+	actor.model.update_climb(actor.climb_motion)
 	return true
 
 func _start_mantle() -> bool:
@@ -141,7 +134,7 @@ func _mantle_tick(delta: float) -> void:
 	var target := mantle_up if mantle_stage == 1 else mantle_end
 	var motion := (target - actor.global_position).limit_length(actor.climb_speed * delta)
 	var collision := actor.move_and_collide(motion)
-	actor.model.update_climb(actor.climb_speed, actor.climb_member_degrees, actor.climb_member_speed)
+	actor.model.update_climb(motion.length() / maxf(delta, 0.001))
 	if collision:
 		_release()
 	elif actor.global_position.distance_to(target) < 0.025:

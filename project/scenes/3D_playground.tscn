@@ -40,7 +40,16 @@ snowfall_enabled = false
 [node name="SquirrelExplorer" parent="." unique_id=382837686 instance=ExtResource("3_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 120, 110)
 climb_grab_distance = 1.15
-climb_member_speed = 0.45
+climb_member_speed = 0.4
+climb_arm_base_elevation_degrees = 81.0
+climb_arm_base_spread_degrees = 42.5
+climb_arm_depth_degrees = 45.0
+climb_leg_base_elevation_degrees = 50.5
+climb_leg_base_spread_degrees = 28.0
+climb_sound_phases = Vector2(0.485, 2.945)
+climb_sound_phase = 0.23
+climb_head_sway_degrees = 8.0
+climb_head_sway_phase = 0.5
 
 [node name="CameraRig" parent="." unique_id=62750041 instance=ExtResource("4_camera")]
 

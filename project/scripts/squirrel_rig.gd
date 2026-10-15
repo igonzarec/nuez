@@ -11,7 +11,6 @@ var body_pivot: Node3D
 var playertest2_animation: AnimationPlayer
 var playertest2_run := &""
 var playertest2_run_fast := &""
-var playertest2_climb := &""
 var playertest2_glide_start := &""
 var playertest2_glide_loop := &""
 var glide_active := false
@@ -25,9 +24,6 @@ var idle_active := false
 var climb_active := false
 var climb_phase := 0.0
 var climb_visual_speed := 0.0
-var climb_amplitude := 0.0
-var climb_cadence := 0.7
-var climb_sound_position := 0.0
 var movement_dust: MovementDust
 var air_active := false
 var landing_pose_active := false
@@ -69,19 +65,10 @@ func _ready() -> void:
 			playertest2_run_fast = animation_name
 		elif animation_text.ends_with("Run"):
 			playertest2_run = animation_name
-		elif animation_text.ends_with("Climb"):
-			playertest2_climb = animation_name
 		elif animation_text.ends_with("GlideStart"):
 			playertest2_glide_start = animation_name
 		elif animation_text.ends_with("Glide"):
 			playertest2_glide_loop = animation_name
-	if not playertest2_climb.is_empty():
-		# El clip de Blender contiene la misma pose al inicio y al final.
-		# Forzamos el bucle aquí para que el importador no dependa de metadatos
-		# específicos de glTF y el control siga siendo portable en Godot 4.6.
-		var climb_animation := playertest2_animation.get_animation(playertest2_climb)
-		if climb_animation:
-			climb_animation.loop_mode = Animation.LOOP_LINEAR
 	if not playertest2_run.is_empty():
 		playertest2_animation.play(playertest2_run)
 		playertest2_animation.pause()
@@ -109,45 +96,40 @@ func update_handmade_run(speed: float, walk_member_speed: float, run_member_spee
 		playertest2_animation.seek(0.0, true)
 		playertest2_animation.pause()
 
-func update_climb(speed: float, amplitude: float, cadence: float) -> void:
-	_clear_air_pose()
+func update_climb(speed: float) -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor:
+		return
 	if not climb_active:
-		climb_sound_position = 0.0
-		var actor := get_parent() as ExplorerPlayer
-		if actor and actor.climb_sound_enabled:
+		climb_phase = 0.0
+		_capture_air_pose()
+		if actor.climb_sound_enabled:
 			actor.feedback.emit("climb")
-	if not climb_active and playertest2_animation:
-		playertest2_animation.stop()
-		if not playertest2_climb.is_empty():
-			playertest2_animation.play(playertest2_climb)
+		if playertest2_animation:
+			playertest2_animation.stop()
 	climb_active = true
+	air_active = false
+	air_pose_releasing = false
+	landing_pose_active = false
 	glide_active = false
 	glide_started = false
 	idle_active = false
 	glide_amount = 0.0
-	climb_visual_speed = speed
-	climb_amplitude = deg_to_rad(amplitude)
-	climb_cadence = cadence
-	if playertest2_animation and not playertest2_climb.is_empty():
-		if playertest2_animation.current_animation != playertest2_climb:
-			playertest2_animation.play(playertest2_climb)
-		playertest2_animation.speed_scale = maxf(0.0, speed * cadence)
-		if speed > 0.01 and not playertest2_animation.is_playing():
-			playertest2_animation.play()
+	climb_visual_speed = maxf(0.0, speed)
 	_set_membrane_amount(0.0)
-	position = Vector3.ZERO
+	position = Vector3.BACK.rotated(Vector3.UP, rotation.y) * actor.climb_visual_wall_offset
 	scale = Vector3.ONE
-	set_body_tilt(-0.08, 0.0)
+	set_body_tilt(-deg_to_rad(actor.climb_body_lean_degrees), 0.0)
+
 
 func end_climb() -> void:
 	if not climb_active:
 		return
 	climb_active = false
 	climb_visual_speed = 0.0
-	if playertest2_animation and playertest2_animation.current_animation == playertest2_climb:
-		playertest2_animation.stop()
-	if playertest2_skeleton:
-		_reset_idle_pose()
+	# Conserva la última pose para mezclar hacia la nueva animación.
+	air_pose_releasing = true
+	position = Vector3.ZERO
 	reset_body_tilt()
 
 func update_handmade_glide(amount: float, flutter_speed: float, start_speed := 1.0, tremor_degrees := 0.0, tremor_speed := 12.0) -> void:
@@ -234,23 +216,7 @@ func _process(delta: float) -> void:
 	if not playertest2_skeleton:
 		return
 	if climb_active:
-		_tick_climb_sounds()
-		# Climb se creó en Blender y sustituye por completo el movimiento
-		# procedural anterior. Conservamos ese código sólo como respaldo para
-		# versiones viejas del GLB que aún no tengan el clip.
-		if not playertest2_climb.is_empty():
-			return
-		climb_phase += climb_visual_speed * climb_cadence * TAU * delta
-		_reset_idle_pose()
-		for bone_name in GLIDE_TREMOR_BONES:
-			var bone_index := playertest2_skeleton.find_bone(bone_name)
-			if bone_index < 0:
-				continue
-			var side := 1.0 if String(bone_name).ends_with("left") else -1.0
-			var arm := String(bone_name).begins_with("arm")
-			var stroke := sin(climb_phase + (0.0 if arm else PI)) * side * climb_amplitude
-			var pose := Vector3(-0.7 + stroke if arm else 0.25 + stroke, 0.0, side * (0.2 if arm else 0.1))
-			playertest2_skeleton.set_bone_pose_rotation(bone_index, Quaternion.from_euler(pose))
+		_apply_procedural_climb(delta)
 		return
 	if air_active or landing_pose_active or air_pose_releasing:
 		_apply_air_pose(delta)
@@ -278,6 +244,107 @@ func _process(delta: float) -> void:
 		var pitch: float = cos(phase * 2.3) * amplitude * 0.45
 		var current_rotation: Quaternion = playertest2_skeleton.get_bone_pose_rotation(bone_index)
 		playertest2_skeleton.set_bone_pose_rotation(bone_index, current_rotation * Quaternion.from_euler(Vector3(pitch, 0.0, roll)))
+
+
+func _apply_procedural_climb(delta: float) -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor:
+		return
+	var previous_cycle := climb_phase
+	if actor.climb_procedural_enabled:
+		climb_phase += climb_visual_speed * actor.climb_member_speed * delta
+	_tick_procedural_climb_sounds(previous_cycle, climb_phase, actor)
+	# Sólo reposo del rig + matemáticas de Godot. Ninguna curva de Climb.
+	_reset_idle_pose()
+	var blend := 1.0 - exp(-actor.climb_pose_response * delta)
+	var targets: Dictionary = {}
+	if actor.climb_procedural_enabled:
+		for bone_name in GLIDE_TREMOR_BONES:
+			var index := playertest2_skeleton.find_bone(bone_name)
+			if index < 0:
+				continue
+			var arm := String(bone_name).begins_with("arm")
+			var left := String(bone_name).ends_with("left")
+			var offset := actor.climb_arm_phase if arm else actor.climb_leg_phase
+			var side_offset := 0.0 if left else actor.climb_opposite_side_phase
+			var phase := (climb_phase - offset - side_offset) * TAU
+			if actor.climb_reverse_cycle:
+				phase = -phase
+			var vertical := actor.climb_arm_vertical_degrees if arm else actor.climb_leg_vertical_degrees
+			var depth := actor.climb_arm_depth_degrees if arm else actor.climb_leg_depth_degrees
+			var tilt := actor.climb_arm_path_tilt_degrees if arm else actor.climb_leg_path_tilt_degrees
+			# Dos componentes a 90° recorren una elipse, sin trasladar la raíz.
+			var orbit := Vector2(sin(phase) * vertical, cos(phase) * depth).rotated(deg_to_rad(tilt))
+			var elevation := (actor.climb_arm_base_elevation_degrees if arm else actor.climb_leg_base_elevation_degrees) + orbit.x
+			var spread := (actor.climb_arm_base_spread_degrees if arm else actor.climb_leg_base_spread_degrees) - orbit.y
+			var side := -1.0 if left else 1.0
+			var lift := deg_to_rad(clampf(elevation, 0.0, 175.0))
+			var opening := deg_to_rad(spread)
+			var direction := Vector3(side * sin(lift) * sin(opening), -cos(lift), sin(lift) * cos(opening)).normalized()
+			var rest_basis := playertest2_skeleton.get_bone_global_rest(index).basis.orthonormalized()
+			var rest_direction := (rest_basis * Vector3.UP).normalized()
+			var swing := Quaternion(rest_direction, direction)
+			var parent_index := playertest2_skeleton.get_bone_parent(index)
+			var parent_basis := playertest2_skeleton.get_bone_global_rest(parent_index).basis.orthonormalized() if parent_index >= 0 else Basis.IDENTITY
+			targets[index] = parent_basis.get_rotation_quaternion().inverse() * swing * rest_basis.get_rotation_quaternion()
+	if actor.climb_procedural_enabled and actor.climb_head_sway_enabled:
+		var head := playertest2_skeleton.find_bone("head")
+		if head >= 0:
+			var phase := (climb_phase - actor.climb_arm_phase - actor.climb_head_sway_phase) * TAU
+			if actor.climb_reverse_cycle:
+				phase = -phase
+			var roll := deg_to_rad(actor.climb_head_sway_degrees) * sin(phase)
+			var head_axis := playertest2_skeleton.get_bone_global_rest(head).basis.orthonormalized().inverse() * Vector3.BACK
+			var rest_rotation := playertest2_skeleton.get_bone_rest(head).basis.get_rotation_quaternion()
+			targets[head] = rest_rotation * Quaternion(head_axis.normalized(), roll)
+	if actor.climb_procedural_enabled and actor.climb_tail_sway_enabled:
+		var tail := playertest2_skeleton.find_bone("tail_base")
+		if tail >= 0:
+			var sway := deg_to_rad(actor.climb_tail_sway_degrees) * _climb_cycle_wave(actor.climb_tail_sway_phase, actor)
+			var rest_rotation := playertest2_skeleton.get_bone_rest(tail).basis.get_rotation_quaternion()
+			targets[tail] = rest_rotation * _climb_axis_rotation(tail, Vector3.UP, sway)
+	if actor.climb_procedural_enabled and actor.climb_torso_motion_enabled:
+		var spine := playertest2_skeleton.find_bone("spine")
+		if spine >= 0:
+			var twist := deg_to_rad(actor.climb_torso_twist_degrees) * _climb_cycle_wave(actor.climb_torso_twist_phase, actor)
+			var side_lean := deg_to_rad(actor.climb_torso_side_lean_degrees) * _climb_cycle_wave(actor.climb_torso_side_lean_phase, actor)
+			var forward_lean := deg_to_rad(actor.climb_torso_forward_lean_degrees) * _climb_cycle_wave(actor.climb_torso_forward_lean_phase, actor)
+			var rest_rotation := playertest2_skeleton.get_bone_rest(spine).basis.get_rotation_quaternion()
+			targets[spine] = rest_rotation * _climb_axis_rotation(spine, Vector3.UP, twist) * _climb_axis_rotation(spine, Vector3.BACK, side_lean) * _climb_axis_rotation(spine, Vector3.RIGHT, forward_lean)
+	for index in playertest2_skeleton.get_bone_count():
+		var rest := playertest2_skeleton.get_bone_rest(index)
+		var target: Quaternion = targets.get(index, rest.basis.get_rotation_quaternion())
+		var previous: Quaternion = air_pose_rotations.get(index, playertest2_skeleton.get_bone_pose_rotation(index))
+		var rotation := previous.slerp(target, blend)
+		var before_position: Vector3 = air_pose_positions.get(index, rest.origin)
+		var bone_position := before_position.lerp(rest.origin, blend)
+		playertest2_skeleton.set_bone_pose_rotation(index, rotation)
+		playertest2_skeleton.set_bone_pose_position(index, bone_position)
+		air_pose_rotations[index] = rotation
+		air_pose_positions[index] = bone_position
+
+
+func _climb_cycle_wave(offset: float, actor: ExplorerPlayer) -> float:
+	var phase := (climb_phase - actor.climb_arm_phase - offset) * TAU
+	return sin(-phase if actor.climb_reverse_cycle else phase)
+
+
+func _climb_axis_rotation(index: int, axis: Vector3, angle: float) -> Quaternion:
+	# Ejes del cuerpo convertidos al reposo local del hueso importado.
+	var local_axis := playertest2_skeleton.get_bone_global_rest(index).basis.orthonormalized().inverse() * axis
+	return Quaternion(local_axis.normalized(), angle)
+
+
+func _tick_procedural_climb_sounds(previous: float, current: float, actor: ExplorerPlayer) -> void:
+	if not actor.climb_sound_enabled or current <= previous:
+		return
+	var direction := -1.0 if actor.climb_reverse_cycle else 1.0
+	for side_offset in [0.0, actor.climb_opposite_side_phase]:
+		# Resuelve el punto del recorrido de cada brazo al reloj global.
+		var contact := fposmod(actor.climb_arm_phase + side_offset + direction * actor.climb_sound_phase, 1.0)
+		var count := int(floor(current - contact)) - int(floor(previous - contact))
+		for _event in mini(count, 4):
+			actor.feedback.emit("climb")
 
 
 func _update_landing_clearance(delta: float) -> void:
@@ -309,27 +376,6 @@ func _update_landing_clearance(delta: float) -> void:
 	body_pivot.position.y = landing_clearance_height
 
 
-func _tick_climb_sounds() -> void:
-	var actor := get_parent() as ExplorerPlayer
-	if not actor:
-		return
-	if not playertest2_animation or playertest2_climb.is_empty():
-		return
-	var current := playertest2_animation.current_animation_position
-	var length := playertest2_animation.get_animation(playertest2_climb).length
-	if length <= 0.0:
-		return
-	# Compara el reloj real del AnimationPlayer: congelar o cambiar el ritmo
-	# del clip congela o cambia también los apoyos, sin otro temporizador.
-	if actor.climb_sound_enabled and playertest2_animation.get_playing_speed() > 0.0:
-		for phase in [actor.climb_sound_phases.x, actor.climb_sound_phases.y]:
-			var contact := clampf(phase, 0.0, 0.999) * length
-			var crossed := contact > climb_sound_position and contact <= current
-			if current < climb_sound_position:
-				crossed = contact > climb_sound_position or contact <= current
-			if crossed:
-				actor.feedback.emit("climb")
-	climb_sound_position = current
 
 
 func update_air_pose(airborne: bool, enabled: bool, lift: float, spread: float, tremor: float, frequency: float, compression: float, body_drop: float, head_retract: float, head_pitch: float, response: float, arm_inset: float = 0.0, stride_swing: Vector2 = Vector2.ZERO, leg_offsets: Vector2 = Vector2.ZERO, torso_lean: float = 0.0, head_forward: float = 0.0, landing_response: float = 30.0, arm_pitches: Vector2 = Vector2.ZERO) -> void:

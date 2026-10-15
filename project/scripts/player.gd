@@ -240,23 +240,105 @@ signal gliding_changed(active: bool)
 ## Metros por segundo sobre la pared. Ejemplo: 2 es pausado; 4 sube rápido.
 @export_range(0.5, 8.0, 0.1) var climb_speed := 3.0
 ## Alcance del agarre desde el centro del cuerpo. Ejemplo: 0,9 requiere acercarse; 1,3 es permisivo.
-@export_range(0.6, 1.5, 0.05) var climb_grab_distance := 1.1
+@export_range(0.6, 1.5, 0.05) var climb_grab_distance := 1.15
 ## Desviación máxima mirando hacia la roca. 25 exige entrar de frente; 45 permite entradas diagonales.
 @export_range(5.0, 60.0, 1.0) var climb_facing_angle_degrees := 30.0
 ## Distancia del centro a la pared; debe superar el radio de la cápsula (0,42).
 @export_range(0.46, 0.6, 0.01) var climb_wall_distance := 0.5
 ## Impulso hacia fuera al soltar Brincar. Ejemplo: 2 facilita separarse y después planear.
 @export_range(0.5, 5.0, 0.1) var climb_detach_speed := 2.0
-## Amplitud del movimiento procedural de respaldo, en grados. No afecta el clip Climb de Blender; sólo se usa si el modelo importado no lo contiene. Se consulta en vivo.
-@export_range(0.0, 40.0, 0.5) var climb_member_degrees := 14.0
-## Multiplicador del ritmo del clip Climb: 0 congela la pose actual; 1 reproduce un ciclo por segundo por cada m/s recorrido. Súbelo para trepar visualmente más rápido. Se actualiza en vivo; si falta Climb, controla el ciclo procedural de respaldo.
-@export_range(0.0, 3.0, 0.05) var climb_member_speed := 0.7
-## Distancia entre sonidos sólo si falta el clip Climb. Con Climb los apoyos se sincronizan con la animación. Se consulta en vivo.
-@export_range(0.2, 2.0, 0.05) var climb_sound_spacing := 0.7
-## Activa los sonidos de apoyo y el sonido único al agarrarse. Se actualiza en vivo.
+# Ajustes anteriores conservados como datos serializados; ya no intervienen.
+@export_storage var climb_member_degrees := 14.0
+@export_storage var climb_sound_spacing := 0.7
+@export_storage var climb_depth_enabled := true
+@export_storage var climb_orbit_enabled := true
+@export_storage var climb_arm_orbit_degrees := 18.0
+@export_storage var climb_arm_orbit_tilt_degrees := 25.0
+@export_storage var climb_leg_orbit_degrees := 10.0
+@export_storage var climb_leg_orbit_tilt_degrees := 15.0
+@export_storage var climb_translation_enabled := false
+@export_storage var climb_arm_forward_degrees := 12.0
+@export_storage var climb_arm_backward_degrees := 6.0
+@export_storage var climb_arm_forward_offset := 0.025
+@export_storage var climb_arm_backward_offset := 0.015
+@export_storage var climb_arm_depth_phase := 0.0
+@export_storage var climb_leg_forward_degrees := 8.0
+@export_storage var climb_leg_backward_degrees := 4.0
+@export_storage var climb_leg_forward_offset := 0.02
+@export_storage var climb_leg_backward_offset := 0.01
+@export_storage var climb_leg_depth_phase := 0.5
+
+@export_group("Escalada procedural")
+## Activa la pose y el ciclo procedural. Desactivado conserva la pose base del rig mientras trepa; nunca reproduce Climb de Blender. Se actualiza en vivo.
+@export var climb_procedural_enabled := true
+## Invierte el sentido de las órbitas de brazos y piernas, conservando poses base, amplitudes y ritmo. Activado usa el sentido corregido de trepada; desactivado recupera el anterior. Se actualiza en vivo.
+@export var climb_reverse_cycle := true
+## Ciclos por metro recorrido sobre la pared. Mayor valor acelera la alternancia; 0 congela el ciclo. Se actualiza en vivo y sincroniza los sonidos.
+@export_range(0.0, 3.0, 0.05) var climb_member_speed := 0.4
+## Rapidez de mezcla de huesos por segundo al agarrarse y durante el gesto. Mayor valor responde antes; menor suaviza. Se actualiza en vivo.
+@export_range(1.0, 40.0, 0.5) var climb_pose_response := 14.0
+## Inclinación visual del cuerpo hacia la pared en grados. Mayor valor acerca la cabeza a la pared; valores negativos la alejan. Se actualiza en vivo, sin cambiar la cápsula.
+@export_range(-30.0, 30.0, 0.5) var climb_body_lean_degrees := 5.0
+## Desplazamiento visual respecto al controlador en metros. Positivo aleja el modelo de la pared, negativo lo acerca. No cambia Climb Wall Distance ni las colisiones. Se actualiza en vivo.
+@export_range(-0.25, 0.25, 0.005, "suffix:m") var climb_visual_wall_offset := 0.0
+## Elevación base de brazos desde la postura hacia abajo, en grados. 90 los deja horizontales; mayor valor eleva las manos. Se actualiza en vivo.
+@export_range(0.0, 180.0, 0.5) var climb_arm_base_elevation_degrees := 81.0
+## Apertura de brazos desde el frente hacia los lados, en grados. 0 apunta hacia la pared; mayor valor separa las manos lateralmente. Se actualiza en vivo.
+@export_range(0.0, 90.0, 0.5) var climb_arm_base_spread_degrees := 42.5
+## Amplitud angular de subida y bajada de brazos, en grados. Mayor valor alarga el arco vertical; 0 deja sólo el recorrido de profundidad. Se actualiza en vivo.
+@export_range(0.0, 60.0, 0.5) var climb_arm_vertical_degrees := 20.0
+## Amplitud de giro entre alcance frontal/interior y retorno exterior de brazos, en grados. Mayor valor acentúa el círculo; 0 deja sólo subida y bajada. Se actualiza en vivo.
+@export_range(0.0, 60.0, 0.5) var climb_arm_depth_degrees := 45.0
+## Inclinación del recorrido orbital de brazos, en grados. Rota la combinación de subida y profundidad; cambia la orientación del arco, no el pivote. Se actualiza en vivo.
+@export_range(-85.0, 85.0, 0.5) var climb_arm_path_tilt_degrees := 20.0
+## Desfase de los brazos respecto al ciclo, en fracciones de vuelta. Cambiar 0,5 invierte alcance y retorno. Se actualiza en vivo.
+@export_range(0.0, 1.0, 0.01) var climb_arm_phase := 0.0
+## Elevación base de piernas desde la postura hacia abajo, en grados. Mayor valor adelanta y levanta los pies. Se actualiza en vivo.
+@export_range(0.0, 100.0, 0.5) var climb_leg_base_elevation_degrees := 50.5
+## Apertura de piernas desde el frente hacia los lados, en grados. Mayor valor separa lateralmente los pies. Se actualiza en vivo.
+@export_range(0.0, 90.0, 0.5) var climb_leg_base_spread_degrees := 28.0
+## Amplitud angular de subida y bajada de piernas, en grados. Mayor valor eleva más los pies durante el ciclo. Se actualiza en vivo.
+@export_range(0.0, 50.0, 0.5) var climb_leg_vertical_degrees := 15.0
+## Amplitud del alcance frontal/interior y retorno exterior de piernas, en grados. Mayor valor marca más el círculo del pie. Se actualiza en vivo.
+@export_range(0.0, 50.0, 0.5) var climb_leg_depth_degrees := 12.0
+## Inclinación del recorrido orbital de piernas, en grados. Cambia la orientación del arco manteniendo fija la cadera. Se actualiza en vivo.
+@export_range(-85.0, 85.0, 0.5) var climb_leg_path_tilt_degrees := 15.0
+## Desfase de piernas respecto a brazos, en fracciones de ciclo. 0,5 alterna brazo y pierna del mismo lado; 0 los mueve juntos. Se actualiza en vivo.
+@export_range(0.0, 1.0, 0.01) var climb_leg_phase := 0.5
+## Desfase entre lados izquierdo y derecho para brazos y piernas. 0,5 los alterna; 0 los sincroniza. Se actualiza en vivo.
+@export_range(0.0, 1.0, 0.01) var climb_opposite_side_phase := 0.5
+## Activa el sonido único de entrada y los dos apoyos por ciclo procedural. Se actualiza en vivo.
 @export var climb_sound_enabled := true
-## Posiciones de los dos apoyos dentro del ciclo, de 0 a 1. (0, 0.5) corresponde a los frames 1 y 13 de un ciclo de 24 frames. Se actualiza en vivo; no usar 1 porque duplica el inicio.
-@export var climb_sound_phases := Vector2(0.0, 0.5)
+## Datos anteriores conservados para no perder ajustes serializados; ya no controlan los apoyos.
+@export_storage var climb_sound_phases := Vector2(0.0, 0.5)
+## Punto del recorrido local de cada brazo donde suena su apoyo, de 0 a 1. El mismo valor se aplica a ambos respetando Arm Phase, Opposite Side Phase y Reverse Cycle. 0/1 es el inicio, 0,25 un cuarto y 0,5 media vuelta. Se actualiza en vivo; no desplaza el sonido independiente de entrada.
+@export_range(0.0, 1.0, 0.005) var climb_sound_phase := 0.23
+## Activa la inclinación lateral alternada de la cabeza durante la escalada. Se actualiza en vivo; al detenerse conserva la pose del ciclo actual.
+@export var climb_head_sway_enabled := true
+## Inclinación máxima de la cabeza a cada lado, en grados. Mayor valor marca más el balanceo; 0 lo desactiva. Se actualiza en vivo y se suaviza con Climb Pose Response.
+@export_range(0.0, 25.0, 0.5) var climb_head_sway_degrees := 8.0
+## Desfase de cabeza respecto al brazo izquierdo, en fracciones de ciclo. Cambiar 0,5 invierte el lado de la inclinación. Se actualiza en vivo y respeta Reverse Cycle.
+@export_range(0.0, 1.0, 0.01) var climb_head_sway_phase := 0.5
+## Activa el balanceo lateral de la cola desde tail_base durante la escalada. No deforma su longitud. Se actualiza en vivo; se congela con el ciclo al detenerse.
+@export var climb_tail_sway_enabled := true
+## Giro máximo de cola hacia cada lado, en grados, alrededor del eje vertical del cuerpo. Mayor valor amplía el vaivén; 0 lo desactiva. Se actualiza en vivo y se suaviza con Climb Pose Response.
+@export_range(0.0, 40.0, 0.5) var climb_tail_sway_degrees := 14.5
+## Desfase del balanceo de cola respecto al brazo izquierdo, en fracciones de ciclo. 0,5 invierte el movimiento respecto a 0. Se actualiza en vivo y respeta Reverse Cycle.
+@export_range(0.0, 1.0, 0.01) var climb_tail_sway_phase := 0.0
+## Activa los tres giros del tronco desde spine. Cabeza y brazos acompañan por jerarquía; las piernas permanecen independientes. Se actualiza en vivo.
+@export var climb_torso_motion_enabled := true
+## Torsión del tronco a cada lado en grados, alrededor del eje cadera-cabeza (+Y del cuerpo). Acerca un hombro a la pared mientras aleja el otro. Mayor valor exagera la torsión; 0 la desactiva. Se actualiza en vivo.
+@export_range(0.0, 30.0, 0.5) var climb_torso_twist_degrees := 8.0
+## Desfase de la torsión respecto al brazo izquierdo, en fracciones de ciclo. 0,5 invierte qué hombro se acerca. Se actualiza en vivo y respeta Reverse Cycle.
+@export_range(0.0, 1.0, 0.01) var climb_torso_twist_phase := 0.0
+## Inclinación lateral del tronco a cada lado en grados, alrededor del eje espalda-pecho (+Z del cuerpo). Ladea cabeza y hombros a izquierda/derecha para sugerir transferencia de peso. 0 la desactiva. Se actualiza en vivo.
+@export_range(0.0, 25.0, 0.5) var climb_torso_side_lean_degrees := 0.0
+## Desfase de la inclinación lateral respecto al brazo izquierdo, en fracciones de ciclo. 0,5 invierte el lado del apoyo. Se actualiza en vivo y respeta Reverse Cycle.
+@export_range(0.0, 1.0, 0.01) var climb_torso_side_lean_phase := 0.0
+## Cabeceo del tronco en grados, alrededor del eje hombro-hombro (+X del cuerpo). Acerca y aleja la parte alta del cuerpo de la pared. Se suma a Body Lean constante; 0 lo desactiva. Se actualiza en vivo.
+@export_range(0.0, 25.0, 0.5) var climb_torso_forward_lean_degrees := 0.0
+## Desfase del cabeceo respecto al brazo izquierdo, en fracciones de ciclo. 0,5 invierte cuándo se acerca a la pared. Se actualiza en vivo y respeta Reverse Cycle.
+@export_range(0.0, 1.0, 0.01) var climb_torso_forward_lean_phase := 0.0
 
 var is_climbing := false
 var climb_motion := 0.0
