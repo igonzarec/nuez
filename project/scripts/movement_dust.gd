@@ -1,6 +1,6 @@
 class_name MovementDust
 extends Node3D
-## Una sola fuente de partículas 3D redondeadas para carrera con Sprint.
+## Una fuente de partículas 3D redondeadas para Sprint y aterrizaje de planeo.
 
 var rig: SquirrelRig
 var actor: ExplorerPlayer
@@ -42,13 +42,18 @@ func setup(owner_rig: SquirrelRig, owner_actor: ExplorerPlayer) -> void:
 func _process(_delta: float) -> void:
 	if actor == null or particles == null:
 		return
-	var running := actor.is_on_floor() and actor.horizontal_speed >= actor.movement_dust_run_speed and Input.is_action_pressed("sprint") and not actor.is_sliding and not actor.is_climbing and not actor.is_gliding
-	var active := actor.movement_dust_enabled and running
-	# Una fuente plana en X/Y: la dispersión no añade separación en Z.
-	var width := maxf(0.0, actor.movement_dust_scatter_width)
-	var height := maxf(0.0, actor.movement_dust_scatter_height)
-	particles.position = actor.movement_dust_source_offset + Vector3.UP * height * 0.5
-	motion.emission_box_extents = Vector3(width * 0.5, height * 0.5, 0.0)
+	var sliding_glide := actor.is_glide_landing
+	var running := actor.is_on_floor() and actor.horizontal_speed >= actor.movement_dust_run_speed and Input.is_action_pressed("sprint") and not actor.is_sliding and not actor.is_climbing and not actor.is_gliding and not sliding_glide
+	var glide_dust := sliding_glide and actor.glide_landing_dust_enabled and actor.is_on_floor() and actor.horizontal_speed > 0.1
+	var active := actor.movement_dust_enabled and (running or glide_dust)
+	# Carrera conserva la fuente X/Y; al aterrizar planeando también ocupa Z.
+	var width := maxf(0.0, actor.glide_landing_dust_width if sliding_glide else actor.movement_dust_scatter_width)
+	var height := maxf(0.0, actor.glide_landing_dust_height if sliding_glide else actor.movement_dust_scatter_height)
+	var depth := maxf(0.0, actor.glide_landing_dust_depth) if sliding_glide else 0.0
+	var source_offset := actor.glide_landing_dust_source_offset if sliding_glide else actor.movement_dust_source_offset
+	var size_multiplier := actor.glide_landing_dust_size_multiplier if sliding_glide else 1.0
+	particles.position = source_offset + Vector3.UP * height * 0.5
+	motion.emission_box_extents = Vector3(width * 0.5, height * 0.5, depth * 0.5)
 	motion.gravity = Vector3.UP * actor.movement_dust_rise_acceleration
 	motion.spread = actor.movement_dust_spread_degrees
 	var desired_lifetime := maxf(0.1, actor.movement_dust_lifetime)
@@ -61,8 +66,8 @@ func _process(_delta: float) -> void:
 	motion.color = Color(1.0, 1.0, 1.0, actor.movement_dust_opacity)
 	motion.lifetime_randomness = actor.movement_dust_lifetime_randomness
 	dust_material.set_shader_parameter("shape_variation", actor.movement_dust_shape_variation)
-	dust_material.set_shader_parameter("initial_size", Vector2(minf(actor.movement_dust_size_min, actor.movement_dust_size_max), maxf(actor.movement_dust_size_min, actor.movement_dust_size_max)))
-	dust_material.set_shader_parameter("final_size", Vector2(minf(actor.movement_dust_final_size_min, actor.movement_dust_final_size_max), maxf(actor.movement_dust_final_size_min, actor.movement_dust_final_size_max)))
+	dust_material.set_shader_parameter("initial_size", Vector2(minf(actor.movement_dust_size_min, actor.movement_dust_size_max), maxf(actor.movement_dust_size_min, actor.movement_dust_size_max)) * size_multiplier)
+	dust_material.set_shader_parameter("final_size", Vector2(minf(actor.movement_dust_final_size_min, actor.movement_dust_final_size_max), maxf(actor.movement_dust_final_size_min, actor.movement_dust_final_size_max)) * size_multiplier)
 	dust_material.set_shader_parameter("light_color", actor.movement_dust_light_color)
 	dust_material.set_shader_parameter("shadow_color", actor.movement_dust_shadow_color)
 	dust_material.set_shader_parameter("shadow_strength", actor.movement_dust_shadow_strength)
@@ -75,7 +80,8 @@ func _process(_delta: float) -> void:
 	if not is_equal_approx(fade_ramp.get_offset(1), actor.movement_dust_fade_start):
 		fade_ramp.set_offset(1, actor.movement_dust_fade_start)
 	# amount reinicia la simulación. amount_ratio cambia sólo futuras emisiones.
-	particles.amount_ratio = clampf(float(actor.movement_dust_density) / PARTICLE_CAPACITY, 0.0, 1.0)
+	var density := actor.glide_landing_dust_density if sliding_glide else actor.movement_dust_density
+	particles.amount_ratio = clampf(float(density) / PARTICLE_CAPACITY, 0.0, 1.0)
 	particles.emitting = active
 
 func _make_round_mesh() -> SphereMesh:

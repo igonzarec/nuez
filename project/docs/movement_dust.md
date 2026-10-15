@@ -1,5 +1,9 @@
 # Polvo de carrera
 
+El mismo emisor también sirve para el [aterrizaje deslizante de planeo](glide_landing.md),
+con fuente, anchura X, profundidad Z, densidad y tamaño propios en el grupo
+**Aterrizaje de planeo** del nodo raíz del jugador.
+
 Al correr manteniendo Sprint sobre suelo caminable, la ardilla deja
 una nube de bolitas low-poly 3D blancas y redondeadas detrás de las patas. Hay
 una única fuente de partículas; sus elementos se dispersan y desaparecen sin

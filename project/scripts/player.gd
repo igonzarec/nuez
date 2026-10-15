@@ -73,8 +73,47 @@ signal gliding_changed(active: bool)
 ## Permite desplegar membranas al pulsar Brincar una vez que la ardilla ya está en el aire.
 ## Mantener Brincar desde el salto no activa el planeo; al soltarlo, las membranas se recogen inmediatamente.
 @export var glide_enabled := true
+@export_group("Aterrizaje de planeo")
+## Conserva brevemente la postura Glide al tocar suelo caminable y desliza con la inercia de llegada. Se actualiza en vivo; desactivarlo termina el deslizamiento actual.
+@export var glide_landing_enabled := true
+## Segundos máximos de postura y deslizamiento tras aterrizar planeando. Mayor valor prolonga el efecto; 0 lo desactiva. Se consulta al aterrizar. Saltar o perder el suelo lo cancela.
+@export_range(0.0, 1.5, 0.01, "suffix:s") var glide_landing_duration := 0.35
+## Segundos conservando la inclinación de llegada antes de adoptar la de aterrizaje. Mayor valor retrasa el cambio visual; la física y el polvo empiezan al tocar suelo. Se actualiza en vivo.
+@export_range(0.0, 0.5, 0.01, "suffix:s") var glide_landing_pose_delay := 0.06
+## Segundos de transición suave hacia la inclinación normal de Glide después de Pose Delay. Mayor valor suaviza más; si supera Duration la transición puede quedar incompleta. Se actualiza en vivo.
+@export_range(0.01, 1.0, 0.01, "suffix:s") var glide_landing_pose_blend_duration := 0.16
+## Segundos de pérdida de contacto tolerados antes de abandonar el aterrizaje. Evita cambios de estado por pequeñas irregularidades; la gravedad sigue actuando sin apoyo. 0 cancela inmediatamente. Se actualiza en vivo.
+@export_range(0.0, 0.2, 0.01, "suffix:s") var glide_landing_contact_grace := 0.06
+## Fracción de velocidad horizontal conservada al aterrizar. Mayor valor desliza más lejos; 0 conserva sólo la postura. Se consulta al aterrizar.
+@export_range(0.0, 1.0, 0.01) var glide_landing_speed_retention := 0.8
+## Frenado durante el deslizamiento en m/s². Mayor valor lo detiene antes; no modifica la duración de la pose. Se actualiza en vivo. Las colisiones y pendientes siguen siendo físicas.
+@export_range(0.0, 60.0, 0.5, "suffix:m/s²") var glide_landing_braking := 10.0
+## Evita que las cajas visuales de torso y cabeza atraviesen el plano del suelo durante el aterrizaje de Glide. Eleva sólo el modelo, sin cambiar la cápsula. Se actualiza en vivo; es una aproximación conservadora para piezas rígidas, no colisión exacta de malla.
+@export var glide_landing_clearance_enabled := true
+## Separación mínima entre torso/cabeza y el plano de apoyo, en metros. Mayor valor deja más espacio; 0 permite contacto. Se actualiza en vivo.
+@export_range(0.0, 0.15, 0.005, "suffix:m") var glide_landing_clearance_margin := 0.0
+## Profundidad visual permitida para la panza, en metros, restada del Clearance Margin sólo para el torso. Mayor valor permite hundir más la panza; 0 conserva el margen anterior. La cabeza mantiene su protección. Requiere Clearance Enabled y se actualiza en vivo.
+@export_range(0.0, 0.25, 0.005, "suffix:m") var glide_landing_belly_sink := 0.25
+## Elevación visual máxima permitida para evitar penetración, en metros. Mayor valor admite correcciones mayores pero puede hacer flotar al personaje. Se actualiza en vivo; si se alcanza el límite aún puede existir penetración.
+@export_range(0.0, 1.0, 0.01, "suffix:m") var glide_landing_clearance_max_lift := 0.0
+## Rapidez por segundo de retorno de la elevación visual al terminar el roce. Mayor valor recupera antes la altura normal. Se actualiza en vivo; la corrección hacia arriba es inmediata para evitar penetración.
+@export_range(1.0, 40.0, 0.5) var glide_landing_clearance_recovery := 12.0
+## Emite el mismo polvo de carrera durante el deslizamiento. Requiere Polvo de movimiento > Movement Dust Enabled. Se actualiza en vivo.
+@export var glide_landing_dust_enabled := true
+## Centro local del polvo respecto al jugador, en metros. X desplaza a un lado, Y eleva y +Z queda detrás. Se actualiza en vivo, independiente de la fuente de carrera.
+@export var glide_landing_dust_source_offset := Vector3(0.0, 0.1, 0.0)
+## Anchura total de emisión en X, en metros. Mayor valor reparte el polvo bajo ambos lados del cuerpo en lugar de un punto. Se actualiza en vivo para nuevas partículas.
+@export_range(0.0, 3.0, 0.01, "suffix:m") var glide_landing_dust_width := 0.9
+## Profundidad total de emisión en Z, en metros. Mayor valor reparte el polvo a lo largo del contacto con suelo. Se actualiza en vivo para nuevas partículas.
+@export_range(0.0, 2.0, 0.01, "suffix:m") var glide_landing_dust_depth := 0.25
+## Altura total de emisión en metros desde Source Offset. Mayor valor eleva la nube al nacer. Se actualiza en vivo para nuevas partículas.
+@export_range(0.0, 1.0, 0.01, "suffix:m") var glide_landing_dust_height := 0.05
+## Densidad nominal del polvo de aterrizaje. Mayor valor emite más bolas; comparte la capacidad reservada del emisor de carrera, sin crear otro sistema. Se actualiza en vivo.
+@export_range(1, 96, 1) var glide_landing_dust_density := 48
+## Multiplicador del tamaño inicial y final del polvo de carrera durante este aterrizaje. Mayor valor crea bolas más grandes. Se actualiza en vivo.
+@export_range(0.1, 2.0, 0.05) var glide_landing_dust_size_multiplier := 0.8
 @export_group("Polvo de movimiento")
-## Emite polvo sólo con Sprint mantenido, movimiento sobre suelo y sin Slide. Al detenerse, las bolas existentes terminan su vida. Se actualiza en vivo.
+## Activa el polvo de Sprint y el de aterrizaje de planeo (si su opción Dust Enabled también está activa). Al detenerse, las bolas existentes terminan su vida. Se actualiza en vivo.
 @export var movement_dust_enabled := true
 ## Velocidad horizontal mínima, en metros por segundo, para emitir mientras mantienes Sprint sobre suelo caminable. Reducirlo permite emitir antes al acelerar. Se actualiza en vivo.
 @export_range(0.1, 20.0, 0.1, "suffix:m/s") var movement_dust_run_speed := 5.6
@@ -231,6 +270,13 @@ var animation_state := "idle"
 var reaction_kind := ""
 var reaction_time := 0.0
 var landing_time := 0.0
+var is_glide_landing := false
+var glide_landing_left := 0.0
+var glide_landing_elapsed := 0.0
+var glide_landing_contact_lost := 0.0
+var glide_landing_velocity := Vector3.ZERO
+var glide_landing_floor_point := Vector3.ZERO
+var glide_landing_floor_normal := Vector3.UP
 var landing_strength := 0.0
 var last_landing_speed := 0.0
 var coyote_left := 0.0
@@ -333,6 +379,11 @@ func set_controls(enabled: bool) -> void:
 	angular_velocity = 0
 
 func respawn() -> void:
+	is_glide_landing = false
+	glide_landing_left = 0.0
+	glide_landing_elapsed = 0.0
+	glide_landing_contact_lost = 0.0
+	glide_landing_velocity = Vector3.ZERO
 	if climbing:
 		climbing.reset()
 	model.end_climb()
@@ -368,6 +419,8 @@ func _physics_process(delta: float) -> void:
 		if not Input.is_action_pressed("jump"):
 			interaction_press_consumed = false
 	input_grace = maxf(0, input_grace - delta)
+	if is_glide_landing and _tick_glide_landing(delta):
+		return
 	if not interaction_press_consumed and climbing.tick(delta):
 		return
 	var grounded := is_on_floor()
@@ -496,6 +549,8 @@ func _physics_process(delta: float) -> void:
 		velocity = (slide_velocity + steering * walk_speed * slide_steering).limit_length(slide_max_speed) - steep_normal * 0.35
 	else:
 		slide_velocity = Vector3.ZERO
+	var landing_from_glide := is_gliding
+	var incoming_glide_velocity := Vector3(velocity.x, 0.0, velocity.z)
 	var impact_speed := maxf(0, -velocity.y)
 	var position_before_move := global_position
 	move_and_slide()
@@ -526,12 +581,22 @@ func _physics_process(delta: float) -> void:
 		angular_velocity = angle_step / delta
 	if not grounded and is_on_floor():
 		last_landing_speed = impact_speed
-		if impact_speed >= landing_threshold:
+		if landing_from_glide and glide_landing_enabled and glide_landing_duration > 0.0 and not is_sliding:
+			is_glide_landing = true
+			glide_landing_left = glide_landing_duration
+			glide_landing_elapsed = 0.0
+			glide_landing_contact_lost = 0.0
+			glide_landing_velocity = incoming_glide_velocity * glide_landing_speed_retention
+			_update_glide_landing_floor()
+			landing_time = 0.0
+			animator.landing_elapsed = -1.0
+			feedback.emit("land")
+		elif impact_speed >= landing_threshold:
 			landing_strength = lerpf(0.25, 1.0, clampf((impact_speed - landing_threshold) / maxf(0.1, hard_landing_speed - landing_threshold), 0, 1))
 			landing_time = animator.landing_duration
 			animator.landed()
 			feedback.emit("land")
-	if is_on_floor() and not is_sliding and horizontal_speed > 0.3:
+	if is_on_floor() and not is_sliding and not is_glide_landing and horizontal_speed > 0.3:
 		step_time += delta * horizontal_speed
 		var step_distance := animator.stride_length * 0.5 / maxf(0.1, animator.cadence_multiplier) / maxf(0.1, step_frequency_multiplier)
 		if step_time > step_distance:
@@ -541,5 +606,52 @@ func _physics_process(delta: float) -> void:
 		respawn()
 		return
 	animator.tick(delta, horizontal_speed)
-	if not is_gliding:
+	if not is_gliding and not is_glide_landing:
 		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, Input.is_action_pressed("sprint"))
+
+
+func _tick_glide_landing(delta: float) -> bool:
+	# Una nueva pulsación de salto recupera inmediatamente el controlador normal.
+	var lost_support := not is_on_floor() and glide_landing_contact_lost >= glide_landing_contact_grace
+	if not glide_landing_enabled or glide_landing_left <= 0.0 or lost_support or _steep_support() != Vector3.ZERO or (Input.is_action_just_pressed("jump") and not interaction_press_consumed):
+		is_glide_landing = false
+		glide_landing_left = 0.0
+		animator.glide_blend = 0.0
+		return false
+	glide_landing_left = maxf(0.0, glide_landing_left - delta)
+	glide_landing_elapsed += delta
+	glide_landing_velocity = glide_landing_velocity.move_toward(Vector3.ZERO, glide_landing_braking * delta)
+	if is_on_floor():
+		var tangent := glide_landing_velocity.slide(get_floor_normal())
+		velocity = tangent.normalized() * glide_landing_velocity.length() if not tangent.is_zero_approx() else Vector3.ZERO
+	else:
+		velocity = glide_landing_velocity + Vector3.UP * (velocity.y - gravity * delta)
+	var before := global_position
+	move_and_slide()
+	apply_floor_snap()
+	if is_on_floor():
+		_update_glide_landing_floor()
+	var actual := (global_position - before) / maxf(delta, 0.001)
+	horizontal_speed = Vector2(actual.x, actual.z).length()
+	# No conservar inercia contra una pared ni atravesar obstáculos.
+	glide_landing_velocity = Vector3(velocity.x, 0.0, velocity.z)
+	previous_motion = actual
+	motion_acceleration = Vector3.ZERO
+	angular_velocity = 0.0
+	glide_landing_contact_lost = 0.0 if is_on_floor() else glide_landing_contact_lost + delta
+	if not is_on_floor() and glide_landing_contact_lost >= glide_landing_contact_grace:
+		is_glide_landing = false
+		glide_landing_left = 0.0
+		animator.glide_blend = 0.0
+	animator.tick(delta, horizontal_speed)
+	return true
+
+
+func _update_glide_landing_floor() -> void:
+	glide_landing_floor_point = global_position
+	glide_landing_floor_normal = get_floor_normal() if is_on_floor() else Vector3.UP
+	var query := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.5, global_position - Vector3.UP * 1.5, collision_mask, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty():
+		glide_landing_floor_point = hit.position
+		glide_landing_floor_normal = hit.normal

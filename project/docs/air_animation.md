@@ -7,7 +7,8 @@ permite afinar la pose en vivo; copia los valores elegidos a **Local** y guarda
 la escena para conservarlos. Los tiempos de contracción y recuperación se
 capturan al aterrizar; el resto se consulta continuamente.
 
-El salto abre ligeramente las piernas y las cierra con el tiempo. Los brazos
+El salto abre las piernas y las cierra con el tiempo. En una caída prolongada
+vuelven a abrirse gradualmente hacia afuera con sus propios controles. Los brazos
 parten bajos y suben al perder velocidad ascendente; al caer alcanzan su límite
 y vibran gradualmente. Caer desde una cornisa entra directamente en esa caída.
 Run y RunFast se pausan durante el aire. Al tocar suelo se reanudan de inmediato;
@@ -22,6 +23,9 @@ corresponda al salir. Climb toma prioridad al agarrarse; Glide usa sus clips.
 | Air Pose Enabled | Sí | Desactiva la expresión procedural; en el aire queda la pose base, sin carrera. |
 | Air Leg Spread Degrees | 40° | Apertura de cada pierna al despegar. |
 | Air Leg Close Duration | 1,5 s | Tiempo para cerrar patas; al empezar a caer terminan de cerrarse suavemente. |
+| Air Fall Leg Spread Degrees | 25° | Apertura lateral de cada pierna en caída prolongada. 0 desactiva esta apertura. |
+| Air Fall Leg Spread Delay | 0,18 s | Tiempo cayendo antes de empezar a abrirlas. |
+| Air Fall Leg Spread Duration | 0,6 s | Tiempo de apertura gradual hasta el ángulo máximo. |
 | Air Arm Start Degrees | 5° | Elevación de brazos al despegar. |
 | Air Arm Apex Degrees | 56° | Elevación en el punto más alto. |
 | Air Arm Fall Degrees | 93,5° | Elevación máxima al caer. |
@@ -48,6 +52,14 @@ Para una apertura de piernas más contenida, prueba **Air Leg Spread Degrees
 = 15–20°**. Para cerrarlas antes, reduce **Air Leg Close Duration**, por
 ejemplo de 1,5 a 0,5 s. Estos valores no cambian la altura del salto.
 
+Para abrir más las piernas al caer, aumenta **Air Fall Leg Spread Degrees**,
+por ejemplo a 35°. **Delay = 0,3 s** retrasa la apertura y **Duration = 1 s**
+la hace más lenta. Estos controles están en **Salto procedural · postura**,
+son independientes de la apertura al despegar y se actualizan en vivo.
+En un salto avanzando la apertura lateral entra junto con la recuperación
+de la postura de caída, sin añadir un ciclo de movimiento hacia delante y
+atrás. Al tocar suelo las patas recuperan el clip terrestre.
+
 Las uniones redondeadas de los brazos pueden dejar un hueco al levantarse.
 **Air Arm Inset** desplaza sus huesos hacia el centro del torso con una curva
 suave dependiente de la elevación. El ajuste elegido es 0,08 m; redúcelo si
@@ -69,12 +81,12 @@ No reproduce Run ni RunFast en el aire.
 | Control | Inicial | Ajuste habitual |
 | --- | --- | --- |
 | Air Stride Enabled | Sí | Apagado conserva la postura aérea anterior en todos los saltos. |
-| Air Stride Arm Forward Degrees | 35° | Ángulo independiente del brazo adelantado; player.tscn conserva 67,5°. |
-| Air Stride Arm Backward Degrees | 35° | Ángulo independiente del brazo retrasado; player.tscn conserva 67,5°. |
-| Air Stride Leg Degrees | 25° | Amplitud opuesta de cada pierna. |
-| Air Stride Leg Forward Offset | 0,03 m | Desplaza la pierna adelantada hacia el frente, además del giro. 0 desactiva este desplazamiento. |
-| Air Stride Leg Backward Offset | 0,03 m | Desplaza la pierna retrasada hacia atrás de forma independiente. 0 desactiva este desplazamiento. |
-| Air Stride Torso Lean Degrees | 8° | Inclina el torso hacia delante durante la pose de zancada; 0 lo deja erguido. |
+| Air Stride Arm Forward Degrees | 67,5° | Ángulo independiente del brazo adelantado. |
+| Air Stride Arm Backward Degrees | 96° | Ángulo independiente del brazo retrasado. |
+| Air Stride Leg Degrees | 70° | Amplitud opuesta de cada pierna. |
+| Air Stride Leg Forward Offset | 0,125 m | Desplaza la pierna adelantada hacia el frente, además del giro. 0 desactiva este desplazamiento. |
+| Air Stride Leg Backward Offset | 0,13 m | Desplaza la pierna retrasada hacia atrás de forma independiente. 0 desactiva este desplazamiento. |
+| Air Stride Torso Lean Degrees | 15,5° | Inclina el torso hacia delante durante la pose de zancada; 0 lo deja erguido. |
 | Air Stride Head Forward Offset | 0,025 m | Adelanta la cabeza respecto al torso durante la zancada. 0 elimina el desplazamiento adicional. |
 | Air Stride Full Speed | 3 m/s | Velocidad horizontal para toda la zancada al despegar; afecta el siguiente salto. |
 | Air Stride Fall Delay | 0,12 s | Tiempo cayendo antes de comenzar a abandonar la pose fija. |

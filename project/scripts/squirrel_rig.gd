@@ -31,6 +31,8 @@ var climb_sound_position := 0.0
 var movement_dust: MovementDust
 var air_active := false
 var landing_pose_active := false
+var landing_clearance_meshes: Array[MeshInstance3D] = []
+var landing_clearance_height := 0.0
 var air_pose_targets: Dictionary = {}
 var air_position_targets: Dictionary = {}
 var air_pose_rotations: Dictionary = {}
@@ -176,9 +178,21 @@ func update_handmade_glide(amount: float, flutter_speed: float, start_speed := 1
 			playertest2_animation.stop()
 
 
+func hold_glide_landing_pose() -> void:
+	_clear_air_pose()
+	glide_active = true
+	idle_active = false
+	landing_pose_active = false
+	glide_tremor_degrees = 0.0
+	if playertest2_animation:
+		playertest2_animation.pause()
+
+
 func _find_glide_membranes(node: Node) -> void:
 	if node is MeshInstance3D:
 		var mesh_instance := node as MeshInstance3D
+		if String(node.name).contains("nuez_torso") or String(node.name).contains("nuez_cabeza"):
+			landing_clearance_meshes.append(mesh_instance)
 		# El exportador conserva los nombres de malla Plane/Plane.001, pero ambas
 		# membranas comparten esta Shape Key exclusiva.
 		if mesh_instance.mesh and mesh_instance.mesh.get_blend_shape_count() > 0:
@@ -216,6 +230,7 @@ func _set_membrane_amount(amount: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_update_landing_clearance(delta)
 	if not playertest2_skeleton:
 		return
 	if climb_active:
@@ -263,6 +278,35 @@ func _process(delta: float) -> void:
 		var pitch: float = cos(phase * 2.3) * amplitude * 0.45
 		var current_rotation: Quaternion = playertest2_skeleton.get_bone_pose_rotation(bone_index)
 		playertest2_skeleton.set_bone_pose_rotation(bone_index, current_rotation * Quaternion.from_euler(Vector3(pitch, 0.0, roll)))
+
+
+func _update_landing_clearance(delta: float) -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor or not body_pivot:
+		return
+	var required := 0.0
+	if actor.is_glide_landing and actor.glide_landing_clearance_enabled:
+		var normal := actor.glide_landing_floor_normal.normalized()
+		var lift_axis := global_basis * Vector3.UP
+		var lift_projection := maxf(0.1, normal.dot(lift_axis))
+		for mesh_instance in landing_clearance_meshes:
+			if not is_instance_valid(mesh_instance):
+				continue
+			var bounds := mesh_instance.get_aabb()
+			var margin := actor.glide_landing_clearance_margin
+			if String(mesh_instance.name).contains("nuez_torso"):
+				margin -= actor.glide_landing_belly_sink
+			for corner in 8:
+				# Retira la corrección anterior antes de calcular la nueva.
+				var point := mesh_instance.global_transform * bounds.get_endpoint(corner) - lift_axis * landing_clearance_height
+				var distance := normal.dot(point - actor.glide_landing_floor_point)
+				required = maxf(required, (margin - distance) / lift_projection)
+		required = minf(required, actor.glide_landing_clearance_max_lift)
+	if required > landing_clearance_height:
+		landing_clearance_height = required
+	else:
+		landing_clearance_height = lerpf(landing_clearance_height, required, 1.0 - exp(-actor.glide_landing_clearance_recovery * delta))
+	body_pivot.position.y = landing_clearance_height
 
 
 func _tick_climb_sounds() -> void:
@@ -430,6 +474,9 @@ func deform_arms(_flex: float, _drop: float, _stretch: float) -> void: pass
 func leg_pose(_side: int, _target: Vector3, _foot_pitch: float) -> void: pass
 func reset_interpolation() -> void:
 	_clear_air_pose()
+	landing_clearance_height = 0.0
+	if body_pivot:
+		body_pivot.position.y = 0.0
 	glide_active = false
 	glide_started = false
 	idle_active = false
