@@ -1,5 +1,10 @@
 # Ajustar la animación de la ardilla
 
+El salto, la caída y el aterrizaje del rig artesanal actual están descritos en
+[`air_animation.md`](air_animation.md), con los controles vigentes. Las
+secciones antiguas de este documento sobre codos y deformaciones pertenecen
+al rig procedural previo y no describen los huesos del GLB actual.
+
 ## Dónde están los controles
 
 1. En **FileSystem** de Godot, abre **res://scenes/player.tscn**.

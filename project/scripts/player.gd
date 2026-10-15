@@ -529,6 +529,7 @@ func _physics_process(delta: float) -> void:
 		if impact_speed >= landing_threshold:
 			landing_strength = lerpf(0.25, 1.0, clampf((impact_speed - landing_threshold) / maxf(0.1, hard_landing_speed - landing_threshold), 0, 1))
 			landing_time = animator.landing_duration
+			animator.landed()
 			feedback.emit("land")
 	if is_on_floor() and not is_sliding and horizontal_speed > 0.3:
 		step_time += delta * horizontal_speed

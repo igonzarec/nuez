@@ -20,6 +20,74 @@ extends Node
 @export_range(0.05, 0.3) var landing_duration := 0.16
 @export_range(0.0, 0.2) var landing_squash := 0.09
 
+@export_group("Salto procedural · postura")
+## Activa poses graduales de salto, caída y contracción al aterrizar. Se actualiza en vivo; al apagarlo el aire usa la pose base, sin Run.
+@export var air_pose_enabled := true
+## Apertura lateral de cada pierna al despegar, en grados. Más alto abre más las patas. Se actualiza en vivo.
+@export_range(0.0, 40.0, 0.5) var air_leg_spread_degrees := 40.0
+## Segundos desde el despegue hasta cerrar las piernas. Mayor valor mantiene la apertura más tiempo. Se actualiza en vivo.
+@export_range(0.05, 1.5, 0.01, "suffix:s") var air_leg_close_duration := 1.5
+## Elevación de cada brazo respecto al reposo al despegar, en grados. Mayor valor separa más los brazos del cuerpo. Se actualiza en vivo.
+@export_range(0.0, 150.0, 0.5) var air_arm_start_degrees := 5.0
+## Elevación de brazos al llegar al punto más alto, en grados. Mayor valor eleva más las manos. Se actualiza en vivo.
+@export_range(0.0, 150.0, 0.5) var air_arm_apex_degrees := 56.0
+## Límite de elevación de brazos en caída, en grados. Mayor valor acerca las manos a la cabeza. Se actualiza en vivo.
+@export_range(0.0, 170.0, 0.5) var air_arm_fall_degrees := 93.5
+## Desplazamiento máximo de cada hombro hacia el centro del torso, en metros, al elevar el brazo. 0 desactiva la corrección; mayor valor oculta más la unión redondeada. Se actualiza en vivo y vuelve a la posición original al bajar los brazos.
+@export_range(0.0, 0.15, 0.005, "suffix:m") var air_arm_inset := 0.08
+## Elevación de brazos, en grados desde reposo, a la que se alcanza todo Arm Inset. Menor valor mete los hombros antes; mayor lo reparte a lo largo del giro. Se actualiza en vivo; no afecta el ángulo de los brazos.
+@export_range(5.0, 170.0, 0.5) var air_arm_inset_full_angle := 90.0
+## Rapidez de caída en m/s que alcanza la postura y el temblor máximos. Menor valor los activa antes. Se actualiza en vivo.
+@export_range(0.1, 20.0, 0.1, "suffix:m/s") var air_full_fall_speed := 5.0
+## Amplitud máxima de temblor de brazos en grados, escalada con la caída. 0 lo desactiva. Se actualiza en vivo.
+@export_range(0.0, 15.0, 0.1) var air_tremor_degrees := 10.6
+## Oscilaciones de brazos por segundo. Mayor valor vibra más rápido; 0 desactiva el temblor. Se actualiza en vivo.
+@export_range(0.0, 20.0, 0.1, "suffix:Hz") var air_tremor_frequency := 7.0
+## Rapidez de mezcla de huesos por segundo al entrar y salir de la pose. Mayor valor responde antes; menor suaviza. Se actualiza en vivo.
+@export_range(1.0, 40.0, 0.5) var air_pose_response := 18.0
+
+@export_group("Salto en movimiento · zancada aérea")
+## Activa una pose fija de zancada al saltar avanzando. Cambia de lado sólo al iniciar otro salto; al caer se mezcla con la postura normal. Se actualiza en vivo.
+@export var air_stride_enabled := true
+## Giro del brazo adelantado en grados. Mayor valor lo adelanta más; 0 elimina su giro longitudinal. Cambia de lado con cada salto. Se actualiza en vivo, independiente de Backward Degrees.
+@export_range(0.0, 150.0, 0.5) var air_stride_arm_forward_degrees := 35.0
+## Giro del brazo retrasado en grados. Mayor valor lo lleva más atrás; 0 elimina su giro longitudinal. Cambia de lado con cada salto. Se actualiza en vivo; ángulos extremos pueden cruzar las mallas del hombro.
+@export_range(0.0, 150.0, 0.5) var air_stride_arm_backward_degrees := 35.0
+## Giro máximo de cada pierna, opuesto al brazo del mismo lado, en grados. Mayor valor abre más la zancada longitudinal. Se actualiza en vivo.
+@export_range(0.0, 70.0, 0.5) var air_stride_leg_degrees := 25.0
+## Desplazamiento de la pierna adelantada hacia el frente del personaje, en metros, además de su giro. Mayor valor adelanta más la pata; 0 desactiva sólo este desplazamiento. Se actualiza en vivo y se reduce con la zancada al caer. Valores grandes pueden separar la unión de la cadera.
+@export_range(0.0, 0.2, 0.005, "suffix:m") var air_stride_leg_forward_offset := 0.03
+## Desplazamiento de la pierna retrasada hacia atrás, en metros, independiente de Forward Offset. Mayor valor retrasa más la pata; 0 desactiva sólo este desplazamiento. Se actualiza en vivo y cambia de pierna en el siguiente salto. Valores grandes pueden separar la unión de la cadera.
+@export_range(0.0, 0.2, 0.005, "suffix:m") var air_stride_leg_backward_offset := 0.03
+## Inclinación del torso hacia el frente en la pose de salto avanzando, en grados. Mayor valor inclina más pecho y hombros; 0 conserva el torso erguido. Se actualiza en vivo y se desvanece al recuperar la postura de caída.
+@export_range(0.0, 40.0, 0.5) var air_stride_torso_lean_degrees := 8.0
+## Avance adicional de la cabeza respecto al torso durante la zancada aérea, en metros. Mayor valor adelanta más la cabeza; 0 elimina sólo este avance. Se actualiza en vivo; valores extremos pueden separar la unión del cuello.
+@export_range(0.0, 0.15, 0.005, "suffix:m") var air_stride_head_forward_offset := 0.025
+## Velocidad horizontal en m/s para toda la zancada al despegar. La intensidad se captura al entrar al aire y se conserva en ese salto; la intención de movimiento también activa la postura. Menor valor admite velocidades menores. Afecta el siguiente salto.
+@export_range(0.2, 12.0, 0.1, "suffix:m/s") var air_stride_full_speed := 3.0
+## Segundos cayendo antes de recuperar la postura normal. Mayor valor mantiene más tiempo la pose fija. Se actualiza en vivo; después se aplican Fall Start/End Speed.
+@export_range(0.0, 1.0, 0.01, "suffix:s") var air_stride_fall_delay := 0.12
+## Rapidez descendente en m/s a la que empieza a recuperar la postura de caída normal. Mayor valor conserva más tiempo la zancada. Debe ser menor que Fall End Speed. Se actualiza en vivo.
+@export_range(0.0, 15.0, 0.1, "suffix:m/s") var air_stride_fall_start_speed := 1.0
+## Rapidez descendente en m/s a la que termina de apagar la zancada, aunque siga avanzando horizontalmente. Mayor valor retrasa la postura normal de caída. Se actualiza en vivo.
+@export_range(0.1, 25.0, 0.1, "suffix:m/s") var air_stride_fall_end_speed := 6.0
+## Rapidez de mezcla por segundo entre salto quieto, zancada y caída. Menor valor suaviza y retrasa la transición; mayor responde antes. Se actualiza en vivo.
+@export_range(1.0, 30.0, 0.5) var air_stride_blend_speed := 10.0
+
+@export_group("Aterrizaje procedural")
+## Descenso máximo del torso respecto a las piernas en metros, graduado por el impacto. Mayor valor contrae más el cuerpo; valores extremos pueden cruzar mallas. Se actualiza en vivo.
+@export_range(0.0, 0.25, 0.005, "suffix:m") var landing_body_drop := 0.10
+## Retracción adicional de cabeza hacia el torso en metros. Mayor valor esconde más el cuello; valores extremos cruzan mallas. Se actualiza en vivo.
+@export_range(0.0, 0.10, 0.005, "suffix:m") var landing_head_retract := 0.035
+## Inclinación de cabeza hacia delante al contraerse, en grados. Mayor valor hace más marcado el asentimiento. Se actualiza en vivo.
+@export_range(0.0, 25.0, 0.5) var landing_head_pitch_degrees := 6.0
+## Segundos desde el impacto hasta máxima contracción. Mayor valor hace la absorción más lenta. Se consulta al aterrizar.
+@export_range(0.02, 0.3, 0.01, "suffix:s") var landing_compress_duration := 0.07
+## Segundos para recuperar la postura después de contraerse. Mayor valor alarga la recuperación. Se consulta al aterrizar.
+@export_range(0.05, 0.8, 0.01, "suffix:s") var landing_recover_duration := 0.22
+## Rapidez por segundo para recuperar brazos y piernas de caminar/correr al tocar suelo. Mayor valor recupera antes la zancada terrestre; menor suaviza la mezcla. La contracción de torso y cabeza continúa encima del clip. Se actualiza en vivo.
+@export_range(1.0, 60.0, 0.5) var landing_locomotion_response := 30.0
+
 @export_group("Postura de planeo")
 ## Inclinación base hacia delante durante Glide, incluso sin entrada de movimiento.
 ## Ejemplo: 20° es planeo tranquilo; 45° es marcado; cerca de 85° es una postura extrema.
@@ -68,14 +136,47 @@ var locomotion_state := "idle"
 var body_pitch := 0.0
 var body_roll := 0.0
 var body_bank := 0.0
+var air_elapsed := 0.0
+var air_launch_speed := 1.0
+var landing_elapsed := -1.0
+var landing_compress_time := 0.07
+var landing_recover_time := 0.22
+var air_stride_side := -1.0
+var air_stride_weight := 0.0
+var air_stride_fall_weight := 0.0
+var air_stride_launch_weight := 0.0
+var air_stride_capture_pending := true
+var air_was_airborne := false
+var air_stride_fall_elapsed := 0.0
+
+func landed() -> void:
+	landing_elapsed = 0.0
+	landing_compress_time = landing_compress_duration
+	landing_recover_time = landing_recover_duration
 
 func jump_started() -> void:
 	jump_start = 0.10
+	air_elapsed = 0.0
+	air_launch_speed = maxf(0.1, actor.velocity.y)
+	air_stride_side = -air_stride_side
+	air_stride_capture_pending = true
+	air_stride_fall_elapsed = 0.0
+	air_stride_fall_weight = 0.0
+	landing_elapsed = -1.0
 
 func reset() -> void:
 	glide_blend = 0.0
 	run_blend = 0.0
 	jump_start = 0.0
+	air_elapsed = 0.0
+	landing_elapsed = -1.0
+	air_stride_side = -1.0
+	air_stride_weight = 0.0
+	air_stride_fall_weight = 0.0
+	air_stride_launch_weight = 0.0
+	air_stride_capture_pending = true
+	air_was_airborne = false
+	air_stride_fall_elapsed = 0.0
 	actor.model.glide_amount = 0.0
 	actor.model.position = Vector3.ZERO
 	actor.model.scale = Vector3.ONE
@@ -113,7 +214,7 @@ func tick(delta: float, speed: float) -> void:
 	actor.animation_state = actor.reaction_kind if actor.reaction_time > 0.0 else locomotion_state
 
 	var landing_phase := 1.0 - actor.landing_time / maxf(0.01, landing_duration)
-	var squash := sin(landing_phase * PI) * landing_squash * actor.landing_strength if actor.landing_time > 0.0 else 0.0
+	var squash := sin(landing_phase * PI) * landing_squash * actor.landing_strength if actor.landing_time > 0.0 and not air_pose_enabled else 0.0
 	squash += cos(gait_phase * 2.0) * run_squash * run_blend
 	actor.model.scale = actor.model.scale.lerp(Vector3(1.0 + squash * 0.4, 1.0 - squash, 1.0 + squash * 0.4), blend)
 	var forward := Vector3.FORWARD.rotated(Vector3.UP, actor.model.rotation.y)
@@ -148,3 +249,70 @@ func tick(delta: float, speed: float) -> void:
 	actor.model.position.y = lerpf(actor.model.position.y, (0.5 - 0.5 * cos(gait_phase * 2.0)) * body_bounce * run_blend, blend)
 	actor.model.glide_amount = glide_blend
 	actor.model.update_handmade_glide(glide_blend, handmade_glide_flutter_speed, handmade_glide_start_speed, handmade_glide_tremor_degrees, handmade_glide_tremor_speed)
+	_tick_air_pose(delta, grounded)
+
+
+func _tick_air_pose(delta: float, grounded: bool) -> void:
+	var airborne := not grounded and not actor.is_gliding and not actor.is_climbing
+	var compression := 0.0
+	if airborne:
+		air_elapsed += delta
+		landing_elapsed = -1.0
+	else:
+		air_elapsed = 0.0
+	if actor.is_gliding or actor.is_climbing or actor.is_sliding:
+		landing_elapsed = -1.0
+	if landing_elapsed >= 0.0:
+		landing_elapsed += delta
+		if landing_elapsed < landing_compress_time:
+			compression = smoothstep(0.0, landing_compress_time, landing_elapsed)
+		else:
+			compression = 1.0 - smoothstep(0.0, landing_recover_time, landing_elapsed - landing_compress_time)
+		if landing_elapsed >= landing_compress_time + landing_recover_time:
+			landing_elapsed = -1.0
+	compression *= actor.landing_strength
+	var rise_progress := 1.0 - clampf(actor.velocity.y / maxf(0.1, air_launch_speed), 0.0, 1.0)
+	var fall_progress := smoothstep(0.0, air_full_fall_speed, maxf(0.0, -actor.velocity.y))
+	var lift := lerpf(air_arm_start_degrees, air_arm_apex_degrees, smoothstep(0.0, 1.0, rise_progress))
+	lift = lerpf(lift, air_arm_fall_degrees, fall_progress) if airborne else 0.0
+	var spread := air_leg_spread_degrees * (1.0 - smoothstep(0.0, air_leg_close_duration, air_elapsed)) if airborne and actor.velocity.y > 0.0 else 0.0
+	var tremor := air_tremor_degrees * fall_progress if airborne and air_tremor_frequency > 0.0 else 0.0
+	var stride_target := 0.0
+	if airborne:
+		if air_stride_capture_pending or not air_was_airborne:
+			# La intensidad y el lado quedan fijos durante este salto, aunque
+			# cambie su velocidad horizontal. No existe un ciclo de piernas.
+			air_stride_launch_weight = maxf(smoothstep(0.0, air_stride_full_speed, actor.horizontal_speed), actor.glide_movement_intent)
+			air_stride_capture_pending = false
+			air_stride_fall_weight = 0.0
+			air_stride_fall_elapsed = 0.0
+		air_stride_fall_elapsed = air_stride_fall_elapsed + delta if actor.velocity.y < 0.0 else 0.0
+		var fall_end := maxf(air_stride_fall_start_speed + 0.01, air_stride_fall_end_speed)
+		# Una caída larga no vuelve a activar la zancada al rozar una pared.
+		if air_stride_fall_elapsed >= air_stride_fall_delay:
+			air_stride_fall_weight = maxf(air_stride_fall_weight, smoothstep(air_stride_fall_start_speed, fall_end, maxf(0.0, -actor.velocity.y)))
+		if air_stride_enabled:
+			stride_target = air_stride_launch_weight * (1.0 - air_stride_fall_weight)
+	else:
+		air_stride_fall_weight = 0.0
+		air_stride_fall_elapsed = 0.0
+	air_was_airborne = airborne
+	air_stride_weight = lerpf(air_stride_weight, stride_target, 1.0 - exp(-air_stride_blend_speed * delta))
+	var stride := air_stride_side * air_stride_weight if airborne else 0.0
+	# +X lleva el extremo del brazo hacia atrás; -X hacia delante.
+	var arm_pitches := Vector2(-air_stride_arm_forward_degrees, air_stride_arm_backward_degrees) if stride >= 0.0 else Vector2(air_stride_arm_backward_degrees, -air_stride_arm_forward_degrees)
+	arm_pitches *= absf(stride)
+	var leg_swing := -stride * air_stride_leg_degrees
+	# En el esqueleto importado el frente es +Z. Un giro +X lleva la pata
+	# hacia -Z: se desplaza cada cadera en el mismo sentido de su giro.
+	var leg_offsets := Vector2(-air_stride_leg_backward_offset, air_stride_leg_forward_offset) if stride >= 0.0 else Vector2(air_stride_leg_forward_offset, -air_stride_leg_backward_offset)
+	leg_offsets *= absf(stride)
+	var lateral_weight := 1.0 - air_stride_weight if airborne else 1.0
+	lift *= lateral_weight
+	spread *= lateral_weight
+	tremor *= lateral_weight
+	var arm_inset := air_arm_inset * smoothstep(0.0, air_arm_inset_full_angle, maxf(absf(lift), maxf(absf(arm_pitches.x), absf(arm_pitches.y))))
+	var stride_amount := absf(stride)
+	var torso_lean := air_stride_torso_lean_degrees * stride_amount
+	var head_forward := air_stride_head_forward_offset * stride_amount
+	actor.model.update_air_pose(airborne, air_pose_enabled, lift, spread, tremor, air_tremor_frequency, compression, landing_body_drop, landing_head_retract, landing_head_pitch_degrees, air_pose_response, arm_inset, Vector2(0.0, leg_swing), leg_offsets, torso_lean, head_forward, landing_locomotion_response, arm_pitches)

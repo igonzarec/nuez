@@ -29,6 +29,15 @@ var climb_amplitude := 0.0
 var climb_cadence := 0.7
 var climb_sound_position := 0.0
 var movement_dust: MovementDust
+var air_active := false
+var landing_pose_active := false
+var air_pose_targets: Dictionary = {}
+var air_position_targets: Dictionary = {}
+var air_pose_rotations: Dictionary = {}
+var air_pose_positions: Dictionary = {}
+var air_pose_response := 18.0
+var air_pose_clock := 0.0
+var air_pose_releasing := false
 const GLIDE_TREMOR_BONES := [&"arm_left", &"arm_right", &"leg_left", &"leg_right"]
 
 func _ready() -> void:
@@ -76,7 +85,7 @@ func _ready() -> void:
 		playertest2_animation.pause()
 
 func update_handmade_run(speed: float, walk_member_speed: float, run_member_speed: float, sprint_requested: bool) -> void:
-	if glide_active or climb_active:
+	if glide_active or climb_active or air_active:
 		return
 	if not playertest2_animation or playertest2_run.is_empty():
 		return
@@ -99,6 +108,7 @@ func update_handmade_run(speed: float, walk_member_speed: float, run_member_spee
 		playertest2_animation.pause()
 
 func update_climb(speed: float, amplitude: float, cadence: float) -> void:
+	_clear_air_pose()
 	if not climb_active:
 		climb_sound_position = 0.0
 		var actor := get_parent() as ExplorerPlayer
@@ -227,6 +237,9 @@ func _process(delta: float) -> void:
 			var pose := Vector3(-0.7 + stroke if arm else 0.25 + stroke, 0.0, side * (0.2 if arm else 0.1))
 			playertest2_skeleton.set_bone_pose_rotation(bone_index, Quaternion.from_euler(pose))
 		return
+	if air_active or landing_pose_active or air_pose_releasing:
+		_apply_air_pose(delta)
+		return
 	if idle_active:
 		# Idle no utiliza el primer frame de Run: ese frame puede contener una
 		# zancada. Restablecemos la pose real del rig para tener piernas y brazos
@@ -275,6 +288,112 @@ func _tick_climb_sounds() -> void:
 	climb_sound_position = current
 
 
+func update_air_pose(airborne: bool, enabled: bool, lift: float, spread: float, tremor: float, frequency: float, compression: float, body_drop: float, head_retract: float, head_pitch: float, response: float, arm_inset: float = 0.0, stride_swing: Vector2 = Vector2.ZERO, leg_offsets: Vector2 = Vector2.ZERO, torso_lean: float = 0.0, head_forward: float = 0.0, landing_response: float = 30.0, arm_pitches: Vector2 = Vector2.ZERO) -> void:
+	if not playertest2_skeleton:
+		return
+	var active := airborne and not climb_active and not glide_active
+	var landing_active := not airborne and enabled and compression > 0.0 and not climb_active and not glide_active
+	if (active or landing_active) and not air_active and not landing_pose_active:
+		# Captura la pose visible de salida, sin arrastrar la zancada al aire.
+		_capture_air_pose()
+	if active and not air_active and playertest2_animation:
+		playertest2_animation.pause()
+	if (not active and air_active) or (not landing_active and landing_pose_active):
+		air_pose_releasing = true
+	air_active = active
+	landing_pose_active = landing_active
+	air_pose_response = response if active else landing_response
+	if not active and not landing_active:
+		return
+	if active:
+		idle_active = false
+		air_pose_releasing = false
+	air_pose_targets.clear()
+	air_position_targets.clear()
+	if not enabled:
+		return
+	# Ejes del esqueleto, convertidos a los ejes locales reales del rig.
+	for side_name in ["left", "right"]:
+		var side := -1.0 if side_name == "left" else 1.0
+		var phase := air_pose_clock * frequency * TAU + (0.0 if side < 0.0 else 1.7)
+		var shake := sin(phase) * tremor
+		_set_air_rotation("arm_" + side_name, Vector3.BACK, deg_to_rad((lift + shake) * side), deg_to_rad(arm_pitches.x if side_name == "left" else arm_pitches.y))
+		_set_air_position("arm_" + side_name, Vector3.LEFT * side * arm_inset)
+		_set_air_rotation("leg_" + side_name, Vector3.BACK, deg_to_rad(spread * side), deg_to_rad(stride_swing.y * side))
+		_set_air_position("leg_" + side_name, Vector3.BACK * (leg_offsets.x if side_name == "left" else leg_offsets.y))
+	_set_air_rotation("head", Vector3.RIGHT, deg_to_rad(head_pitch * compression))
+	_set_air_rotation("spine", Vector3.RIGHT, deg_to_rad(torso_lean))
+	_set_air_position("spine", Vector3.DOWN * body_drop * compression)
+	_set_air_position("head", Vector3.DOWN * head_retract * compression + Vector3.BACK * head_forward)
+
+
+func _set_air_rotation(bone_name: String, axis: Vector3, angle: float, pitch: float = 0.0) -> void:
+	var index := playertest2_skeleton.find_bone(bone_name)
+	if index >= 0:
+		var local_axis := playertest2_skeleton.get_bone_global_rest(index).basis.orthonormalized().inverse() * axis
+		var rest_rotation := playertest2_skeleton.get_bone_rest(index).basis.get_rotation_quaternion()
+		var pitch_axis := playertest2_skeleton.get_bone_global_rest(index).basis.orthonormalized().inverse() * Vector3.RIGHT
+		air_pose_targets[index] = rest_rotation * Quaternion(local_axis.normalized(), angle) * Quaternion(pitch_axis.normalized(), pitch)
+
+
+func _set_air_position(bone_name: String, displacement: Vector3) -> void:
+	var index := playertest2_skeleton.find_bone(bone_name)
+	if index >= 0:
+		var parent_index := playertest2_skeleton.get_bone_parent(index)
+		var parent_basis := playertest2_skeleton.get_bone_global_rest(parent_index).basis if parent_index >= 0 else Basis.IDENTITY
+		air_position_targets[index] = playertest2_skeleton.get_bone_rest(index).origin + parent_basis.inverse() * displacement
+
+
+func _capture_air_pose() -> void:
+	for index in playertest2_skeleton.get_bone_count():
+		air_pose_rotations[index] = playertest2_skeleton.get_bone_pose_rotation(index)
+		air_pose_positions[index] = playertest2_skeleton.get_bone_pose_position(index)
+
+
+func _apply_air_pose(delta: float) -> void:
+	air_pose_clock += delta
+	if air_active or idle_active:
+		_reset_idle_pose()
+	var blend := 1.0 - exp(-air_pose_response * delta)
+	var settled := true
+	for index in playertest2_skeleton.get_bone_count():
+		var base_rotation := playertest2_skeleton.get_bone_pose_rotation(index)
+		var base_position := playertest2_skeleton.get_bone_pose_position(index)
+		var rest_rotation := playertest2_skeleton.get_bone_rest(index).basis.get_rotation_quaternion()
+		var target_rotation: Quaternion = air_pose_targets.get(index, rest_rotation) if air_active else base_rotation
+		var target_position: Vector3 = air_position_targets.get(index, playertest2_skeleton.get_bone_rest(index).origin) if air_active else base_position
+		if landing_pose_active:
+			# La contracción se suma al clip terrestre ya en reproducción:
+			# no retiene piernas ni brazos hasta terminar el aterrizaje.
+			var landing_rotation: Quaternion = air_pose_targets.get(index, rest_rotation)
+			var landing_position: Vector3 = air_position_targets.get(index, playertest2_skeleton.get_bone_rest(index).origin)
+			target_rotation = base_rotation * rest_rotation.inverse() * landing_rotation
+			target_position = base_position + landing_position - playertest2_skeleton.get_bone_rest(index).origin
+		var previous_rotation: Quaternion = air_pose_rotations.get(index, base_rotation)
+		var previous_position: Vector3 = air_pose_positions.get(index, base_position)
+		var rotation := previous_rotation.slerp(target_rotation, blend)
+		var bone_position := previous_position.lerp(target_position, blend)
+		playertest2_skeleton.set_bone_pose_rotation(index, rotation)
+		playertest2_skeleton.set_bone_pose_position(index, bone_position)
+		air_pose_rotations[index] = rotation
+		air_pose_positions[index] = bone_position
+		if rotation.angle_to(target_rotation) > 0.002 or bone_position.distance_to(target_position) > 0.0005:
+			settled = false
+	if not air_active and not landing_pose_active and settled:
+		air_pose_releasing = false
+
+
+func _clear_air_pose() -> void:
+	air_active = false
+	landing_pose_active = false
+	air_pose_releasing = false
+	air_pose_targets.clear()
+	air_position_targets.clear()
+	air_pose_rotations.clear()
+	air_pose_positions.clear()
+	air_pose_clock = 0.0
+
+
 func _reset_idle_pose() -> void:
 	for bone_index in playertest2_skeleton.get_bone_count():
 		playertest2_skeleton.reset_bone_pose(bone_index)
@@ -310,6 +429,7 @@ func deform_tail(_flex: float, _drop: float, _stretch: float, _sideways := 0.0) 
 func deform_arms(_flex: float, _drop: float, _stretch: float) -> void: pass
 func leg_pose(_side: int, _target: Vector3, _foot_pitch: float) -> void: pass
 func reset_interpolation() -> void:
+	_clear_air_pose()
 	glide_active = false
 	glide_started = false
 	idle_active = false
