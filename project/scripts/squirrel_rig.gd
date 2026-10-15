@@ -3,6 +3,7 @@ extends Node3D
 ## Contenedor visual del personaje artesanal. Solo carga playertest2.
 
 const PLAYERTES2_VISUAL := preload("res://assets/playertest2/playertest2.glb")
+const MOVEMENT_DUST := preload("res://scripts/movement_dust.gd")
 
 var glide_amount := 0.0
 var tail_rotation := Vector3.ZERO
@@ -10,6 +11,7 @@ var body_pivot: Node3D
 var playertest2_animation: AnimationPlayer
 var playertest2_run := &""
 var playertest2_run_fast := &""
+var playertest2_climb := &""
 var playertest2_glide_start := &""
 var playertest2_glide_loop := &""
 var glide_active := false
@@ -25,6 +27,8 @@ var climb_phase := 0.0
 var climb_visual_speed := 0.0
 var climb_amplitude := 0.0
 var climb_cadence := 0.7
+var climb_sound_position := 0.0
+var movement_dust: MovementDust
 const GLIDE_TREMOR_BONES := [&"arm_left", &"arm_right", &"leg_left", &"leg_right"]
 
 func _ready() -> void:
@@ -39,6 +43,10 @@ func _ready() -> void:
 	_find_glide_membranes(handmade_visual)
 	_set_membrane_amount(0.0)
 	playertest2_skeleton = _find_skeleton(handmade_visual)
+	movement_dust = MOVEMENT_DUST.new()
+	movement_dust.name = "MovementDust"
+	add_child(movement_dust)
+	movement_dust.setup(self, get_parent() as ExplorerPlayer)
 	# Se ejecuta después del AnimationPlayer para aplicar el temblor encima del clip Glide.
 	process_priority = 100
 	playertest2_animation = handmade_visual.find_child("AnimationPlayer", true, false) as AnimationPlayer
@@ -50,16 +58,25 @@ func _ready() -> void:
 			playertest2_run_fast = animation_name
 		elif animation_text.ends_with("Run"):
 			playertest2_run = animation_name
+		elif animation_text.ends_with("Climb"):
+			playertest2_climb = animation_name
 		elif animation_text.ends_with("GlideStart"):
 			playertest2_glide_start = animation_name
 		elif animation_text.ends_with("Glide"):
 			playertest2_glide_loop = animation_name
+	if not playertest2_climb.is_empty():
+		# El clip de Blender contiene la misma pose al inicio y al final.
+		# Forzamos el bucle aquí para que el importador no dependa de metadatos
+		# específicos de glTF y el control siga siendo portable en Godot 4.6.
+		var climb_animation := playertest2_animation.get_animation(playertest2_climb)
+		if climb_animation:
+			climb_animation.loop_mode = Animation.LOOP_LINEAR
 	if not playertest2_run.is_empty():
 		playertest2_animation.play(playertest2_run)
 		playertest2_animation.pause()
 
 func update_handmade_run(speed: float, walk_member_speed: float, run_member_speed: float, sprint_requested: bool) -> void:
-	if glide_active:
+	if glide_active or climb_active:
 		return
 	if not playertest2_animation or playertest2_run.is_empty():
 		return
@@ -82,8 +99,15 @@ func update_handmade_run(speed: float, walk_member_speed: float, run_member_spee
 		playertest2_animation.pause()
 
 func update_climb(speed: float, amplitude: float, cadence: float) -> void:
+	if not climb_active:
+		climb_sound_position = 0.0
+		var actor := get_parent() as ExplorerPlayer
+		if actor and actor.climb_sound_enabled:
+			actor.feedback.emit("climb")
 	if not climb_active and playertest2_animation:
 		playertest2_animation.stop()
+		if not playertest2_climb.is_empty():
+			playertest2_animation.play(playertest2_climb)
 	climb_active = true
 	glide_active = false
 	glide_started = false
@@ -92,6 +116,12 @@ func update_climb(speed: float, amplitude: float, cadence: float) -> void:
 	climb_visual_speed = speed
 	climb_amplitude = deg_to_rad(amplitude)
 	climb_cadence = cadence
+	if playertest2_animation and not playertest2_climb.is_empty():
+		if playertest2_animation.current_animation != playertest2_climb:
+			playertest2_animation.play(playertest2_climb)
+		playertest2_animation.speed_scale = maxf(0.0, speed * cadence)
+		if speed > 0.01 and not playertest2_animation.is_playing():
+			playertest2_animation.play()
 	_set_membrane_amount(0.0)
 	position = Vector3.ZERO
 	scale = Vector3.ONE
@@ -102,6 +132,8 @@ func end_climb() -> void:
 		return
 	climb_active = false
 	climb_visual_speed = 0.0
+	if playertest2_animation and playertest2_animation.current_animation == playertest2_climb:
+		playertest2_animation.stop()
 	if playertest2_skeleton:
 		_reset_idle_pose()
 	reset_body_tilt()
@@ -157,7 +189,6 @@ func _find_skeleton(node: Node) -> Skeleton3D:
 			return child_skeleton
 	return null
 
-
 func _set_membrane_amount(amount: float) -> void:
 	for membrane in glide_membranes:
 		if is_instance_valid(membrane):
@@ -178,6 +209,12 @@ func _process(delta: float) -> void:
 	if not playertest2_skeleton:
 		return
 	if climb_active:
+		_tick_climb_sounds()
+		# Climb se creó en Blender y sustituye por completo el movimiento
+		# procedural anterior. Conservamos ese código sólo como respaldo para
+		# versiones viejas del GLB que aún no tengan el clip.
+		if not playertest2_climb.is_empty():
+			return
 		climb_phase += climb_visual_speed * climb_cadence * TAU * delta
 		_reset_idle_pose()
 		for bone_name in GLIDE_TREMOR_BONES:
@@ -213,6 +250,29 @@ func _process(delta: float) -> void:
 		var pitch: float = cos(phase * 2.3) * amplitude * 0.45
 		var current_rotation: Quaternion = playertest2_skeleton.get_bone_pose_rotation(bone_index)
 		playertest2_skeleton.set_bone_pose_rotation(bone_index, current_rotation * Quaternion.from_euler(Vector3(pitch, 0.0, roll)))
+
+
+func _tick_climb_sounds() -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor:
+		return
+	if not playertest2_animation or playertest2_climb.is_empty():
+		return
+	var current := playertest2_animation.current_animation_position
+	var length := playertest2_animation.get_animation(playertest2_climb).length
+	if length <= 0.0:
+		return
+	# Compara el reloj real del AnimationPlayer: congelar o cambiar el ritmo
+	# del clip congela o cambia también los apoyos, sin otro temporizador.
+	if actor.climb_sound_enabled and playertest2_animation.get_playing_speed() > 0.0:
+		for phase in [actor.climb_sound_phases.x, actor.climb_sound_phases.y]:
+			var contact := clampf(phase, 0.0, 0.999) * length
+			var crossed := contact > climb_sound_position and contact <= current
+			if current < climb_sound_position:
+				crossed = contact > climb_sound_position or contact <= current
+			if crossed:
+				actor.feedback.emit("climb")
+	climb_sound_position = current
 
 
 func _reset_idle_pose() -> void:

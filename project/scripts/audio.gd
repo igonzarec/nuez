@@ -58,6 +58,7 @@ func _ready() -> void:
 		sounds[kind] = _tone(kind)
 	# Sonido dedicado para R2/C; no reutiliza el clic genérico de los menús.
 	sounds["camera_recenter"] = preload("res://audio/camera_recenter.wav")
+	sounds["climb"] = preload("res://audio/Gentle Stone Drop.wav")
 	music = _loop("Music", _ambience(false), -13)
 	wind = _loop("SFX", _ambience(true), -23)
 	deploy = _loop("SFX", preload("res://audio/deploy2.wav"), 0.0)

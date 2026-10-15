@@ -73,6 +73,55 @@ signal gliding_changed(active: bool)
 ## Permite desplegar membranas al pulsar Brincar una vez que la ardilla ya está en el aire.
 ## Mantener Brincar desde el salto no activa el planeo; al soltarlo, las membranas se recogen inmediatamente.
 @export var glide_enabled := true
+@export_group("Polvo de movimiento")
+## Emite polvo sólo con Sprint mantenido, movimiento sobre suelo y sin Slide. Al detenerse, las bolas existentes terminan su vida. Se actualiza en vivo.
+@export var movement_dust_enabled := true
+## Velocidad horizontal mínima, en metros por segundo, para emitir mientras mantienes Sprint sobre suelo caminable. Reducirlo permite emitir antes al acelerar. Se actualiza en vivo.
+@export_range(0.1, 20.0, 0.1, "suffix:m/s") var movement_dust_run_speed := 5.6
+## Densidad nominal de partículas por ciclo de vida. Mayor valor produce una nube más tupida; el emisor reserva 288 partículas para cambiar densidad sin reinicios. Se actualiza en vivo.
+@export_range(1, 96, 1) var movement_dust_density := 96
+## Duración de cada bola, en segundos. Mayor valor alarga la estela; con Density fijo también reduce la frecuencia de emisión. Se actualiza en vivo.
+@export_range(0.1, 3.0, 0.05, "suffix:s") var movement_dust_lifetime := 1.2
+## Diámetro inicial mínimo en metros, antes de la variación de forma. Cada bola elige entre Size Min y Max; no depende del tamaño final. Se actualiza en vivo.
+@export_range(0.01, 2.0, 0.01, "suffix:m") var movement_dust_size_min := 0.07
+## Diámetro inicial máximo en metros. Bájalo para que las bolas nazcan pequeñas; sus proporciones dependen de Shape Variation. Se actualiza en vivo.
+@export_range(0.01, 2.0, 0.01, "suffix:m") var movement_dust_size_max := 0.33
+## Diámetro final mínimo en metros, independiente del inicial. Cada bola interpola suavemente entre su diámetro inicial y el final. Se actualiza en vivo.
+@export_range(0.01, 4.0, 0.01, "suffix:m") var movement_dust_final_size_min := 0.88
+## Diámetro final máximo en metros. Subirlo forma una nube mayor antes de desaparecer, sin cambiar el tamaño al nacer. Se actualiza en vivo.
+@export_range(0.01, 4.0, 0.01, "suffix:m") var movement_dust_final_size_max := 1.31
+## Opacidad inicial de las bocanadas, de 0 invisible a 1 sólida. Se desvanece automáticamente durante su vida. Se actualiza en vivo.
+@export_range(0.0, 1.0, 0.01) var movement_dust_opacity := 1.0
+## Color de la zona iluminada de las bolas. Se combina con Shadow Color para un sombreado caricaturesco independiente de las luces de escena. Se actualiza en vivo.
+@export var movement_dust_light_color := Color(0.98039216, 0.98039216, 0.92156863, 1.0)
+## Color de la banda en sombra sobre las bolas (no una sombra proyectada al suelo). Más oscuro aumenta el contraste. Se actualiza en vivo.
+@export var movement_dust_shadow_color := Color(0.790625, 0.790625, 0.7431875, 1.0)
+## Intensidad de la sombra caricaturesca: 0 usa sólo Light Color, 1 usa Shadow Color completo. Se actualiza en vivo.
+@export_range(0.0, 1.0, 0.01) var movement_dust_shadow_strength := 1.0
+## Umbral de la banda de sombra: subirlo aumenta la parte sombreada de la bola. Se actualiza en vivo.
+@export_range(-1.0, 1.0, 0.01) var movement_dust_shadow_threshold := 0.55
+## Suavidad del borde de la sombra: 0 da dos tonos con borde duro; valores mayores suavizan la transición. Se actualiza en vivo.
+@export_range(0.0, 0.5, 0.01) var movement_dust_shadow_softness := 0.0
+## Dirección hacia la luz artística en ejes del mundo. Y positivo ilumina desde arriba. No crea una luz real; vector cero usa arriba. Se actualiza en vivo.
+@export var movement_dust_light_direction := Vector3(-0.4, 1.0, 0.3)
+## Fracción de vida que permanece completamente sólida antes de empezar a desvanecerse. 0,2 conserva el primer 20 %; mayor valor retrasa la desaparición. Se actualiza en vivo.
+@export_range(0.0, 0.9, 0.01) var movement_dust_fade_start := 0.2
+## Variación de proporciones entre bolas: 0 mantiene esferas; 1 permite hasta un 30 % de estiramiento o achatamiento por eje. Cada forma queda fija al nacer; no gira. Se actualiza en vivo.
+@export_range(0.0, 1.0, 0.01) var movement_dust_shape_variation := 0.55
+## Variación aleatoria de duración: 0 conserva Lifetime; 0,25 permite bolas hasta un 25 % más breves. Rompe el ritmo uniforme de desaparición. Afecta nuevas partículas en vivo.
+@export_range(0.0, 0.75, 0.01) var movement_dust_lifetime_randomness := 0.2
+## Velocidad, en metros por segundo, con la que las bocanadas se alejan detrás de la ardilla. Mayor valor estira visualmente la estela. Se actualiza en vivo.
+@export_range(0.0, 8.0, 0.1, "suffix:m/s") var movement_dust_drift_speed := 2.4
+## Desplazamiento local de la única fuente de polvo respecto al centro del personaje, en metros. +Z queda detrás de la ardilla; ajusta Y para mantenerla sobre el suelo. No mueve el modelo ni la colisión. Se actualiza en vivo.
+@export var movement_dust_source_offset := Vector3(0.0, 0.1, 0.555)
+## Apertura angular de la nube detrás del personaje. 0 concentra las bolitas; valores mayores las dispersan lateralmente. Se actualiza en vivo.
+@export_range(0.0, 90.0, 1.0, "suffix:°") var movement_dust_spread_degrees := 10.0
+## Anchura total en metros de la única fuente. Distribuye al azar las bolas hacia izquierda y derecha al nacer, independientemente de Drift Speed y sin dispersarlas en Z. 0 concentra en el centro. Afecta nuevas partículas en vivo.
+@export_range(0.0, 2.0, 0.01, "suffix:m") var movement_dust_scatter_width := 0.2
+## Altura total en metros de la fuente, desde Source Offset hacia arriba. Las bolas nacen a alturas aleatorias para romper la línea recta sin aumentar la separación longitudinal. Afecta nuevas partículas en vivo.
+@export_range(0.0, 2.0, 0.01, "suffix:m") var movement_dust_scatter_height := 0.08
+## Aceleración ascendente de las bolas en m/s², independiente de Drift Speed. 0 elimina flotación; mayor valor eleva la nube durante su vida. Se actualiza en vivo.
+@export_range(0.0, 3.0, 0.05, "suffix:m/s²") var movement_dust_rise_acceleration := 0.3
 @export_group("Audio del planeo")
 ## Volumen de deploy: 0 = silencio, 1 = original, 2 = doble amplitud.
 ## Se combina con Sonidos y Volumen general del menú de ajustes.
@@ -143,6 +192,12 @@ signal gliding_changed(active: bool)
 @export_group("Escalada")
 ## Mantener Brincar agarra roca escalable si está cerca y enfrente.
 @export var climb_enabled := true
+## Permite el prototipo de escalada sobre cualquier superficie empinada sin una etiqueta climbable. Activo sirve para probar rutas esculpidas en Terrain3D; desactívalo cuando haya edificios, árboles u otros objetos verticales que no deban poder treparse. Se consulta en vivo.
+@export var climb_untagged_steep_surfaces_enabled := true
+## Ángulo mínimo, desde suelo horizontal, que una superficie sin etiqueta debe tener para agarrarse. 65° separa las laderas resbaladizas de las paredes trepables; bajarlo permite trepar antes y subirlo exige caras más verticales. Se consulta en vivo.
+@export_range(45.0, 89.0, 0.5, "suffix:°") var climb_untagged_min_slope_degrees := 65.0
+## Ángulo máximo, desde suelo horizontal, de una superficie sin etiqueta que puede agarrarse. 89° admite paredes casi verticales; Terrain3D no genera caras por encima de 90°. Se consulta en vivo y debe ser igual o mayor que Untagged Min Slope Degrees.
+@export_range(45.0, 89.0, 0.5, "suffix:°") var climb_untagged_max_slope_degrees := 89.0
 ## Metros por segundo sobre la pared. Ejemplo: 2 es pausado; 4 sube rápido.
 @export_range(0.5, 8.0, 0.1) var climb_speed := 3.0
 ## Alcance del agarre desde el centro del cuerpo. Ejemplo: 0,9 requiere acercarse; 1,3 es permisivo.
@@ -153,12 +208,16 @@ signal gliding_changed(active: bool)
 @export_range(0.46, 0.6, 0.01) var climb_wall_distance := 0.5
 ## Impulso hacia fuera al soltar Brincar. Ejemplo: 2 facilita separarse y después planear.
 @export_range(0.5, 5.0, 0.1) var climb_detach_speed := 2.0
-## Amplitud de brazos y piernas sobre la postura de agarre, en grados.
+## Amplitud del movimiento procedural de respaldo, en grados. No afecta el clip Climb de Blender; sólo se usa si el modelo importado no lo contiene. Se consulta en vivo.
 @export_range(0.0, 40.0, 0.5) var climb_member_degrees := 14.0
-## Ciclos de miembros por metro escalado. Cero conserva la postura de agarre.
+## Multiplicador del ritmo del clip Climb: 0 congela la pose actual; 1 reproduce un ciclo por segundo por cada m/s recorrido. Súbelo para trepar visualmente más rápido. Se actualiza en vivo; si falta Climb, controla el ciclo procedural de respaldo.
 @export_range(0.0, 3.0, 0.05) var climb_member_speed := 0.7
-## Distancia recorrida entre sonidos de agarre. 0,7 da un ritmo moderado; 0,3 es frecuente.
+## Distancia entre sonidos sólo si falta el clip Climb. Con Climb los apoyos se sincronizan con la animación. Se consulta en vivo.
 @export_range(0.2, 2.0, 0.05) var climb_sound_spacing := 0.7
+## Activa los sonidos de apoyo y el sonido único al agarrarse. Se actualiza en vivo.
+@export var climb_sound_enabled := true
+## Posiciones de los dos apoyos dentro del ciclo, de 0 a 1. (0, 0.5) corresponde a los frames 1 y 13 de un ciclo de 24 frames. Se actualiza en vivo; no usar 1 porque duplica el inicio.
+@export var climb_sound_phases := Vector2(0.0, 0.5)
 
 var is_climbing := false
 var climb_motion := 0.0

@@ -22,17 +22,33 @@ func _ray(from: Vector3, to: Vector3) -> Dictionary:
 func _wall_hit(direction: Vector3) -> Dictionary:
 	var chest := actor.global_position + Vector3.UP * 0.85
 	var hit := _ray(chest, chest + direction * actor.climb_grab_distance)
-	if hit.is_empty() or not hit.collider is Node or not hit.collider.is_in_group("climbable"):
-		return {}
-	if hit.collider.has_method("allows_climb") and not hit.collider.allows_climb(hit.position):
+	if hit.is_empty():
 		return {}
 	var normal: Vector3 = hit.normal
-	var normal_limit: float = hit.collider.climb_normal_limit() if hit.collider.has_method("climb_normal_limit") else 0.25
-	if absf(normal.y) > normal_limit:
+	var collider := hit.collider as Node
+	if collider and collider.is_in_group("climbable"):
+		# Las rocas procedurales mantienen sus zonas y sus límites propios. El
+		# prototipo por pendiente no debe convertir una zona Disabled en escalable.
+		if collider.has_method("allows_climb") and not collider.allows_climb(hit.position):
+			return {}
+		var normal_limit: float = collider.climb_normal_limit() if collider.has_method("climb_normal_limit") else 0.25
+		if absf(normal.y) > normal_limit:
+			return {}
+	elif not _is_untagged_steep_surface(normal):
 		return {}
 	if direction.dot(-normal) < cos(deg_to_rad(actor.climb_facing_angle_degrees)):
 		return {}
 	return hit
+
+func _is_untagged_steep_surface(normal: Vector3) -> bool:
+	# Terrain3D es una altura: sus normales útiles miran hacia arriba y nunca
+	# superan 90°. No usamos su control map ni el material visual como gameplay.
+	if not actor.climb_untagged_steep_surfaces_enabled or normal.y < 0.0:
+		return false
+	var slope_degrees := rad_to_deg(acos(clampf(normal.y, -1.0, 1.0)))
+	var minimum := minf(actor.climb_untagged_min_slope_degrees, actor.climb_untagged_max_slope_degrees)
+	var maximum := maxf(actor.climb_untagged_min_slope_degrees, actor.climb_untagged_max_slope_degrees)
+	return slope_degrees >= minimum and slope_degrees <= maximum
 
 func _release() -> void:
 	reset()
@@ -68,7 +84,6 @@ func tick(delta: float) -> bool:
 		actor.buffer_left = 0.0
 		actor.coyote_left = 0.0
 		actor.animator.reset()
-		actor.feedback.emit("climb")
 	if mantle_stage != 0:
 		_mantle_tick(delta)
 		return true
@@ -99,7 +114,7 @@ func tick(delta: float) -> bool:
 	actor.animation_state = "climb"
 	actor.model.update_climb(actor.climb_motion, actor.climb_member_degrees, actor.climb_member_speed)
 	sound_distance += traveled
-	if sound_distance >= actor.climb_sound_spacing:
+	if actor.model.playertest2_climb.is_empty() and actor.climb_sound_enabled and sound_distance >= actor.climb_sound_spacing:
 		sound_distance = fmod(sound_distance, actor.climb_sound_spacing)
 		actor.feedback.emit("climb")
 	return true

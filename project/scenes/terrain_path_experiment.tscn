@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/grass_terrain.tscn" id="1_terrain"]
+[ext_resource type="Script" path="res://scripts/terrain/terrain_path_overlay.gd" id="2_path_overlay"]
+[ext_resource type="Texture2D" path="res://assets/textures/lowpoly_dirt/lowpoly_dirt_albedo_height.png" id="3_dirt"]
+
+[node name="TerrainPathExperiment" type="Node3D"]
+
+[node name="TerrainPreview" parent="." instance=ExtResource("1_terrain")]
+
+[node name="ImportantPath" type="Path3D" parent="."]
+
+[node name="PathSurface" type="MeshInstance3D" parent="ImportantPath" node_paths=PackedStringArray("terrain_path")]
+script = ExtResource("2_path_overlay")
+terrain_path = NodePath("../../TerrainPreview/Terrain3D")
+albedo_texture = ExtResource("3_dirt")

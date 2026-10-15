@@ -43,7 +43,7 @@ seamless = true
 [sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_40qy5"]
 _shader_parameters = {
 &"bias_distance": null,
-&"blend_sharpness": null,
+&"blend_sharpness": 0.5,
 &"depth_blur": null,
 &"enable_macro_variation": null,
 &"enable_projection": null,
