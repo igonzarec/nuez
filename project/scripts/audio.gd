@@ -9,6 +9,9 @@ var wind: AudioStreamPlayer
 var ambience_started := false
 ## Surface playback callback: true means the footstep has already been handled.
 var step_handler: Callable
+var _step_actor: ExplorerPlayer
+## Volumen base de pasos, en dB. -14 conserva la mezcla anterior; -10 aumenta 4 dB. Afecta caminar, correr y Surface Assist, incluida nieve: allí se suma la diferencia respecto a -14 a su mezcla local. No afecta aterrizajes ni trepa normal. Se consulta en vivo para nuevos pasos y se combina con SFX/Master.
+@export_range(-60.0, 6.0, 0.5, "suffix:dB") var step_volume_db := -14.0
 ## Ganancia adicional en dB de los pasos genéricos mientras se mantiene Sprint. Mayor valor destaca la carrera; 0 conserva el volumen de caminar. Se actualiza en vivo; no afecta Climb ni aterrizajes. Los pasos de nieve tienen su propio Run Gain Db.
 @export_range(0.0, 12.0, 0.5, "suffix:dB") var running_step_gain_db := 3.0
 var jump_handler: Callable
@@ -75,10 +78,14 @@ func _ready() -> void:
 		layer.volume_linear = 0.0
 
 func bind_player(actor: ExplorerPlayer) -> void:
+	_step_actor = actor
 	var feedback_callback := Callable(self, "play")
 	if not actor.feedback.is_connected(feedback_callback):
 		actor.feedback.connect(feedback_callback)
 	bind_gliding(actor)
+
+func get_step_volume_db() -> float:
+	return _step_actor.step_volume_db if is_instance_valid(_step_actor) else step_volume_db
 
 func bind_camera(camera_rig: TrailCamera) -> void:
 	var recenter_callback := Callable(self, "play").bind("camera_recenter")
@@ -205,9 +212,9 @@ func play(kind: String) -> void:
 	var voice := voices[next_voice]
 	next_voice = (next_voice + 1) % voices.size()
 	voice.stream = sounds[kind]
-	voice.volume_db = -14 if kind == "step" else -5
+	voice.volume_db = get_step_volume_db() if kind == "step" else -5
 	if kind == "step" and Input.is_action_pressed("sprint"):
-		voice.volume_db += running_step_gain_db
+		voice.volume_db += _step_actor.running_step_gain_db if is_instance_valid(_step_actor) else running_step_gain_db
 	# El swish de recentrado debe distinguirse del ambiente y de la interfaz.
 	if kind == "camera_recenter":
 		voice.volume_db = -2

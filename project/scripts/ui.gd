@@ -255,9 +255,9 @@ func controls_menu() -> void:
 		["Cámara", "Clic derecho + arrastrar · stick derecho"],
 		["Cámara al frente", "C · R2 / RT (una vez por pulsación)"],
 		["Saltar", "Espacio · cruz (PlayStation) / A (Xbox)"],
-		["Planear", "En el aire: pulsa otra vez salto y mantén. Suelta para caer."],
+		["Planear", "En el aire: pulsa y mantén R1 / RB; en teclado, pulsa otra vez Espacio y mantén. Suelta para caer."],
 		["Escalar", "Mantén salto cerca de roca escalable, mirando hacia ella.\nMuévete con WASD / stick; suelta salto para desprenderte."],
-		["Correr / planeo rápido", "Mantén Shift · L1 o R1 / LB o RB"],
+		["Correr / planeo rápido", "Mantén Shift · L1 / LB. En mando, R1 + L1 para planeo rápido."],
 		["Interactuar", "E · cuadrado / X (Xbox). Cerca y en el suelo, cruz / A también habla en lugar de saltar."],
 		["Diálogo", "E / Enter / Espacio · cuadrado o cruz / X o A.\nCompleta la página mientras escribe; después avanza.\nFlechas / cruceta: respuestas. Esc / círculo / B: cerrar."],
 		["Pausa / volver", "Esc · círculo / B. Start también, si reinicio rápido está desactivado."],
@@ -293,7 +293,7 @@ func close() -> void:
 
 func set_gamepad(value: bool) -> void:
 	gamepad = value
-	controls.text = "Stick izq. mover   Stick der. cámara   A/cruz saltar o hablar cerca   X/cuadrado interactuar   L1/R1 correr" if value else "WASD mover    Clic derecho + arrastrar: cámara    Espacio salto/planeo    E interactuar    Shift correr    Esc pausa"
+	controls.text = "Stick izq. mover   Stick der. cámara   A/cruz saltar o hablar cerca   X/cuadrado interactuar   R1 planear   L1 correr" if value else "WASD mover    Clic derecho + arrastrar: cámara    Espacio salto/planeo    E interactuar    Shift correr    Esc pausa"
 
 func update_hud(data: Dictionary) -> void:
 	counts.text = "Semillas  %02d     ·     Faroles  %d / 3" % [data.collected.size() - data.lamps.size() * 3, data.lamps.size()]

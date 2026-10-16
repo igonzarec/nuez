@@ -400,7 +400,9 @@ func _climb_axis_rotation(index: int, axis: Vector3, angle: float) -> Quaternion
 
 
 func _tick_procedural_climb_sounds(previous: float, current: float, actor: ExplorerPlayer) -> void:
-	if not actor.climb_sound_enabled or current <= previous:
+	var surface_steps := actor.climb_surface_assist_active
+	var sound_enabled := actor.climb_mantle_surface_steps_enabled if surface_steps else actor.climb_sound_enabled
+	if not sound_enabled or current <= previous:
 		return
 	var direction := -1.0 if actor.climb_reverse_cycle else 1.0
 	for side_offset in [0.0, actor.climb_opposite_side_phase]:
@@ -408,7 +410,7 @@ func _tick_procedural_climb_sounds(previous: float, current: float, actor: Explo
 		var contact := fposmod(actor.climb_arm_phase + side_offset + direction * actor.climb_sound_phase, 1.0)
 		var count := int(floor(current - contact)) - int(floor(previous - contact))
 		for _event in mini(count, 4):
-			actor.feedback.emit("climb")
+			actor.feedback.emit("step" if surface_steps else "climb")
 
 
 func _update_landing_clearance(delta: float) -> void:

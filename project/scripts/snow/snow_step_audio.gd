@@ -130,7 +130,8 @@ func play_step() -> bool:
 	var voice := _voices[_voice_index]
 	_voice_index = (_voice_index + 1) % _voices.size()
 	voice.stream = samples[index]
-	voice.volume_db = volume_db + (run_gain_db if Input.is_action_pressed("sprint") else 0.0)
+	var general_step_gain := _audio.get_step_volume_db() + 14.0 if is_instance_valid(_audio) else 0.0
+	voice.volume_db = volume_db + general_step_gain + (run_gain_db if Input.is_action_pressed("sprint") else 0.0)
 	voice.play()
 	return true
 

@@ -19,9 +19,21 @@ signal recenter_requested
 @export var field_of_view := 52.0
 @export var stick_speed := 1.8
 @export_group("Vista durante planeo")
-## Ángulo de cámara mientras planea. Un valor más negativo coloca la vista más por arriba.
+## Mantiene la órbita manual al planear sin alinearse automáticamente con el personaje. Ignora Glide Forward Enabled, pero admite la perspectiva inicial opcional Glide Initial Pitch Enabled. Respeta los límites de planeo si están activos. En vivo; conserva recentrado manual y protección contra obstáculos.
+@export var glide_free_camera_enabled := true
+## Al empezar cada planeo adopta suavemente Glide Pitch Degrees una sola vez, incluso con cámara libre. Después permite mirar manualmente sin regresar a ese ángulo. Mover verticalmente la cámara cancela la transición. Activación aplicada en el siguiente planeo; desactivar interrumpe la transición actual.
+@export var glide_initial_pitch_enabled := true
+## Limita la órbita manual al planear sin seguir automáticamente al personaje. Requiere Glide Free Camera Enabled. En vivo; desactivar recupera la libertad anterior. La protección contra obstáculos puede mover la vista fuera de estos límites para evitar colisión.
+@export var glide_orbit_limits_enabled := true
+## Giro horizontal permitido a cada lado del ángulo de cámara al iniciar planeo, en grados. 120 permite 240° en total; 180 deja vuelta completa. 0 bloquea giro manual horizontal. Recentrar manualmente redefine ese centro. En vivo; no sigue giros del personaje.
+@export_range(0.0, 180.0, 1.0, "suffix:°") var glide_horizontal_range_degrees := 120.0
+## Inclinación vertical mínima de cámara durante planeo, en grados. Más negativo permite mirar más desde arriba; -80 evita llegar a la vertical. Se combina con Glide Maximum Pitch Degrees sin importar su orden. En vivo.
+@export_range(-89.0, 89.0, 1.0, "suffix:°") var glide_minimum_pitch_degrees := -80.0
+## Inclinación vertical máxima durante planeo, en grados. Más positivo permite acercarse al horizonte o mirar desde abajo; -15 mantiene la cámara por encima. En vivo; no modifica la inclinación normal fuera del planeo.
+@export_range(-89.0, 89.0, 1.0, "suffix:°") var glide_maximum_pitch_degrees := -15.0
+## Perspectiva vertical inicial al comenzar planeo, en grados. Requiere Glide Initial Pitch Enabled, no depende de Free Camera. Más negativo mira desde arriba; los límites manuales activos pueden recortarlo. Se consulta durante la transición inicial, no fuerza la vista después.
 @export_range(-85.0, -10.0, 0.5) var glide_pitch_degrees := -64.0
-## Rapidez de la transición entre la vista normal y la vista de planeo.
+## Rapidez de la transición a la perspectiva inicial de planeo, en s⁻¹. Mayor llega antes; menor suaviza. No recentra continuamente ni cambia la respuesta manual. Se actualiza en vivo.
 @export_range(1.0, 20.0, 0.1) var glide_camera_speed := 6.0
 ## Sigue el frente visual al planear; también se cambia en Ajustes.
 @export var glide_forward_enabled := false
@@ -101,6 +113,9 @@ var enabled := false
 var yaw := 0.0
 var pitch := deg_to_rad(-48.0)
 var glide_view_blend := 0.0
+var _glide_orbit_active := false
+var _glide_orbit_center := 0.0
+var _glide_initial_pitch_active := false
 var _manual_vertical_override := false
 var forward_tracking := false
 var forward_velocity := 0.0
@@ -173,12 +188,14 @@ func _ready() -> void:
 		snap()
 
 func snap() -> void:
+	_glide_orbit_active = false
+	_sync_glide_orbit_center()
 	forward_velocity = 0.0
 	forward_tracking = false
 	recenter_active = false
 	recenter_timed_active = false
 	recenter_timed_clock = 0.0
-	glide_view_blend = 1.0 if target and target.is_gliding else 0.0
+	glide_view_blend = 0.0
 	_last_camera_direction = Vector3.ZERO
 	_camera_clear_time = 0.0
 	_obstacle_elevation = 0.0
@@ -195,20 +212,26 @@ func _unhandled_input(event: InputEvent) -> void:
 	# The event's button mask avoids a latched drag when focus leaves the window.
 	# No capture, confinement or cursor warping, including while dragging.
 	if enabled and event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0:
+		_sync_glide_orbit_center()
+		if absf(event.relative.y) > 0.01:
+			_glide_initial_pitch_active = false
 		_pause_front_follow()
 		_manual_orbit_pending = true
 		if full_vertical_orbit and absf(event.relative.y) > 0.01:
 			_manual_vertical_override = true
-		yaw = wrapf(yaw - event.relative.x * 0.0025 * sensitivity, -PI, PI)
+		yaw = _clamp_glide_yaw(yaw - event.relative.x * 0.0025 * sensitivity)
 		pitch = _clamp_pitch(pitch - event.relative.y * 0.001 * sensitivity)
 
 func _physics_process(delta: float) -> void:
 	if not target:
 		return
+	_sync_glide_orbit_center()
 	manual_pause_left = maxf(0, manual_pause_left - delta)
 	var front_follow := false
 	if enabled:
 		var stick := Input.get_vector("look_left", "look_right", "look_up", "look_down")
+		if absf(stick.y) > 0.01:
+			_glide_initial_pitch_active = false
 		if stick.length_squared() > 0.001:
 			_pause_front_follow()
 			_manual_orbit_pending = true
@@ -216,6 +239,7 @@ func _physics_process(delta: float) -> void:
 			_manual_vertical_override = true
 		if Input.is_action_just_pressed("camera_forward"):
 			recenter_yaw = target.model.rotation.y
+			_glide_orbit_center = recenter_yaw
 			manual_pause_left = 0
 			# Recentrar sólo cambia la órbita horizontal; conserva altura e
 			# inclinación elegidas, incluido el override vertical de planeo.
@@ -228,20 +252,27 @@ func _physics_process(delta: float) -> void:
 			# El tween manda: no se ejecuta el seguimiento frontal ni pelea con él.
 			_update_timed_recenter(delta)
 		else:
-			front_follow = recenter_active or (glide_forward_enabled and target.is_gliding and manual_pause_left <= 0)
+			front_follow = recenter_active or (not glide_free_camera_enabled and glide_forward_enabled and target.is_gliding and manual_pause_left <= 0)
 			if front_follow:
 				_follow_front(recenter_yaw if recenter_active else target.model.rotation.y, delta)
-		yaw = wrapf(yaw - stick.x * stick_speed * delta, -PI, PI)
+		if not recenter_timed_active and not front_follow:
+			yaw = _clamp_glide_yaw(yaw - stick.x * stick_speed * delta)
 		pitch = _clamp_pitch(pitch - stick.y * stick_speed * 0.4 * delta)
 	if not front_follow:
 		forward_tracking = false
 		forward_velocity = 0.0
 	pitch = _clamp_pitch(pitch)
-	# One camera only: smoothly blend its orbit angle between the normal view
-	# and the more elevated glide view. No camera is swapped or teleported.
-	var glide_target := 1.0 if target.is_gliding and not (full_vertical_orbit and _manual_vertical_override) else 0.0
-	glide_view_blend = lerpf(glide_view_blend, glide_target, 1.0 - exp(-glide_camera_speed * delta))
-	var view_pitch := lerp_angle(pitch, deg_to_rad(glide_pitch_degrees), glide_view_blend)
+	if _glide_initial_pitch_active and glide_initial_pitch_enabled:
+		var initial_pitch := _clamp_pitch(deg_to_rad(glide_pitch_degrees))
+		pitch = lerp_angle(pitch, initial_pitch, 1.0 - exp(-glide_camera_speed * delta))
+		if absf(pitch - initial_pitch) < deg_to_rad(0.1):
+			pitch = initial_pitch
+			_glide_initial_pitch_active = false
+	elif not glide_initial_pitch_enabled:
+		_glide_initial_pitch_active = false
+	# La perspectiva inicial pasa a ser intención manual, no un objetivo perpetuo.
+	glide_view_blend = 0.0
+	var view_pitch := pitch
 	_base_view_pitch = view_pitch if _manual_orbit_pending else lerp_angle(_base_view_pitch, view_pitch, 1.0 - exp(-orbit_smoothing * delta))
 	rotation.x = _base_view_pitch
 	# El seguimiento ya limita velocidad/aceleración; no acumular dos retardos.
@@ -324,9 +355,29 @@ func _follow_front(target_yaw: float, delta: float) -> void:
 			yaw = wrapf(yaw + signf(error) * minf(absf(step), absf(error)), -PI, PI)
 
 func _clamp_pitch(value: float) -> float:
-	if full_vertical_orbit:
+	if _glide_limits_active():
+		return clampf(value, deg_to_rad(minf(glide_minimum_pitch_degrees, glide_maximum_pitch_degrees)), deg_to_rad(maxf(glide_minimum_pitch_degrees, glide_maximum_pitch_degrees)))
+	if full_vertical_orbit or (target and target.is_gliding and (glide_free_camera_enabled or glide_initial_pitch_enabled)):
 		return clampf(value, deg_to_rad(minf(minimum_pitch, maximum_pitch)), deg_to_rad(maxf(minimum_pitch, maximum_pitch)))
 	return clampf(value, deg_to_rad(pitch_degrees - vertical_range_degrees), deg_to_rad(pitch_degrees + vertical_range_degrees))
+
+func _glide_limits_active() -> bool:
+	return glide_free_camera_enabled and glide_orbit_limits_enabled and target != null and target.is_gliding
+
+func _sync_glide_orbit_center() -> void:
+	var active := target != null and target.is_gliding
+	if active and not _glide_orbit_active:
+		_glide_orbit_center = yaw
+		_glide_initial_pitch_active = glide_initial_pitch_enabled
+	if not active:
+		_glide_initial_pitch_active = false
+	_glide_orbit_active = active
+
+func _clamp_glide_yaw(value: float) -> float:
+	if _glide_limits_active():
+		var limit := deg_to_rad(glide_horizontal_range_degrees)
+		return wrapf(_glide_orbit_center + clampf(wrapf(value - _glide_orbit_center, -PI, PI), -limit, limit), -PI, PI)
+	return wrapf(value, -PI, PI)
 
 func _place_camera(delta := 0.0) -> void:
 	var anchor := target.global_position + Vector3.UP * 1.15

@@ -5,6 +5,8 @@
 
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
+step_volume_db = -10.0
+running_step_gain_db = 6.0
 sprint_speed = 9.0
 walk_member_animation_speed = 2.35
 run_member_animation_speed = 2.87
@@ -24,6 +26,7 @@ climb_grab_distance = 1.2999999999999998
 climb_facing_angle_degrees = 45.0
 climb_sustain_min_slope_degrees = 10.0
 climb_mantle_enabled = true
+climb_mantle_surface_speed = 1.6
 climb_finish_max_slope_degrees = 48.0
 climb_finish_visual_response = 4.0
 climb_mantle_extra_cycles = 1

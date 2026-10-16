@@ -35,6 +35,7 @@ Controles en **SquirrelExplorer > Escalada · continuidad y cima**:
 | Control | Inicial | Uso |
 | --- | --- | --- |
 | Climb Mantle Surface Assist Enabled | Sí | Nueva asistencia; No recupera el Mantle antiguo. Requiere Mantle Enabled. |
+| Climb Mantle Surface Steps Enabled | Sí | Contactos de asistencia usan pasos normales y su selección por superficie, no Gentle Stone Drop. Desactivar silencia sólo esos contactos. |
 | Climb Mantle Surface Speed | 1,5 m/s | Avance automático, independiente de la velocidad de los miembros. |
 | Climb Mantle Surface Max Distance | 3 m | Límite de recorrido; al agotarse devuelve control de trepa. |
 | Climb Mantle Surface Timeout | 4 s | Límite de tiempo contra bloqueos y atasco. |
@@ -43,6 +44,10 @@ Controles en **SquirrelExplorer > Escalada · continuidad y cima**:
 
 **Climb Mantle Extra Cycles** determina las vueltas mínimas antes de incorporarse;
 **Climb Mantle Cycle Speed** determina sus Hz. Se detienen si no hay movimiento.
+Los pasos de Surface Assist conservan el punto de contacto **Climb Sound Phase**
+y el desfase entre lados. La escalada normal y el Mantle antiguo conservan su
+sonido de trepa y **Climb Sound Enabled**; el interruptor de pasos de asistencia
+es independiente. No se añade un golpe extra al entrar en asistencia.
 Ejemplo: dos vueltas a 2,4 Hz requieren unos 0,83 s en movimiento, más el apoyo
 y la incorporación. Los límites de recorrido y tiempo prevalecen: pedir muchas
 vueltas con poco recorrido puede cancelar la asistencia antes de terminar.

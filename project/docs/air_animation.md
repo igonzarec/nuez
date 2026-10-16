@@ -142,3 +142,11 @@ El rig tiene una pieza por pierna: no puede doblar rodillas reales. Ajustes
 extremos de descenso o retracción pueden cruzar las mallas. El coste es una
 mezcla por hueso y frame durante la pose y su transición de salida, sin
 generación de geometría.
+
+## Controles de planeo
+
+Mando: pulsar y mantener **R1 / RB** estando en el aire activa planeo; soltar
+lo termina. Cruz/A sólo salta o conserva agarre al trepar: ya no inicia planeo.
+R1 deja de activar sprint. **L1 / LB** conserva carrera y, junto a R1, planeo
+rápido. Teclado conserva otra pulsación de **Espacio** en el aire y mantener;
+**Shift** acelera. Mantener el botón desde tierra no inicia planeo automáticamente.

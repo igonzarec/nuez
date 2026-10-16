@@ -102,7 +102,7 @@ extends Node
 ## Inclinación añadida mientras mantienes una dirección durante Glide.
 ## Ejemplo: 0 conserva la misma postura; 6° da intención de avance; 15° es una picada clara.
 @export_range(0.0, 40.0, 0.5) var glide_movement_extra_lean_degrees := 6.0
-## Inclinación adicional al mantener R1/Shift y moverse durante el planeo.
+## Inclinación adicional al mantener L1/Shift y moverse durante el planeo.
 @export_range(0.0, 50.0, 0.5) var glide_sprint_extra_lean_degrees := 12.0
 
 @export_group("Banking de planeo")

@@ -5,11 +5,16 @@ signal feedback(kind: String)
 signal respawned
 signal gliding_changed(active: bool)
 
+@export_group("Audio de pasos")
+## Volumen general de pasos en dB: caminar, correr y Mantle Surface Assist, incluida nieve. -14 conserva la mezcla anterior; -10 aumenta 4 dB. La nieve conserva su mezcla local y recibe esa diferencia. Mayor suena más; no afecta trepa normal ni aterrizajes. Se guarda con la escena y se consulta en vivo para nuevos pasos.
+@export_range(-60.0, 6.0, 0.5, "suffix:dB") var step_volume_db := -14.0
+## Ganancia adicional en dB al correr con pasos genéricos. 3 conserva el refuerzo actual; 0 iguala caminar y correr. La nieve usa SnowStepAudio > Mezcla > Run Gain Db. Se guarda con la escena y responde en vivo; se suma a Step Volume Db y a SFX/Master.
+@export_range(0.0, 12.0, 0.5, "suffix:dB") var running_step_gain_db := 3.0
 @export_group("Ground movement")
 ## Velocidad normal máxima sobre el suelo, en unidades por segundo; no cambia el ritmo visual por sí sola.
 ## Ejemplo: 4 permite explorar despacio; 6 recorre más terreno. Sprint Speed debe ser mayor para notar la carrera rápida.
 @export_range(0.1, 20.0) var walk_speed := 5.6
-## Velocidad máxima al mantener Shift, L1 o R1 y moverse, en unidades por segundo.
+## Velocidad máxima al mantener Shift o L1 y moverse, en unidades por segundo.
 ## Ejemplo: 7 da un sprint moderado; 10 uno más rápido. Las patas adaptan su ritmo a la velocidad real.
 @export_range(0.1, 25.0) var sprint_speed := 8.0
 @export_group("Animación del modelo artesanal")
@@ -220,8 +225,8 @@ signal gliding_changed(active: bool)
 ## Fracción de la velocidad horizontal que se conserva al describir una curva durante Glide.
 ## Ejemplo: 0 permite que el giro reduzca velocidad de forma normal; 0,85 se siente fluido; 1 conserva toda la velocidad al cambiar de rumbo.
 @export_range(0.0, 1.0, 0.01) var glide_turn_speed_retention := 0.85
-@export_group("Planeo con sprint · R1")
-## Multiplica la velocidad horizontal de planeo mientras mantienes R1/Shift.
+@export_group("Planeo con sprint · L1")
+## Multiplica la velocidad horizontal de planeo mientras mantienes L1/Shift, además de R1 para planear.
 @export_range(1.0, 2.5, 0.01) var glide_sprint_speed_multiplier := 1.15
 ## Aumenta el límite de caída durante el planeo rápido, en unidades/s.
 @export_range(0.0, 6.0, 0.1) var glide_sprint_fall_speed_bonus := 0.8
@@ -266,6 +271,8 @@ signal gliding_changed(active: bool)
 @export var climb_mantle_enabled := false
 ## Usa salida automática siguiendo contactos reales en vez de la trayectoria antigua subir/avanzar/bajar. Requiere Mantle Enabled. En vivo antes de iniciar; no crea rampas ni salva huecos. Activado por defecto para la nueva salida.
 @export var climb_mantle_surface_assist_enabled := true
+## Reproduce los sonidos de pasos durante Surface Assist en vez de los golpes de trepa. Conserva Climb Sound Phase y la cadencia del ciclo; usa el audio de pasos de la superficie cuando existe. Desactivado silencia los contactos de la asistencia. En vivo; no cambia el sonido de trepa normal.
+@export var climb_mantle_surface_steps_enabled := true
 ## Velocidad de avance automático sobre la superficie, en m/s. Mayor termina antes sin acelerar las vueltas de miembros. Se consulta en vivo durante la salida.
 @export_range(0.1, 6.0, 0.05, "suffix:m/s") var climb_mantle_surface_speed := 1.5
 ## Recorrido máximo permitido de la asistencia, en metros. Mayor permite cimas más anchas; al agotarse sin apoyo firme devuelve control de trepa sin teletransportar. En vivo.
@@ -602,17 +609,17 @@ func _physics_process(delta: float) -> void:
 		coyote_left = maxf(0, coyote_left - delta)
 	buffer_left = maxf(0, buffer_left - delta)
 	var jump_pressed_this_frame := Input.is_action_just_pressed("jump") and not interaction_press_consumed
-	# El planeo necesita una pulsación nueva estando ya en el aire. Esto evita
-	# que mantener Brincar desde el despegue lo active al comenzar a caer.
-	if jump_pressed_this_frame and not grounded and not is_sliding:
+	# Planeo tiene acción independiente: R1 en mando, otra pulsación de
+	# Espacio en teclado. Mantener salto desde tierra no activa el planeo.
+	if Input.is_action_just_pressed("glide") and not interaction_press_consumed and not grounded and not is_sliding:
 		glide_button_pressed_in_air = true
-	if not Input.is_action_pressed("jump"):
+	if not Input.is_action_pressed("glide"):
 		glide_button_pressed_in_air = false
 	# Un botón pulsado en el aire ahora sirve para iniciar planeo, no para
 	# convertir accidentalmente una caída en un salto de coyote.
 	if jump_pressed_this_frame and input_grace <= 0 and not glide_button_pressed_in_air:
 		buffer_left = jump_buffer
-	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and Input.is_action_pressed("jump") and not interaction_press_consumed
+	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and Input.is_action_pressed("glide") and not interaction_press_consumed
 	is_glide_sprinting = is_gliding and Input.is_action_pressed("sprint")
 	if grounded:
 		velocity.y = 0
