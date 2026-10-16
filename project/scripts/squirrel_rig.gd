@@ -24,6 +24,9 @@ var idle_active := false
 var climb_active := false
 var climb_phase := 0.0
 var climb_visual_speed := 0.0
+var climb_surface_lean := 0.0
+var climb_ground_offset_active := false
+var climb_ground_uses_assist_offset := false
 var movement_dust: MovementDust
 var air_active := false
 var landing_pose_active := false
@@ -102,12 +105,14 @@ func update_climb(speed: float) -> void:
 		return
 	if not climb_active:
 		climb_phase = 0.0
+		climb_surface_lean = 0.0
 		_capture_air_pose()
 		if actor.climb_sound_enabled:
 			actor.feedback.emit("climb")
 		if playertest2_animation:
 			playertest2_animation.stop()
 	climb_active = true
+	climb_ground_offset_active = false
 	air_active = false
 	air_pose_releasing = false
 	landing_pose_active = false
@@ -117,19 +122,38 @@ func update_climb(speed: float) -> void:
 	glide_amount = 0.0
 	climb_visual_speed = maxf(0.0, speed)
 	_set_membrane_amount(0.0)
-	position = Vector3.BACK.rotated(Vector3.UP, rotation.y) * actor.climb_visual_wall_offset
 	scale = Vector3.ONE
-	set_body_tilt(-deg_to_rad(actor.climb_body_lean_degrees), 0.0)
+	var mantle_effort := sin(clampf(actor.climb_mantle_progress, 0.0, 1.0) * PI) if actor.climb_mantle_progress >= 0.0 else 0.0
+	var stand_up := 1.0 - smoothstep(0.85, 1.0, actor.climb_mantle_progress) if actor.climb_mantle_progress >= 0.0 else 1.0
+	if actor.climb_stand_progress >= 0.0:
+		stand_up = 1.0 - smoothstep(0.0, 1.0, actor.climb_stand_progress)
+	var target_lean := 0.0
+	if actor.climb_surface_follow_enabled:
+		target_lean = minf(rad_to_deg(asin(clampf(actor.climb_surface_normal.y, -1.0, 1.0))), actor.climb_surface_max_lean_degrees) * actor.climb_surface_follow_strength
+	climb_surface_lean = lerpf(climb_surface_lean, target_lean, 1.0 - exp(-actor.climb_surface_follow_response * get_physics_process_delta_time()))
+	# El offset visual sigue la normal de la roca, no una distancia horizontal
+	# fija que se convierte en hueco cuando la pendiente se suaviza.
+	var offset_axis := actor.climb_surface_normal if actor.climb_surface_follow_enabled else Vector3.BACK.rotated(Vector3.UP, rotation.y)
+	position = offset_axis * actor.climb_visual_wall_offset * stand_up
+	if actor.climb_stand_progress >= 0.0:
+		position = (offset_axis * actor.climb_visual_wall_offset).lerp(Vector3.UP * actor.climb_finish_visual_height, 1.0 - stand_up)
+	if actor.climb_surface_assist_active:
+		position = offset_axis * lerpf(actor.climb_mantle_surface_offset_start, actor.climb_mantle_surface_offset_end, 1.0 - stand_up)
+	var mantle_lean_weight := 1.0 - clampf(actor.climb_surface_normal.y, 0.0, 1.0) * actor.climb_surface_follow_strength if actor.climb_surface_follow_enabled else 1.0
+	set_body_tilt(-deg_to_rad(climb_surface_lean + actor.climb_body_lean_degrees + actor.climb_mantle_body_lean_degrees * mantle_effort * mantle_lean_weight) * stand_up, 0.0)
 
 
-func end_climb() -> void:
+func end_climb(natural_finish := false, surface_finish := false) -> void:
 	if not climb_active:
 		return
 	climb_active = false
 	climb_visual_speed = 0.0
 	# Conserva la última pose para mezclar hacia la nueva animación.
 	air_pose_releasing = true
-	position = Vector3.ZERO
+	climb_ground_offset_active = natural_finish
+	climb_ground_uses_assist_offset = surface_finish
+	if not natural_finish:
+		position = Vector3.ZERO
 	reset_body_tilt()
 
 func update_handmade_glide(amount: float, flutter_speed: float, start_speed := 1.0, tremor_degrees := 0.0, tremor_speed := 12.0) -> void:
@@ -153,6 +177,10 @@ func update_handmade_glide(amount: float, flutter_speed: float, start_speed := 1
 				playertest2_animation.play(playertest2_glide_loop, -1.0, flutter_speed)
 		elif playertest2_animation.current_animation == playertest2_glide_loop:
 			playertest2_animation.speed_scale = flutter_speed
+			if not playertest2_animation.is_playing():
+				playertest2_animation.play()
+		elif playertest2_animation.current_animation == playertest2_glide_start and not playertest2_animation.is_playing():
+			playertest2_animation.play()
 	elif glide_started:
 		glide_started = false
 		_clear_glide_tremor()
@@ -212,15 +240,29 @@ func _set_membrane_amount(amount: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if not climb_active and climb_ground_offset_active:
+		var actor := get_parent() as ExplorerPlayer
+		if actor:
+			var height := actor.climb_mantle_surface_offset_end if climb_ground_uses_assist_offset else actor.climb_finish_visual_height
+			var target_offset := Vector3.UP * height if actor.is_on_floor() else Vector3.ZERO
+			position = position.lerp(target_offset, 1.0 - exp(-actor.climb_finish_visual_response * delta))
+			if not actor.is_on_floor() and position.length_squared() < 0.000001:
+				position = Vector3.ZERO
+				climb_ground_offset_active = false
 	_update_landing_clearance(delta)
 	if not playertest2_skeleton:
 		return
 	if climb_active:
 		_apply_procedural_climb(delta)
 		return
+	if glide_active and playertest2_animation:
+		# Primero la pose del clip, luego la mezcla de salida aérea y al final
+		# el temblor. Una mezcla que persigue Glide nunca debe silenciarlo.
+		playertest2_animation.advance(0.0)
 	if air_active or landing_pose_active or air_pose_releasing:
 		_apply_air_pose(delta)
-		return
+		if air_active or landing_pose_active or not glide_active:
+			return
 	if idle_active:
 		# Idle no utiliza el primer frame de Run: ese frame puede contener una
 		# zancada. Restablecemos la pose real del rig para tener piernas y brazos
@@ -232,8 +274,6 @@ func _process(delta: float) -> void:
 	glide_tremor_clock += delta * glide_tremor_speed
 	# Vuelve a evaluar la pose del clip antes de sumar el temblor. Así el giro
 	# adicional no se acumula de un frame al siguiente.
-	if playertest2_animation:
-		playertest2_animation.advance(0.0)
 	var amplitude := deg_to_rad(glide_tremor_degrees)
 	for bone_offset in GLIDE_TREMOR_BONES.size():
 		var bone_index: int = playertest2_skeleton.find_bone(GLIDE_TREMOR_BONES[bone_offset])
@@ -252,12 +292,33 @@ func _apply_procedural_climb(delta: float) -> void:
 		return
 	var previous_cycle := climb_phase
 	if actor.climb_procedural_enabled:
-		climb_phase += climb_visual_speed * actor.climb_member_speed * delta
+		if actor.climb_surface_assist_active:
+			if climb_visual_speed > 0.006:
+				climb_phase += actor.climb_mantle_cycle_speed * delta
+		elif actor.climb_mantle_progress >= 0.0:
+			climb_phase = actor.climb_mantle_cycle_start + minf(1.0, actor.climb_mantle_progress / 0.85) * actor.climb_mantle_cycle_count
+		else:
+			climb_phase += climb_visual_speed * actor.climb_member_speed * delta
 	_tick_procedural_climb_sounds(previous_cycle, climb_phase, actor)
 	# Sólo reposo del rig + matemáticas de Godot. Ninguna curva de Climb.
 	_reset_idle_pose()
 	var blend := 1.0 - exp(-actor.climb_pose_response * delta)
 	var targets: Dictionary = {}
+	var mantle_effort := sin(clampf(actor.climb_mantle_progress, 0.0, 1.0) * PI) if actor.climb_mantle_progress >= 0.0 else 0.0
+	var stand_weight := 1.0 - smoothstep(0.85, 1.0, actor.climb_mantle_progress) if actor.climb_mantle_progress >= 0.0 else 1.0
+	if actor.climb_stand_progress >= 0.0:
+		stand_weight = 1.0 - smoothstep(0.0, 1.0, actor.climb_stand_progress)
+	var walking_rotations: Dictionary = {}
+	if actor.climb_surface_assist_active and stand_weight < 1.0 and playertest2_animation and not playertest2_run.is_empty():
+		# Muestrea caminar para mezclar los miembros, sin reproducir Climb de Blender.
+		if playertest2_animation.current_animation != playertest2_run:
+			playertest2_animation.play(playertest2_run)
+		var clip := playertest2_animation.get_animation(playertest2_run)
+		playertest2_animation.seek(fposmod(climb_phase, 1.0) * clip.length, true)
+		playertest2_animation.pause()
+		for bone in playertest2_skeleton.get_bone_count():
+			walking_rotations[bone] = playertest2_skeleton.get_bone_pose_rotation(bone)
+		_reset_idle_pose()
 	if actor.climb_procedural_enabled:
 		for bone_name in GLIDE_TREMOR_BONES:
 			var index := playertest2_skeleton.find_bone(bone_name)
@@ -276,6 +337,7 @@ func _apply_procedural_climb(delta: float) -> void:
 			# Dos componentes a 90° recorren una elipse, sin trasladar la raíz.
 			var orbit := Vector2(sin(phase) * vertical, cos(phase) * depth).rotated(deg_to_rad(tilt))
 			var elevation := (actor.climb_arm_base_elevation_degrees if arm else actor.climb_leg_base_elevation_degrees) + orbit.x
+			elevation += mantle_effort * (actor.climb_mantle_arm_reach_degrees if arm else actor.climb_mantle_leg_tuck_degrees)
 			var spread := (actor.climb_arm_base_spread_degrees if arm else actor.climb_leg_base_spread_degrees) - orbit.y
 			var side := -1.0 if left else 1.0
 			var lift := deg_to_rad(clampf(elevation, 0.0, 175.0))
@@ -314,6 +376,8 @@ func _apply_procedural_climb(delta: float) -> void:
 	for index in playertest2_skeleton.get_bone_count():
 		var rest := playertest2_skeleton.get_bone_rest(index)
 		var target: Quaternion = targets.get(index, rest.basis.get_rotation_quaternion())
+		var grounded_rotation: Quaternion = walking_rotations.get(index, rest.basis.get_rotation_quaternion())
+		target = grounded_rotation.slerp(target, stand_weight)
 		var previous: Quaternion = air_pose_rotations.get(index, playertest2_skeleton.get_bone_pose_rotation(index))
 		var rotation := previous.slerp(target, blend)
 		var before_position: Vector3 = air_pose_positions.get(index, rest.origin)
@@ -519,6 +583,8 @@ func deform_tail(_flex: float, _drop: float, _stretch: float, _sideways := 0.0) 
 func deform_arms(_flex: float, _drop: float, _stretch: float) -> void: pass
 func leg_pose(_side: int, _target: Vector3, _foot_pitch: float) -> void: pass
 func reset_interpolation() -> void:
+	climb_ground_offset_active = false
+	position = Vector3.ZERO
 	_clear_air_pose()
 	landing_clearance_height = 0.0
 	if body_pivot:

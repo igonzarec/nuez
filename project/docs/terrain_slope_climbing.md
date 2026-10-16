@@ -19,6 +19,221 @@ por este modo.
 
 ## Escalada completamente procedural
 
+## Conservar agarre y salir a la cima
+
+### Salida asistida siguiendo la superficie (actual)
+
+Con **Climb Mantle Enabled** y **Climb Mantle Surface Assist Enabled** activos,
+la detección de suelo delante inicia un avance automático siguiendo contactos
+físicos reales. No recorre los tres segmentos antiguos ni usa Clearance para
+elevar al jugador. Al confirmar suelo caminable y completar las vueltas mínimas,
+mezcla la pose procedural con caminar y se incorpora durante Stand Duration.
+Soltar Brincar cancela como en la escalada normal. No hay teletransporte ni IK.
+
+Controles en **SquirrelExplorer > Escalada · continuidad y cima**:
+
+| Control | Inicial | Uso |
+| --- | --- | --- |
+| Climb Mantle Surface Assist Enabled | Sí | Nueva asistencia; No recupera el Mantle antiguo. Requiere Mantle Enabled. |
+| Climb Mantle Surface Speed | 1,5 m/s | Avance automático, independiente de la velocidad de los miembros. |
+| Climb Mantle Surface Max Distance | 3 m | Límite de recorrido; al agotarse devuelve control de trepa. |
+| Climb Mantle Surface Timeout | 4 s | Límite de tiempo contra bloqueos y atasco. |
+| Climb Mantle Surface Contact Speed | 1 m/s | Presión hacia el contacto; aumentar puede frenar en esquinas. |
+| Climb Mantle Surface Offset Start / End | −0,11 / −0,11 m | Offset visual a lo largo de la normal; se interpola durante la incorporación. Negativo hunde, no mueve colisión. |
+
+**Climb Mantle Extra Cycles** determina las vueltas mínimas antes de incorporarse;
+**Climb Mantle Cycle Speed** determina sus Hz. Se detienen si no hay movimiento.
+Ejemplo: dos vueltas a 2,4 Hz requieren unos 0,83 s en movimiento, más el apoyo
+y la incorporación. Los límites de recorrido y tiempo prevalecen: pedir muchas
+vueltas con poco recorrido puede cancelar la asistencia antes de terminar.
+Todos los controles nuevos se consultan en vivo salvo la cantidad de vueltas,
+capturada al iniciar. No se sobrescribieron los valores guardados de escenas.
+
+La búsqueda mantiene Min Reach, Forward Reach, Extension y Samples; detecta
+que hay una posible cima, pero no permite atravesar el espacio entre ambos
+puntos. Más muestras incrementan consultas físicas al buscar. Ya en asistencia
+se consultan contacto frontal y suelo bajo los pies en cada tick físico.
+Clearance, Floor Margin, Surface Blend y Duration de Mantle siguen disponibles
+para el modo antiguo, no controlan la nueva trayectoria sobre superficie.
+
+### Revisión del terreno guardado (15 octubre 2026)
+
+El plugin instalado es **Terrain3D 1.0.2**, no se encontró “Terrain Sweety”.
+Se midió `grass_terrain.tscn` y `terrain_data_grass` sin modificar sus datos,
+usando `tools/inspect_climb_terrain.gd`. Espaciado: 1 m; regiones: 256 muestras.
+En una cuadrícula de muestreo cada 8 vértices hubo 23.552 puntos válidos:
+756 superan 48°; entre ellos, 136 cambian más de 15° en alguna sección axial
+entre intervalos consecutivos de un metro. El máximo cambio axial medido fue
+152,5° cerca de (50,0; 32,74; 138,0). Son diferencias de pendiente axial,
+no ángulos entre normales de colisión; no constituyen una prueba de todas las
+rutas ni miden el lugar exacto del usuario. Cambios no guardados del editor
+no entran en esta medición.
+
+Conclusión: el terreno sirve para rutas de escalada, pero no cualquier detalle
+esculpido es una buena superficie de gameplay. Picos, valles cortos y crestas
+cambian el contacto a escala de la cápsula (0,84 m de ancho). Conviene suavizar
+selectivamente rutas y salidas, manteniendo detalle fuera de ellas. También
+hay límites del controlador: rayos puntuales y cápsula vertical, sin manos/pies
+con IK; no todo problema es culpa del terreno. Antes de producir colisión
+alternativa, decidir con el usuario si conservar la actual o crear un proxy.
+No se modificaron montañas ni colisiones en esta revisión.
+
+### Seguir la inclinación de la superficie
+
+En **SquirrelExplorer > Escalada**, **Climb Surface Follow Enabled** adapta
+el cuerpo a la normal real de la roca: en una pared vertical conserva la pose
+erguida y en una pendiente suave inclina el cuerpo para acompañarla. Además,
+la separación física deja de ser 0,5 m en todas las pendientes: se interpola
+entre Wall Distance y Floor Distance según la componente vertical de la
+normal, evitando mantener al personaje suspendido sobre una ladera suave.
+
+| Control | Inicial | Efecto |
+| --- | --- | --- |
+| Climb Surface Follow Enabled | Sí | Activa adaptación visual y de separación. Apagado recupera el comportamiento fijo. |
+| Climb Surface Follow Strength | 1 | 0 sin adaptación, 1 completa. |
+| Climb Surface Follow Response | 10 s⁻¹ | Mayor valor sigue más rápido los cambios; menor suaviza. |
+| Climb Surface Max Lean Degrees | 80° | Máximo de inclinación añadida por la pendiente. |
+| Climb Surface Floor Distance | 0,02 m | Separación objetivo de pies al aproximarse a horizontal. |
+
+Todos se actualizan en vivo. **Climb Body Lean Degrees** sigue sumándose como
+ajuste artístico, así que conviene mantenerlo pequeño si la pendiente ya
+inclina mucho el cuerpo. **Climb Visual Wall Offset** sigue la normal de la
+superficie: negativo acerca y positivo separa. Para una respuesta más suave,
+prueba **Follow Response = 6**; para reducir la inclinación, **Strength = 0,7**.
+No se sobrescriben los ajustes existentes de agarre ni los offsets guardados.
+Esto sigue siendo adaptación por plano de contacto, no IK de manos y pies ni
+colisión exacta de la malla visual sobre cada irregularidad.
+
+### Detección y transición de cima
+
+La salida predeterminada es ahora **natural**: **Climb Mantle Enabled = No**.
+No usa Clearance ni una trayectoria automática hacia arriba o hacia dentro.
+El movimiento solicitado sigue el plano real de contacto; al desaparecer el
+contacto del pecho puede continuar sobre suelo cercano bajo los pies. La
+cápsula debe confirmar apoyo físico caminable antes de incorporarse. No se
+salvan huecos ni repisas verticales sin superficie continua.
+
+En **SquirrelExplorer > Escalada · continuidad y cima**:
+
+- **Climb Finish Max Slope Degrees** limita qué pendiente permite terminar,
+  siempre respetando además el límite caminable del personaje.
+- **Climb Finish Support Time**: 0,12 s iniciales de apoyo continuo. Aumentarlo
+  evita incorporarse por un roce fugaz; perder apoyo reinicia la confirmación.
+- **Climb Finish Stand Duration**: 0,30 s iniciales de incorporación visual.
+  Aumentarlo suaviza el cambio, sin desplazar la cápsula automáticamente.
+- **Climb Finish Visual Height**: −0,11 m iniciales. Altura visual final que
+  sustituye gradualmente al offset de la pared; no vuelve obligatoriamente a
+  cero al incorporarse. Negativo acerca/hunde el modelo y positivo lo levanta.
+  Se conserva mientras permanece en suelo después de la salida natural.
+- **Climb Finish Visual Response**: 12 s⁻¹. Suaviza ajustes de esa altura y su
+  retorno a cero en el aire. Ambos controles se actualizan en vivo y no cambian
+  la colisión; un hundimiento excesivo puede atravesar visualmente el terreno.
+
+La cápsula física sigue siendo vertical (radio 0,42 m, altura 1,42 m).
+Es el volumen invisible que resuelve choques, no la malla animada. Al pasar un
+borde su parte redonda puede elevar el cuerpo físico aunque no haya asistencia.
+La altura visual permite afinar apariencia, pero no elimina ese contacto físico.
+
+Estos ajustes se consultan en vivo. El ciclo sigue el desplazamiento real,
+sin imponer vueltas extra, y la pose se mezcla gradualmente con reposo.
+**Climb Mantle Enabled** permite recuperar explícitamente la asistencia antigua
+para repisas: sólo entonces actúan Clearance, alcance, vueltas y duración de
+Mantle. Los valores guardados de esos controles se conservan.
+
+En **SquirrelExplorer > Escalada · continuidad y cima** se separa el umbral
+de entrada del umbral de agarre sostenido. La entrada sigue usando los límites
+de **Escalada**; una vez agarrado se permiten pendientes más suaves. En objetos
+marcados se siguen respetando sus zonas Disabled. Al avanzar sobre una cara
+inclinada, la dirección de subida se proyecta sobre la superficie en lugar de
+empujar verticalmente contra ella.
+
+| Control | Inicial | Efecto |
+| --- | --- | --- |
+| Climb Sustain Enabled | Sí | Activa el límite relajado sólo una vez agarrado. |
+| Climb Sustain Min Slope Degrees | 40° | Menor valor conserva el agarre en transiciones más suaves. |
+| Climb Mantle Enabled | No | Opcional: activa la trayectoria asistida sobre el borde al mantener arriba. |
+| Climb Finish Max Slope Degrees | 25° | Máxima inclinación para considerar tierra firme e incorporarse; menor exige suelo más plano. |
+| Climb Mantle Extra Cycles | 2 | Vueltas adicionales completas de brazos y piernas durante la salida. |
+| Climb Mantle Surface Blend Start | 0,1 | Progreso de salida donde empieza a pasar de la normal de pared a la del suelo superior. |
+| Climb Mantle Surface Blend End | 0,7 | Progreso donde termina esa adaptación; después se incorpora. |
+| Climb Mantle Forward Reach | 1 m | Distancia horizontal donde busca suelo superior. |
+| Climb Mantle Search Min Reach | 0,5 m | Primera distancia de búsqueda. |
+| Climb Mantle Search Extension | 0,5 m | Extiende la última muestra más allá de Forward Reach. |
+| Climb Mantle Search Samples | 5 | Cantidad de distancias exploradas; más muestras cuestan más rayos y barridos. |
+| Climb Mantle Retry Interval | 0,05 s | Pausa entre búsquedas fallidas. |
+| Climb Mantle Contact Grace | 0,18 s | Tolerancia de pérdida de contacto mientras busca salida. |
+| Climb Mantle Status | Diagnóstico | Último resultado visible en Remote, actualizado automáticamente. |
+| Climb Mantle Max Height | 1,4 m | Altura máxima de búsqueda sobre los pies. |
+| Climb Mantle Max Drop | 0,3 m | Búsqueda permitida por debajo de los pies. |
+| Climb Mantle Clearance | 0,08 m | Altura libre extra para pasar la cápsula sobre el borde. |
+| Climb Mantle Floor Margin | 0,03 m | Separación final antes de asentarse sobre el suelo. |
+| Climb Mantle Cycle Speed | 2,4 ciclos/s | Ritmo máximo de las vueltas finales, independiente del ritmo de trepar. |
+| Climb Mantle Duration | 0,55 s | Duración mínima; se amplía para completar las vueltas al ritmo Cycle Speed. |
+| Climb Mantle Body Lean Degrees | 35° | Inclinación adicional hacia el apoyo durante el esfuerzo. |
+| Climb Mantle Arm Reach Degrees | 25° | Elevación extra de manos durante el alcance. |
+| Climb Mantle Leg Tuck Degrees | 20° | Recogida de pies desde la cadera, sin flexión real de rodillas. |
+
+Clearance admite de -0,5 a 0,5 m y Floor Margin de -0,25 a 0,25 m, en pasos
+de 0,005 m. Puedes probar 0 y valores negativos para bajar el trayecto o el
+destino; no cambian los defaults ni los valores guardados. Ambos afectan la
+trayectoria física, así que un valor negativo que atraviese la superficie
+puede hacer que la búsqueda descarte ese candidato por colisión. Revisa
+Climb Mantle Status al experimentar; no se desactivan las colisiones.
+
+Para una cima más gradual, prueba **Sustain Min Slope Degrees = 35°**. Para
+una salida pausada, usa **Mantle Duration = 0,75 s**. Los controles responden
+en vivo, excepto la geometría del recorrido y su duración, que se capturan al
+iniciar la salida. Durante ella se continúa la fase actual del ciclo para
+completar Extra Cycles vueltas, se inclina el cuerpo y se elevan manos y pies.
+El último 15 % del recorrido incorpora al personaje después de las vueltas.
+Durante la salida, la postura sigue también la inclinación del apoyo superior:
+combina la normal inicial de pared con la del destino y actualiza esta última
+con un rayo bajo el personaje cuando ya tiene suelo firme debajo. Surface
+Blend Start/End regulan la transición y se capturan al iniciar; Surface Follow
+Response conserva su suavizado. La inclinación extra de esfuerzo se reduce
+al aproximarse a horizontal para no sumar dos veces el mismo cabeceo. La
+trayectoria física sigue validando la cápsula; la adaptación cambia la pose y
+el offset visual, no elimina colisiones ni crea contacto IK de manos/pies.
+Los sonidos siguen la misma fase. Con Extra Cycles 0 se recupera la salida
+sin vueltas. El ritmo final se controla con Mantle Cycle Speed, no con Climb
+Member Speed: dos vueltas a 2,4 ciclos/s dan una salida de aproximadamente
+0,98 s, incluyendo la incorporación. Mayor Cycle Speed la acelera sin cambiar
+la trepada normal. La elevación de seguridad se redujo de 0,15 a 0,08 m y el
+margen final de 0,06 a 0,03 m para evitar una separación excesiva del apoyo;
+los overrides existentes en escenas se conservan.
+
+La búsqueda ya no depende de un único punto a 1 m: explora entre Search Min
+Reach y Forward Reach + Search Extension, eligiendo el primer destino con
+suelo firme y los tres tramos libres. Con los defaults son cinco distancias
+entre 0,5 y 1,5 m. Si un candidato está bloqueado, prueba el siguiente.
+Durante Contact Grace puede seguir subiendo brevemente con move_and_slide;
+no atraviesa obstáculos, no permite entrar en zonas Disabled y soltar Brincar
+cancela inmediatamente. Al recuperar contacto reinicia la tolerancia, y cada
+salida exitosa reinicia etapa, temporizador, recorrido y fase capturada.
+
+Para diagnosticar, abre **Remote > SquirrelExplorer > Escalada · continuidad
+y cima > Climb Mantle Status**. Muestra cuántas muestras no tienen suelo,
+cuántas exceden la pendiente y cuántas fallan por colisión, con el último
+tramo bloqueado (1 subir, 2 pasar, 3 asentarse). También informa si la salida
+se inició, se completó o chocó durante el movimiento. Es un diagnóstico de
+la última búsqueda, no un control de autoría. El mensaje incluye el ángulo
+efectivo: aumentar Finish Max Slope por encima de Walkable Slope Degrees no
+lo amplía. Los valores personalizados de pendiente se conservan.
+
+La salida busca suelo firme usando Finish Max Slope Degrees, limitado también
+por Walkable Slope Degrees, y vuelve a comprobar apoyo bajo los pies al terminar.
+Para exigir una cima más plana prueba 15°; para incorporarse antes prueba 35°.
+Mantén Sustain Min Slope Degrees suficientemente bajo para poder llegar a ese
+umbral. Los valores ya elegidos por el usuario no se sobrescriben.
+Comprueba espacio para la cápsula en tres tramos (subir, pasar y asentarse)
+antes de empezar y usa move_and_collide durante el recorrido: un techo o una
+colisión nueva cancela la subida. Soltar Brincar también cancela. Si ya hay
+apoyo caminable bajo los pies se recupera la locomoción terrestre sin impulso
+de desprendimiento. Sigue siendo una búsqueda local de apoyo, no una solución
+para cualquier geometría de borde: afina Reach/Height según las repisas.
+
+## Postura y ciclo procedural
+
 La escalada usa el reposo y los huesos del rig importado, pero **no reproduce
 la acción Climb de Blender**. El GLB y sus acciones permanecen intactos.
 Todos los ajustes visuales vigentes están en el nodo raíz **SquirrelExplorer**,
@@ -73,6 +288,15 @@ Degrees** a 25° para más alcance, reduce **Arm Base Spread Degrees** a 30°
 para juntar las manos o aumenta **Leg Vertical Degrees** a 20° para elevar más
 los pies. Cambiar **Phase** en 0,5 invierte alcance y retorno. **Path Tilt
 Degrees** cambia la orientación del arco sin modificar el pivote.
+
+Para acercar el personaje a la roca usa **Climb Visual Wall Offset**, por
+ejemplo -0,04 o -0,06 m. Esto mueve sólo el modelo, conservando la cápsula.
+El desplazamiento vuelve gradualmente a cero al incorporarse al final para
+no tirar del cuerpo hacia la pared desde tierra firme. En **Escalada**, **Climb
+Wall Distance** es la separación física del controlador: 0,46 m lo acerca
+respecto a 0,5 m, conservando algo de margen sobre el radio de cápsula 0,42 m.
+Ninguno fija manos o pies mediante IK: el contacto sigue siendo visual y los
+valores extremos pueden atravesar la roca.
 
 El ciclo sólo avanza con desplazamiento tangencial a la pared: una corrección
 de distancia contra la roca no genera zancadas ni sonidos por sí sola. Al

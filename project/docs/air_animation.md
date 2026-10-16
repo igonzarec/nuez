@@ -1,5 +1,12 @@
 # Salto, caída y aterrizaje de Nuez
 
+El temblor de Glide se aplica después de la mezcla de salida de la pose aérea.
+Así una transición que persigue un clip en movimiento no lo deja bloqueado.
+Los controles siguen en **Animation > Planeo · modelo artesanal > Handmade
+Glide Tremor Degrees / Speed** y conservan los valores de escena. Un clip
+Glide/GlideStart pausado puede reanudarse al volver al planeo; el aterrizaje
+deslizante sigue congelando deliberadamente la pose mientras roza el suelo.
+
 Abre `res://scenes/player.tscn`, selecciona **Animation** y busca los grupos
 **Salto procedural · postura** y **Aterrizaje procedural**. Todos los controles
 incluyen ayuda en el Inspector. En ejecución, el mismo nodo en **Remote**

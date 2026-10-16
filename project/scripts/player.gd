@@ -245,8 +245,87 @@ signal gliding_changed(active: bool)
 @export_range(5.0, 60.0, 1.0) var climb_facing_angle_degrees := 30.0
 ## Distancia del centro a la pared; debe superar el radio de la cápsula (0,42).
 @export_range(0.46, 0.6, 0.01) var climb_wall_distance := 0.5
+## Adapta inclinación y separación a la pendiente de la superficie agarrada. Desactivado recupera la postura y distancia fijas anteriores. Se actualiza en vivo; no modifica los umbrales de agarre.
+@export var climb_surface_follow_enabled := true
+## Intensidad de adaptación a la pendiente: 0 conserva la postura fija y 1 sigue toda la inclinación. Afecta también la separación física en pendientes suaves. Se actualiza en vivo.
+@export_range(0.0, 1.0, 0.05) var climb_surface_follow_strength := 1.0
+## Rapidez por segundo de adaptación visual a cambios de inclinación. Mayor valor sigue antes los cambios; menor suaviza el paso entre triángulos. La colisión siempre usa la superficie real. Se actualiza en vivo.
+@export_range(1.0, 30.0, 0.5) var climb_surface_follow_response := 10.0
+## Inclinación adicional máxima para seguir la superficie, en grados. Mayor valor permite tumbar más el cuerpo sobre pendientes suaves. Body Lean se suma como ajuste artístico. Se actualiza en vivo.
+@export_range(0.0, 85.0, 0.5) var climb_surface_max_lean_degrees := 80.0
+## Separación objetivo de los pies al acercarse la pendiente a horizontal, en metros. Se interpola desde Climb Wall Distance de la pared vertical para no mantener la cápsula flotando sobre una ladera. Mayor valor separa más; se consulta en vivo.
+@export_range(0.01, 0.15, 0.005, "suffix:m") var climb_surface_floor_distance := 0.02
 ## Impulso hacia fuera al soltar Brincar. Ejemplo: 2 facilita separarse y después planear.
 @export_range(0.5, 5.0, 0.1) var climb_detach_speed := 2.0
+@export_group("Escalada · continuidad y cima")
+## Permite pendientes más suaves una vez agarrado, sin facilitar el agarre inicial. Conserva las zonas Disabled y las reglas del collider. Se consulta en vivo.
+@export var climb_sustain_enabled := true
+## Pendiente mínima desde horizontal para conservar un agarre existente, en grados. Menor valor permite seguir sobre la transición hacia la cima. Sólo relaja el umbral de entrada, no lo endurece. Se consulta en vivo.
+@export_range(5.0, 85.0, 0.5) var climb_sustain_min_slope_degrees := 40.0
+## Activa la salida asistida opcional sobre repisas, con avance y elevación automáticos. Desactivado sigue la superficie mediante el movimiento del jugador y se incorpora sólo con apoyo real. En vivo; no atraviesa colisiones.
+@export var climb_mantle_enabled := false
+## Usa salida automática siguiendo contactos reales en vez de la trayectoria antigua subir/avanzar/bajar. Requiere Mantle Enabled. En vivo antes de iniciar; no crea rampas ni salva huecos. Activado por defecto para la nueva salida.
+@export var climb_mantle_surface_assist_enabled := true
+## Velocidad de avance automático sobre la superficie, en m/s. Mayor termina antes sin acelerar las vueltas de miembros. Se consulta en vivo durante la salida.
+@export_range(0.1, 6.0, 0.05, "suffix:m/s") var climb_mantle_surface_speed := 1.5
+## Recorrido máximo permitido de la asistencia, en metros. Mayor permite cimas más anchas; al agotarse sin apoyo firme devuelve control de trepa sin teletransportar. En vivo.
+@export_range(0.2, 8.0, 0.1, "suffix:m") var climb_mantle_surface_max_distance := 3.0
+## Tiempo máximo de asistencia en segundos. Evita quedarse avanzando contra una irregularidad; al agotarse devuelve control de trepa. En vivo.
+@export_range(0.5, 12.0, 0.1, "suffix:s") var climb_mantle_surface_timeout := 4.0
+## Presión hacia la superficie durante asistencia, en m/s. Mayor conserva contacto, pero puede frenar en esquinas. No añade elevación ni modifica la colisión. En vivo.
+@export_range(0.1, 5.0, 0.1, "suffix:m/s") var climb_mantle_surface_contact_speed := 1.0
+## Separación visual desde la superficie al empezar la asistencia, en metros. Negativo acerca/hunde y positivo separa. Se mezcla hasta Offset End durante la incorporación; no mueve la cápsula. En vivo.
+@export_range(-0.4, 0.3, 0.005, "suffix:m") var climb_mantle_surface_offset_start := -0.11
+## Separación visual al terminar la asistencia, en metros. Negativo hunde ligeramente. Se conserva como altura visual en suelo tras la salida, hasta volver al aire. En vivo; no evita penetraciones visuales.
+@export_range(-0.4, 0.3, 0.005, "suffix:m") var climb_mantle_surface_offset_end := -0.11
+## Pendiente máxima desde horizontal para considerar tierra firme al terminar de trepar, en grados. Menor valor exige una cima más llana; mayor permite incorporarse antes. Nunca supera Walkable Slope Degrees. Se consulta al buscar apoyo y al finalizar.
+@export_range(0.0, 60.0, 0.5) var climb_finish_max_slope_degrees := 25.0
+## Segundos continuos de apoyo físico en tierra firme antes de incorporarse en la salida natural. Mayor evita transiciones por contactos fugaces; menor responde antes. En vivo; pierde la confirmación si desaparece el apoyo.
+@export_range(0.0, 1.0, 0.01, "suffix:s") var climb_finish_support_time := 0.12
+## Segundos para recuperar la postura erguida después de confirmar apoyo. Mayor suaviza; menor incorpora antes. Sólo salida natural, sin elevar ni avanzar automáticamente la cápsula. En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:s") var climb_finish_stand_duration := 0.3
+## Altura visual al terminar la salida natural, en metros respecto al origen habitual. Negativo hunde el modelo sin mover su colisión; positivo lo levanta. Se mezcla durante la incorporación y se conserva mientras siga en suelo. -0.11 evita retirar de golpe el offset actual de escalada. En vivo; valores muy negativos pueden atravesar el terreno.
+@export_range(-0.4, 0.2, 0.005, "suffix:m") var climb_finish_visual_height := -0.11
+## Rapidez de ajuste del offset visual después de salir de escalada, en s⁻¹. Mayor responde antes; menor suaviza. Al quedar en el aire recupera altura visual normal. En vivo; no modifica la cápsula ni la física.
+@export_range(1.0, 40.0, 0.5) var climb_finish_visual_response := 12.0
+## Vueltas mínimas adicionales antes de incorporarse al salir. En Surface Assist avanza mientras completa estas vueltas, sujeto a Max Distance y Timeout; no garantiza avanzar más allá de esos límites. Se captura al iniciar; 0 permite incorporarse al confirmar apoyo.
+@export_range(0, 6, 1) var climb_mantle_extra_cycles := 2
+## Progreso de la salida (0–1) donde empieza a seguir la inclinación del suelo superior en lugar de la pared. Menor valor adapta antes. Se captura al iniciar y sólo actúa con Surface Follow Enabled.
+@export_range(0.0, 0.8, 0.01) var climb_mantle_surface_blend_start := 0.1
+## Progreso de la salida (0–1) donde termina la adaptación al suelo superior. Mayor valor la reparte durante más recorrido; debe superar Blend Start. Después se incorpora en el último tramo. Se captura al iniciar.
+@export_range(0.05, 0.95, 0.01) var climb_mantle_surface_blend_end := 0.7
+## Distancia horizontal de búsqueda de apoyo sobre el borde, en metros. Mayor valor alcanza repisas más profundas, pero requiere todo el trayecto libre. Se consulta al buscar la cima.
+@export_range(0.5, 2.5, 0.05, "suffix:m") var climb_mantle_forward_reach := 1.0
+## Distancia mínima de búsqueda, en metros, limitada internamente a Forward Reach si es mayor. Menor incluye apoyos cercanos. Se exploran Samples hasta Forward Reach + Search Extension. Se consulta en cada búsqueda.
+@export_range(0.25, 2.5, 0.05, "suffix:m") var climb_mantle_search_min_reach := 0.5
+## Distancia adicional de búsqueda más allá de Forward Reach, en metros. Mayor valor detecta apoyos más lejanos, sin omitir comprobaciones de colisión. Se consulta en cada búsqueda.
+@export_range(0.0, 1.5, 0.05, "suffix:m") var climb_mantle_search_extension := 0.5
+## Número de distancias donde se busca suelo. Mayor valor detecta más opciones pero cuesta más rayos y barridos de cápsula. Se consulta en cada búsqueda.
+@export_range(2, 12, 1) var climb_mantle_search_samples := 5
+## Segundos entre búsquedas fallidas de cima. Mayor valor reduce el coste; menor reacciona antes. Se actualiza en vivo; una búsqueda exitosa no espera más.
+@export_range(0.0, 0.3, 0.01, "suffix:s") var climb_mantle_retry_interval := 0.05
+## Segundos de tolerancia al perder contacto mientras busca la cima. Mantiene brevemente el avance de subida con colisiones; después suelta. 0 conserva la salida inmediata. No tolera zonas Disabled ni soltar Brincar. Se actualiza en vivo.
+@export_range(0.0, 0.5, 0.01, "suffix:s") var climb_mantle_contact_grace := 0.18
+## Diagnóstico de la última búsqueda/salida, visible durante el juego en Remote. Informa falta de suelo, pendiente o tramo bloqueado. Se actualiza automáticamente; editar este texto no modifica el comportamiento.
+@export_multiline var climb_mantle_status := "Sin búsqueda de cima"
+## Altura máxima de búsqueda del suelo superior respecto a los pies, en metros. Mayor valor admite bordes más altos. Se consulta al buscar la cima.
+@export_range(0.3, 2.5, 0.05, "suffix:m") var climb_mantle_max_height := 1.4
+## Profundidad de búsqueda bajo los pies, en metros. Permite encontrar suelo ligeramente más bajo al terminar la transición. Se consulta al buscar la cima.
+@export_range(0.0, 1.0, 0.05, "suffix:m") var climb_mantle_max_drop := 0.3
+## Altura adicional durante los tramos de subir y pasar sobre el borde, en metros. Positivo eleva, 0 no añade altura y negativo baja el trayecto. Se consulta al iniciar; si la cápsula choca, ese candidato se descarta sin atravesar el suelo.
+@export_range(-0.5, 0.5, 0.005, "suffix:m") var climb_mantle_clearance := 0.08
+## Separación final de los pies respecto al suelo superior, en metros. Positivo deja margen, 0 busca contacto y negativo propone un destino más bajo. Se consulta al iniciar; las colisiones pueden rechazar destinos bajo el suelo. No es un offset sólo visual.
+@export_range(-0.25, 0.25, 0.005, "suffix:m") var climb_mantle_floor_margin := 0.03
+## Ritmo máximo de las vueltas extra al salir a la cima, en ciclos por segundo, independiente de Climb Member Speed. Mayor valor completa antes las vueltas y reduce la sensación de trepar en el aire. Se captura al iniciar; Mantle Duration sigue fijando la duración mínima.
+@export_range(0.2, 6.0, 0.1, "suffix:Hz") var climb_mantle_cycle_speed := 2.4
+## Duración mínima de la subida a la cima, en segundos. Se amplía si las vueltas extra necesitan más tiempo según Mantle Cycle Speed. Mayor valor hace más pausado el recorrido. Se captura al iniciar; las colisiones siguen activas.
+@export_range(0.2, 1.5, 0.01, "suffix:s") var climb_mantle_duration := 0.55
+## Inclinación adicional del cuerpo hacia la superficie durante el esfuerzo de subida, en grados. 0 conserva la inclinación base de trepar. Se actualiza en vivo y vuelve a cero al incorporarse.
+@export_range(0.0, 65.0, 0.5) var climb_mantle_body_lean_degrees := 35.0
+## Elevación adicional de brazos durante el alcance superior, en grados. Mayor valor levanta más las manos. Se actualiza en vivo durante la salida.
+@export_range(0.0, 60.0, 0.5) var climb_mantle_arm_reach_degrees := 25.0
+## Elevación adicional de piernas durante el esfuerzo, en grados. Mayor valor recoge más los pies desde la cadera, sin doblar rodillas inexistentes. Se actualiza en vivo.
+@export_range(0.0, 60.0, 0.5) var climb_mantle_leg_tuck_degrees := 20.0
 # Ajustes anteriores conservados como datos serializados; ya no intervienen.
 @export_storage var climb_member_degrees := 14.0
 @export_storage var climb_sound_spacing := 0.7
@@ -342,6 +421,12 @@ signal gliding_changed(active: bool)
 
 var is_climbing := false
 var climb_motion := 0.0
+var climb_surface_normal := Vector3.BACK
+var climb_mantle_progress := -1.0
+var climb_stand_progress := -1.0
+var climb_surface_assist_active := false
+var climb_mantle_cycle_start := 0.0
+var climb_mantle_cycle_count := 0
 var climbing: Node
 var control_enabled := true
 var spawn_position := Vector3.ZERO

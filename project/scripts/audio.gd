@@ -9,6 +9,8 @@ var wind: AudioStreamPlayer
 var ambience_started := false
 ## Surface playback callback: true means the footstep has already been handled.
 var step_handler: Callable
+## Ganancia adicional en dB de los pasos genéricos mientras se mantiene Sprint. Mayor valor destaca la carrera; 0 conserva el volumen de caminar. Se actualiza en vivo; no afecta Climb ni aterrizajes. Los pasos de nieve tienen su propio Run Gain Db.
+@export_range(0.0, 12.0, 0.5, "suffix:dB") var running_step_gain_db := 3.0
 var jump_handler: Callable
 var land_handler: Callable
 var deploy: AudioStreamPlayer
@@ -204,6 +206,8 @@ func play(kind: String) -> void:
 	next_voice = (next_voice + 1) % voices.size()
 	voice.stream = sounds[kind]
 	voice.volume_db = -14 if kind == "step" else -5
+	if kind == "step" and Input.is_action_pressed("sprint"):
+		voice.volume_db += running_step_gain_db
 	# El swish de recentrado debe distinguirse del ambiente y de la interfaz.
 	if kind == "camera_recenter":
 		voice.volume_db = -2

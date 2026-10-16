@@ -15,6 +15,8 @@ extends Node
 @export_group("Mezcla")
 ## Ganancia relativa al archivo. Se combina con SFX y Master.
 @export_range(-60.0, 6.0, 0.5, "suffix:dB") var volume_db := -24.0
+## Ganancia adicional de pasos al mantener Sprint, en dB. Mayor valor destaca la carrera; 0 usa Volume Db sin refuerzo. Se aplica en vivo a nuevos pasos, sin cambiar Climb ni los contactos de aterrizaje.
+@export_range(0.0, 12.0, 0.5, "suffix:dB") var run_gain_db := 3.0
 ## 2 reproduce en la mitad de tiempo; el tono se compensa por separado.
 @export_range(0.5, 2.0, 0.05) var playback_speed := 1.0
 ## Tono final: 1 original, 0.8 grave, 1.2 agudo, independiente de Playback Speed.
@@ -128,7 +130,7 @@ func play_step() -> bool:
 	var voice := _voices[_voice_index]
 	_voice_index = (_voice_index + 1) % _voices.size()
 	voice.stream = samples[index]
-	voice.volume_db = volume_db
+	voice.volume_db = volume_db + (run_gain_db if Input.is_action_pressed("sprint") else 0.0)
 	voice.play()
 	return true
 

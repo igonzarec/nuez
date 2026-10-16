@@ -217,8 +217,8 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_just_pressed("camera_forward"):
 			recenter_yaw = target.model.rotation.y
 			manual_pause_left = 0
-			pitch = deg_to_rad(pitch_degrees)
-			_manual_vertical_override = false
+			# Recentrar sólo cambia la órbita horizontal; conserva altura e
+			# inclinación elegidas, incluido el override vertical de planeo.
 			recenter_requested.emit()
 			if recenter_mode == 0:
 				_maybe_snap_recenter()

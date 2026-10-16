@@ -1,5 +1,10 @@
 # Cámara con distancia constante
 
+Recentrar con C/R2 sólo alinea el giro horizontal con el personaje. Conserva
+la inclinación vertical elegida y su override manual durante Glide; no vuelve
+a Pitch Degrees. En términos de Godot se ajusta yaw (rotation.y), sin resetear
+pitch. El modo instantáneo o por tiempo sigue usando sus controles actuales.
+
 La colisión conserva `Distance` y `Field Of View`: nunca acerca la cámara al
 personaje para resolver un obstáculo. Sustituye el comportamiento anterior
 que permitía reducir la distancia hasta 5,5 m y producía un zoom indeseado.

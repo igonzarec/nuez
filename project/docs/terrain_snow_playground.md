@@ -401,3 +401,10 @@ añadieron archivos de tests.
 
 Referencias de implementación: [SurfaceTool en Godot 4.6](https://docs.godotengine.org/en/4.6/classes/class_surfacetool.html)
 y [GPUParticles3D en Godot 4.6](https://docs.godotengine.org/en/4.6/classes/class_gpuparticles3d.html).
+
+## Volumen adicional de pasos de carrera
+
+En **SnowStepAudio > Mezcla > Run Gain Db**, el refuerzo inicial es +3 dB
+al mantener Sprint. Se aplica en vivo a los pasos nuevos y conserva el volumen
+de caminar, trepar y aterrizar. Los pasos genéricos sin superficie de nieve
+usan **Running Step Gain Db** en TrailAudio, también +3 dB.

@@ -164,4 +164,3 @@ data_directory = "res://terrain_data/terrain_data_grass"
 material = SubResource("Terrain3DMaterial_40qy5")
 assets = SubResource("Terrain3DAssets_4vitj")
 top_level = true
-metadata/_edit_lock_ = true
