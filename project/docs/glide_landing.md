@@ -23,7 +23,7 @@ carrera durante este estado. El audio de vuelo termina al tocar suelo.
 | Glide Landing Braking | 10 m/s² | Frenado continuo; mayor valor acorta la distancia deslizada. |
 | Glide Landing Clearance Enabled | Sí | Activa la separación visual de torso y cabeza respecto al suelo. |
 | Glide Landing Clearance Margin | 0 m | Margen mínimo sobre el plano de apoyo. |
-| Glide Landing Belly Sink | 0,25 m | Resta margen sólo al torso para permitir hundir la panza. |
+| Glide Landing Belly Sink | 0,25 m | Resta margen sólo al torso para permitir hundir la panza. El deslizador admite hasta 1 m y se pueden escribir valores mayores. No obliga a bajar el modelo si otras piezas requieren separación. |
 | Glide Landing Clearance Max Lift | 0 m | Límite de elevación visual para corregir penetración. |
 | Glide Landing Clearance Recovery | 12 s⁻¹ | Rapidez al recuperar la altura visual normal. |
 | Glide Landing Dust Enabled | Sí | Activa el polvo durante el roce; requiere Movement Dust Enabled. |
@@ -82,3 +82,46 @@ pulsación de salto, perder el suelo más allá de Contact Grace o entrar a una 
 cancelan el estado; respawn también limpia su temporizador. El desplazamiento
 usa `move_and_slide` y conserva las colisiones, sin teletransportar ni cambiar
 la cápsula del personaje. No se activa al aterrizar sin Glide.
+## Adaptación de la pose a pendientes
+
+En **SquirrelExplorer > Aterrizaje de planeo**, **Glide Landing Surface Follow
+Enabled** adapta la orientación visual a la normal del apoyo, incluyendo
+inclinación lateral, antes de aplicar el ángulo normal de Glide. Respeta
+**Pose Delay / Pose Blend Duration**, y no usa la inclinación extra de sprint.
+
+- **Surface Follow Strength**: 1 inicial; 0 no añade inclinación del terreno.
+- **Surface Follow Response**: 18 s⁻¹; mayor responde antes y menor suaviza.
+- **Surface Max Tilt Degrees**: 55°; limita el ángulo añadido por la pendiente.
+- **Slope Clearance Max Lift**: 0,30 m; amplía el máximo de corrección visual
+  sólo en pendiente, con Clearance Enabled y Surface Follow Enabled activos.
+  0 conserva el máximo anterior. No cambia la altura máxima de suelo plano.
+
+Todos se guardan con la escena y se consultan en vivo. Se conservan los valores
+previos de **Belly Sink** (permite hundimiento del torso), **Clearance Margin**
+y **Clearance Max Lift**. La corrección usa cajas de mallas contra el plano
+de apoyo, no una colisión exacta con cada irregularidad. No gira la cápsula
+ni modifica el movimiento físico. Durante la transición o en crestas abruptas
+puede persistir algo de cruce; para reducirlo aumentar Response/Max Lift o
+reducir Belly Sink, sin sobrescribir automáticamente los ajustes artísticos.
+
+## Transición simple al tocar pendiente
+
+Se retiró el experimento Visual Sink: no se necesita hundir el modelo para
+suavizar el cambio de orientación al llegar desde el aire. No se modificaron
+los valores anteriores de Belly Sink ni de separación.
+
+Los tres controles principales siguen en **Aterrizaje de planeo**:
+
+- **Glide Landing Pose Delay** conserva brevemente la orientación completa
+  con la que llega planeando (incluidos giros laterales).
+- **Glide Landing Pose Blend Duration** determina cuánto tarda en mezclar
+  esa orientación con la pose de Glide normal adaptada al plano de suelo.
+- **Glide Landing Contact Grace** tolera pérdidas breves de apoyo para no
+  abandonar y reiniciar la transición en cada irregularidad. La gravedad sigue
+  actuando: esta tolerancia no crea apoyo invisible.
+
+Se mezcla la rotación completa con cuaterniones, evitando dos transiciones
+independientes de pitch y pendiente. Surface Follow Response sigue suavizando
+cambios de normal del destino, no reemplaza la duración de la transición.
+No se añadieron controles nuevos. Para una llegada más lenta aumentar Blend
+Duration; Duration total del aterrizaje debe permitir completar Delay + Blend.

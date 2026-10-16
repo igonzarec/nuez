@@ -144,6 +144,7 @@ var body_roll := 0.0
 var body_bank := 0.0
 var was_glide_landing := false
 var glide_landing_entry_angles := Vector3.ZERO
+var glide_landing_entry_rotation := Quaternion.IDENTITY
 var air_elapsed := 0.0
 var air_launch_speed := 1.0
 var landing_elapsed := -1.0
@@ -203,12 +204,14 @@ func tick(delta: float, speed: float) -> void:
 		actor.animation_state = locomotion_state
 		if not was_glide_landing:
 			glide_landing_entry_angles = Vector3(body_pitch, body_roll, body_bank)
+			glide_landing_entry_rotation = actor.model.body_pivot.quaternion
 		was_glide_landing = true
 		var pose_mix := smoothstep(actor.glide_landing_pose_delay, actor.glide_landing_pose_delay + actor.glide_landing_pose_blend_duration, actor.glide_landing_elapsed)
 		body_pitch = lerp_angle(glide_landing_entry_angles.x, -deg_to_rad(glide_lean_degrees), pose_mix)
 		body_roll = lerp_angle(glide_landing_entry_angles.y, 0.0, pose_mix)
 		body_bank = lerp_angle(glide_landing_entry_angles.z, 0.0, pose_mix)
 		actor.model.set_body_tilt(body_pitch, body_roll, body_bank)
+		actor.model.align_glide_landing_surface(delta, pose_mix, glide_landing_entry_rotation, Quaternion(Vector3.RIGHT, -deg_to_rad(glide_lean_degrees)))
 		actor.model.hold_glide_landing_pose()
 		return
 	was_glide_landing = false

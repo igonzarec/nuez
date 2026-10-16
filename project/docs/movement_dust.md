@@ -12,7 +12,8 @@ crear nodos nuevos mientras el jugador se mueve.
 Los controles viven en `SquirrelExplorer`, Inspector > **Polvo de movimiento**.
 Los cambios se ven en vivo durante F6. `Run Speed` fija a partir de qué
 velocidad aparece durante carrera; `Density` controla cuántas bolitas viven
-a la vez. No emite en Slide, salto, escalada ni planeo. Las bolas existentes
+a la vez. También emite al resbalar si Slide Dust Enabled está activo;
+no emite durante salto, escalada ni planeo aéreo. Las bolas existentes
 terminan su vida al dejar de correr. `Source Offset` mueve la única fuente
 y `Spread Degrees` abre o concentra la nube.
 
@@ -55,3 +56,48 @@ dispersión en Z. La fuente sigue siendo una sola. `Rise Acceleration` controla
 la flotación posterior, independiente de Drift Speed. Los defaults usan
 Width 0,2 m, Height 0,08 m y Rise 0,3 m/s². Spread Degrees
 sigue abriendo las velocidades de salida; con Drift bajo su efecto es menor.
+
+## Adaptación a pendientes
+
+En **SquirrelExplorer > Polvo de movimiento**:
+
+- **Movement Dust Surface Follow Enabled**: activado por defecto. Proyecta la
+  fuente sobre el plano de suelo, comprueba terreno bajo ella y orienta la
+  emisión y su dispersión según la normal local. Actúa en Sprint y aterrizaje
+  de planeo, sin cambiar Source Offset, tamaño, densidad ni otros ajustes guardados.
+- **Movement Dust Surface Clearance**: 0,03 m adicionales sobre el suelo.
+  Aumentarlo separa la fuente; se suma a Source Offset Y.
+- **Movement Dust Surface Probe Distance**: 1 m de búsqueda a ambos lados
+  del punto de emisión a lo largo de la normal. Una consulta por frame mientras
+  emite; si no encuentra suelo caminable usa el plano bajo los pies.
+- **Movement Dust Surface Lift Speed**: 0,6 m/s de velocidad inicial hacia
+  fuera de la superficie. Drift Speed sigue siendo la componente hacia atrás,
+  ahora tangente al suelo; Rise Acceleration conserva la flotación vertical.
+
+Todos se guardan con la escena y responden en vivo. Los cambios de orientación
+y fuente afectan nuevas partículas; las anteriores siguen en espacio global,
+sin arrastrarse con el personaje. No hay colisión individual de partículas:
+crestas, superficies curvas, tamaños finales grandes o Spread alto aún pueden
+cruzar parcialmente el terreno. Aumentar ligeramente Clearance/Lift Speed o
+reducir tamaño/Spread permite afinar esos casos, sin alterar la montaña.
+
+## Resbalamiento en pendientes
+
+En **SquirrelExplorer > Deslizamiento en pendientes**:
+
+- **Slide Max Speed**: límite de velocidad por la pendiente, inicialmente
+  3 m/s; 0 permite anular el desplazamiento tangencial de este estado.
+- **Slide Acceleration**: rapidez con la que alcanza esa velocidad,
+  inicialmente 7 m/s². Más bajo produce una bajada gradual.
+- **Slide Steering**: control lateral, sin permitir empujar cuesta arriba.
+- **Slide Dust Enabled**: activo inicialmente. Reutiliza el polvo de correr,
+  sin necesitar Sprint ni superar Movement Dust Run Speed.
+- **Slide Dust Min Speed**: 0,3 m/s tangenciales; umbral independiente para
+  no emitir quieto. Usa velocidad sobre la superficie, no sólo horizontal.
+
+Los controles se guardan con la escena y se consultan en vivo. Se conservan
+los valores actuales de velocidad, aceleración y dirección. El polvo comparte
+color, tamaño y densidad de carrera y requiere **Movement Dust Enabled**.
+Con Surface Follow Enabled utiliza la normal de la pendiente no caminable,
+inclina la fuente y deja la estela detrás de la dirección de resbalamiento,
+aunque la ardilla mire hacia otro lado. No afecta el agarre ni Surface Assist.

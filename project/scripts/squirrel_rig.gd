@@ -32,6 +32,7 @@ var air_active := false
 var landing_pose_active := false
 var landing_clearance_meshes: Array[MeshInstance3D] = []
 var landing_clearance_height := 0.0
+var landing_surface_rotation := Quaternion.IDENTITY
 var air_pose_targets: Dictionary = {}
 var air_position_targets: Dictionary = {}
 var air_pose_rotations: Dictionary = {}
@@ -413,10 +414,32 @@ func _tick_procedural_climb_sounds(previous: float, current: float, actor: Explo
 			actor.feedback.emit("step" if surface_steps else "climb")
 
 
+func align_glide_landing_surface(delta: float, pose_weight: float, entry_rotation: Quaternion, glide_rotation: Quaternion) -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor or not body_pivot:
+		return
+	var target_rotation := Quaternion.IDENTITY
+	if actor.glide_landing_surface_follow_enabled:
+		# La normal física está en mundo; la inclinación visual se aplica
+		# antes del pitch de Glide, en coordenadas locales del rig.
+		var normal := (global_basis.orthonormalized().inverse() * actor.glide_landing_floor_normal).normalized()
+		if not normal.is_zero_approx() and normal.y > 0.0:
+			var slope_rotation := Quaternion(Vector3.UP, normal)
+			var angle := Vector3.UP.angle_to(normal)
+			var limit := deg_to_rad(actor.glide_landing_surface_max_tilt_degrees)
+			var weight := actor.glide_landing_surface_follow_strength * minf(1.0, limit / maxf(angle, 0.0001))
+			target_rotation = Quaternion.IDENTITY.slerp(slope_rotation, weight)
+	landing_surface_rotation = landing_surface_rotation.slerp(target_rotation, 1.0 - exp(-actor.glide_landing_surface_follow_response * delta))
+	# Mezcla la orientación completa desde la llegada, no pitch y pendiente
+	# por separado. Durante Pose Delay conserva exactamente la pose de vuelo.
+	body_pivot.quaternion = entry_rotation.slerp(landing_surface_rotation * glide_rotation, pose_weight)
+
 func _update_landing_clearance(delta: float) -> void:
 	var actor := get_parent() as ExplorerPlayer
 	if not actor or not body_pivot:
 		return
+	if not actor.is_glide_landing:
+		landing_surface_rotation = Quaternion.IDENTITY
 	var required := 0.0
 	if actor.is_glide_landing and actor.glide_landing_clearance_enabled:
 		var normal := actor.glide_landing_floor_normal.normalized()
@@ -434,12 +457,15 @@ func _update_landing_clearance(delta: float) -> void:
 				var point := mesh_instance.global_transform * bounds.get_endpoint(corner) - lift_axis * landing_clearance_height
 				var distance := normal.dot(point - actor.glide_landing_floor_point)
 				required = maxf(required, (margin - distance) / lift_projection)
-		required = minf(required, actor.glide_landing_clearance_max_lift)
+		var max_lift := actor.glide_landing_clearance_max_lift
+		if actor.glide_landing_surface_follow_enabled and normal.angle_to(Vector3.UP) > deg_to_rad(1.0):
+			max_lift = maxf(max_lift, actor.glide_landing_slope_clearance_max_lift)
+		required = minf(required, max_lift)
 	if required > landing_clearance_height:
 		landing_clearance_height = required
 	else:
 		landing_clearance_height = lerpf(landing_clearance_height, required, 1.0 - exp(-actor.glide_landing_clearance_recovery * delta))
-	body_pivot.position.y = landing_clearance_height
+	body_pivot.position = Vector3.UP * landing_clearance_height
 
 
 
@@ -589,8 +615,9 @@ func reset_interpolation() -> void:
 	position = Vector3.ZERO
 	_clear_air_pose()
 	landing_clearance_height = 0.0
+	landing_surface_rotation = Quaternion.IDENTITY
 	if body_pivot:
-		body_pivot.position.y = 0.0
+		body_pivot.position = Vector3.ZERO
 	glide_active = false
 	glide_started = false
 	idle_active = false

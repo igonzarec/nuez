@@ -65,15 +65,18 @@ signal gliding_changed(active: bool)
 		walkable_slope_degrees = value
 		floor_max_angle = deg_to_rad(value)
 @export_group("Deslizamiento en pendientes")
-## Rapidez con que aumenta la velocidad cuesta abajo en pendientes no caminables, en unidades/s².
-## Ejemplo: 4 hace gradual el deslizamiento; 10 alcanza más pronto Slide Max Speed. No afecta las pendientes caminables.
-@export_range(0.5, 15.0) var slide_acceleration := 7.0
+## Aceleración cuesta abajo en pendientes no caminables, en m/s². 4 hace gradual el resbalamiento; 10 alcanza antes Slide Max Speed. No afecta caminar ni trepar. Se guarda con la escena y se consulta en vivo.
+@export_range(0.1, 50.0, 0.1, "suffix:m/s²") var slide_acceleration := 7.0
 ## Límite de velocidad tangencial al resbalar, en unidades/s, incluyendo dirección lateral.
 ## Ejemplo: 2 baja despacio; 4 es más rápido. No cambia Walk Speed ni Sprint Speed.
-@export_range(0.5, 8.0) var slide_max_speed := 3.0
+@export_range(0.0, 25.0, 0.1, "suffix:m/s") var slide_max_speed := 3.0
 ## Intensidad del control lateral mientras resbala, como fracción de Walk Speed. No permite forzar la subida.
 ## Ejemplo: 0 no permite dirigir de lado; 0,2 da una corrección leve; 0,4 ofrece más control.
 @export_range(0.0, 0.5) var slide_steering := 0.2
+## Activa el mismo polvo de carrera al resbalar por pendientes sin trepar, sin exigir Sprint. Requiere Movement Dust Enabled. Comparte tamaño, color, densidad y ajustes de superficie de Polvo de movimiento. Se consulta en vivo.
+@export var slide_dust_enabled := true
+## Velocidad tangencial mínima de resbalamiento para emitir polvo, en m/s. Mayor evita polvo al deslizar muy despacio; menor lo muestra antes. No cambia la velocidad física y no usa el umbral de carrera. Se guarda con la escena y se consulta en vivo.
+@export_range(0.0, 10.0, 0.05, "suffix:m/s") var slide_dust_min_speed := 0.3
 @export_group("Planeo")
 ## Permite desplegar membranas al pulsar Brincar una vez que la ardilla ya está en el aire.
 ## Mantener Brincar desde el salto no activa el planeo; al soltarlo, las membranas se recogen inmediatamente.
@@ -81,6 +84,16 @@ signal gliding_changed(active: bool)
 @export_group("Aterrizaje de planeo")
 ## Conserva brevemente la postura Glide al tocar suelo caminable y desliza con la inercia de llegada. Se actualiza en vivo; desactivarlo termina el deslizamiento actual.
 @export var glide_landing_enabled := true
+## Orienta la pose de aterrizaje según la normal del suelo, tanto longitudinal como lateralmente. No modifica la cápsula ni la física. Se combina con la transición de pose existente; desactivar recupera la orientación horizontal. Se guarda con la escena y responde en vivo.
+@export var glide_landing_surface_follow_enabled := true
+## Intensidad de adaptación a pendientes: 0 conserva la pose horizontal, 1 sigue completamente el plano hasta Max Tilt. Mayor reduce cruces con la ladera. Se consulta en vivo.
+@export_range(0.0, 1.0, 0.01) var glide_landing_surface_follow_strength := 1.0
+## Rapidez de adaptación visual al suelo, en s⁻¹. Mayor sigue antes las irregularidades; menor suaviza, pero puede atravesar temporalmente pendientes. En vivo; no altera Pose Delay ni Blend Duration.
+@export_range(1.0, 40.0, 0.5) var glide_landing_surface_follow_response := 18.0
+## Inclinación máxima añadida por el plano de suelo, en grados. Mayor permite acompañar pendientes más fuertes; menor limita inclinaciones visuales extremas. Sólo aterrizaje de planeo; en vivo.
+@export_range(0.0, 85.0, 0.5, "suffix:°") var glide_landing_surface_max_tilt_degrees := 55.0
+## Elevación visual máxima adicional permitida al corregir intersecciones en pendiente, en metros. Requiere Clearance Enabled y Surface Follow Enabled; 0 desactiva esta ampliación. No cambia el máximo de suelo plano ni Belly Sink. Mayor separa más si la malla cruza el plano. En vivo; usa límites de mallas, no colisión exacta.
+@export_range(0.0, 1.0, 0.01, "suffix:m") var glide_landing_slope_clearance_max_lift := 0.3
 ## Segundos máximos de postura y deslizamiento tras aterrizar planeando. Mayor valor prolonga el efecto; 0 lo desactiva. Se consulta al aterrizar. Saltar o perder el suelo lo cancela.
 @export_range(0.0, 1.5, 0.01, "suffix:s") var glide_landing_duration := 0.35
 ## Segundos conservando la inclinación de llegada antes de adoptar la de aterrizaje. Mayor valor retrasa el cambio visual; la física y el polvo empiezan al tocar suelo. Se actualiza en vivo.
@@ -98,7 +111,7 @@ signal gliding_changed(active: bool)
 ## Separación mínima entre torso/cabeza y el plano de apoyo, en metros. Mayor valor deja más espacio; 0 permite contacto. Se actualiza en vivo.
 @export_range(0.0, 0.15, 0.005, "suffix:m") var glide_landing_clearance_margin := 0.0
 ## Profundidad visual permitida para la panza, en metros, restada del Clearance Margin sólo para el torso. Mayor valor permite hundir más la panza; 0 conserva el margen anterior. La cabeza mantiene su protección. Requiere Clearance Enabled y se actualiza en vivo.
-@export_range(0.0, 0.25, 0.005, "suffix:m") var glide_landing_belly_sink := 0.25
+@export_range(0.0, 1.0, 0.005, "or_greater", "suffix:m") var glide_landing_belly_sink := 0.25
 ## Elevación visual máxima permitida para evitar penetración, en metros. Mayor valor admite correcciones mayores pero puede hacer flotar al personaje. Se actualiza en vivo; si se alcanza el límite aún puede existir penetración.
 @export_range(0.0, 1.0, 0.01, "suffix:m") var glide_landing_clearance_max_lift := 0.0
 ## Rapidez por segundo de retorno de la elevación visual al terminar el roce. Mayor valor recupera antes la altura normal. Se actualiza en vivo; la corrección hacia arriba es inmediata para evitar penetración.
@@ -120,6 +133,14 @@ signal gliding_changed(active: bool)
 @export_group("Polvo de movimiento")
 ## Activa el polvo de Sprint y el de aterrizaje de planeo (si su opción Dust Enabled también está activa). Al detenerse, las bolas existentes terminan su vida. Se actualiza en vivo.
 @export var movement_dust_enabled := true
+## Ajusta fuente y dirección de nuevas partículas al plano del suelo real, tanto en carrera como al aterrizar planeando. Evita emitir detrás de la ardilla dentro de una pendiente al bajar. Desactivar recupera la fuente horizontal anterior. En vivo; no mueve partículas ya emitidas ni modifica colisiones.
+@export var movement_dust_surface_follow_enabled := true
+## Separación adicional del centro de emisión respecto al suelo, en metros, sumada a Source Offset Y. Mayor reduce enterramiento; demasiado alto hace flotar la fuente. Sigue la normal local. En vivo; no garantiza que bolas grandes no intersecten la superficie.
+@export_range(0.0, 0.5, 0.005, "suffix:m") var movement_dust_surface_clearance := 0.03
+## Alcance en cada dirección de la consulta de suelo bajo la fuente, en metros. Mayor cubre cambios de relieve más fuertes; menor evita encontrar superficies lejanas. Una consulta física por frame mientras emite, independiente de la cantidad de partículas. Si falla usa el plano bajo los pies. En vivo.
+@export_range(0.1, 3.0, 0.05, "suffix:m") var movement_dust_surface_probe_distance := 1.0
+## Velocidad inicial alejándose del suelo en m/s, además de Drift Speed tangente a la pendiente. Mayor mantiene la estela fuera del relieve; 0 sólo sigue la pendiente. Requiere Surface Follow Enabled. En vivo para nuevas partículas; Spread alto aún puede dirigir algunas hacia el suelo.
+@export_range(0.0, 4.0, 0.05, "suffix:m/s") var movement_dust_surface_lift_speed := 0.6
 ## Velocidad horizontal mínima, en metros por segundo, para emitir mientras mantienes Sprint sobre suelo caminable. Reducirlo permite emitir antes al acelerar. Se actualiza en vivo.
 @export_range(0.1, 20.0, 0.1, "suffix:m/s") var movement_dust_run_speed := 5.6
 ## Densidad nominal de partículas por ciclo de vida. Mayor valor produce una nube más tupida; el emisor reserva 288 partículas para cambiar densidad sin reinicios. Se actualiza en vivo.
@@ -472,6 +493,7 @@ func consume_interaction_press() -> void:
 var previous_motion := Vector3.ZERO
 var is_sliding := false
 var slide_velocity := Vector3.ZERO
+var slide_surface_normal := Vector3.UP
 var is_gliding := false:
 	set(value):
 		if is_gliding == value:
@@ -600,6 +622,7 @@ func _physics_process(delta: float) -> void:
 	var grounded := is_on_floor()
 	var steep_normal := _steep_support()
 	is_sliding = steep_normal != Vector3.ZERO
+	slide_surface_normal = steep_normal if is_sliding else Vector3.UP
 	if grounded or is_sliding:
 		is_gliding = false
 		glide_button_pressed_in_air = false

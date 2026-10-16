@@ -45,7 +45,8 @@ func _process(_delta: float) -> void:
 	var sliding_glide := actor.is_glide_landing
 	var running := actor.is_on_floor() and actor.horizontal_speed >= actor.movement_dust_run_speed and Input.is_action_pressed("sprint") and not actor.is_sliding and not actor.is_climbing and not actor.is_gliding and not sliding_glide
 	var glide_dust := sliding_glide and actor.glide_landing_dust_enabled and actor.is_on_floor() and actor.horizontal_speed > 0.1
-	var active := actor.movement_dust_enabled and (running or glide_dust)
+	var slope_dust := actor.is_sliding and actor.slide_dust_enabled and not actor.is_climbing and not actor.is_gliding and actor.slide_velocity.length() > actor.slide_dust_min_speed
+	var active := actor.movement_dust_enabled and (running or glide_dust or slope_dust)
 	# Carrera conserva la fuente X/Y; al aterrizar planeando también ocupa Z.
 	var width := maxf(0.0, actor.glide_landing_dust_width if sliding_glide else actor.movement_dust_scatter_width)
 	var height := maxf(0.0, actor.glide_landing_dust_height if sliding_glide else actor.movement_dust_scatter_height)
@@ -53,14 +54,20 @@ func _process(_delta: float) -> void:
 	var source_offset := actor.glide_landing_dust_source_offset if sliding_glide else actor.movement_dust_source_offset
 	var size_multiplier := actor.glide_landing_dust_size_multiplier if sliding_glide else 1.0
 	particles.position = source_offset + Vector3.UP * height * 0.5
+	particles.basis = Basis.IDENTITY
+	var surface_follow := active and actor.movement_dust_surface_follow_enabled
+	if surface_follow:
+		_place_on_surface(source_offset, height)
 	motion.emission_box_extents = Vector3(width * 0.5, height * 0.5, depth * 0.5)
 	motion.gravity = Vector3.UP * actor.movement_dust_rise_acceleration
 	motion.spread = actor.movement_dust_spread_degrees
 	var desired_lifetime := maxf(0.1, actor.movement_dust_lifetime)
 	if not is_equal_approx(particles.lifetime, desired_lifetime):
 		particles.lifetime = desired_lifetime
-	motion.initial_velocity_min = actor.movement_dust_drift_speed * 0.45
-	motion.initial_velocity_max = actor.movement_dust_drift_speed
+	var drift := Vector3(0.0, actor.movement_dust_surface_lift_speed if surface_follow else 0.0, actor.movement_dust_drift_speed)
+	motion.direction = drift.normalized() if not drift.is_zero_approx() else Vector3.BACK
+	motion.initial_velocity_min = drift.length() * 0.45
+	motion.initial_velocity_max = drift.length()
 	motion.scale_min = 1.0
 	motion.scale_max = 1.0
 	motion.color = Color(1.0, 1.0, 1.0, actor.movement_dust_opacity)
@@ -83,6 +90,35 @@ func _process(_delta: float) -> void:
 	var density := actor.glide_landing_dust_density if sliding_glide else actor.movement_dust_density
 	particles.amount_ratio = clampf(float(density) / PARTICLE_CAPACITY, 0.0, 1.0)
 	particles.emitting = active
+
+func _surface_basis(normal: Vector3) -> Basis:
+	# La estela de resbalamiento queda detrás del desplazamiento, aunque
+	# el personaje esté mirando cuesta arriba o en otra dirección.
+	var back_direction := -actor.slide_velocity if actor.is_sliding and not actor.slide_velocity.is_zero_approx() else rig.global_basis.z
+	var back := back_direction.slide(normal).normalized()
+	if back.is_zero_approx():
+		back = Vector3.BACK.slide(normal).normalized()
+	if back.is_zero_approx():
+		back = Vector3.RIGHT.slide(normal).normalized()
+	return Basis(normal.cross(back).normalized(), normal, back).orthonormalized()
+
+func _place_on_surface(offset: Vector3, height: float) -> void:
+	var normal := actor.slide_surface_normal.normalized() if actor.is_sliding else actor.get_floor_normal().normalized()
+	if normal.is_zero_approx():
+		normal = Vector3.UP
+	var surface_basis := _surface_basis(normal)
+	# X/Z se miden sobre el plano, no sobre una caja horizontal que penetra
+	# la ladera detrás del personaje al descender.
+	var point := actor.global_position + surface_basis * Vector3(offset.x, 0.0, offset.z)
+	var reach := actor.movement_dust_surface_probe_distance
+	var query := PhysicsRayQueryParameters3D.create(point + normal * reach, point - normal * reach, actor.collision_mask, [actor.get_rid()])
+	var hit := actor.get_world_3d().direct_space_state.intersect_ray(query)
+	var minimum_up := 0.0 if actor.is_sliding else cos(actor.floor_max_angle)
+	if not hit.is_empty() and Vector3(hit.normal).y >= minimum_up:
+		point = hit.position
+		normal = Vector3(hit.normal).normalized()
+		surface_basis = _surface_basis(normal)
+	particles.global_transform = Transform3D(surface_basis, point + normal * (offset.y + height * 0.5 + actor.movement_dust_surface_clearance))
 
 func _make_round_mesh() -> SphereMesh:
 	var mesh := SphereMesh.new()

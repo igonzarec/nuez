@@ -6,6 +6,15 @@ El proyecto usa **Godot 4.6**. Al escribir código, configurar importaciones o
 dar instrucciones del editor, usar las APIs y la interfaz compatibles con esa
 versión.
 
+## Explicaciones técnicas solicitadas
+
+Cuando el usuario pregunte por la solución técnica o cómo funciona una
+implementación, incluir una explicación breve y los snippets de código más
+importantes (normalmente 1–3 fragmentos cortos), con una frase que explique
+cada uno. Evitar funciones completas o detalles accesorios. No incluir snippets
+por defecto en entregas ni actualizaciones: sólo cuando el usuario pida una
+explicación técnica o los fragmentos explícitamente.
+
 ## Diario del proyecto
 
 El diario técnico vive en `project/docs/project_journal.md`. Al completar una
