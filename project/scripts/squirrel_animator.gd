@@ -33,6 +33,8 @@ extends Node
 @export_range(0.0, 2.0, 0.01, "suffix:s") var air_fall_leg_spread_delay := 0.18
 ## Segundos desde que empieza la apertura hasta alcanzar Fall Leg Spread Degrees. Mayor valor abre las piernas más despacio; menor responde antes. Se actualiza en vivo y la mezcla general Air Pose Response también suaviza el resultado.
 @export_range(0.05, 3.0, 0.01, "suffix:s") var air_fall_leg_spread_duration := 0.6
+## Inclinación del cuerpo completo hacia delante durante caída prolongada, en grados: 0 conserva vertical, 45 inclina a medio camino y 90 aproxima postura horizontal con cabeza al frente. Comparte Fall Leg Spread Delay/Duration para entrar gradualmente; se mezcla al desaparecer la zancada y requiere Air Pose Enabled. Se guarda con la escena y responde en vivo. No inclina la cápsula ni afecta Glide, trepa o suelo.
+@export_range(0.0, 120.0, 0.5, "suffix:°") var air_fall_body_lean_degrees := 70.0
 ## Elevación de cada brazo respecto al reposo al despegar, en grados. Mayor valor separa más los brazos del cuerpo. Se actualiza en vivo.
 @export_range(0.0, 150.0, 0.5) var air_arm_start_degrees := 5.0
 ## Elevación de brazos al llegar al punto más alto, en grados. Mayor valor eleva más las manos. Se actualiza en vivo.
@@ -252,6 +254,13 @@ func tick(delta: float, speed: float) -> void:
 	var glide_intent := clampf(actor.glide_movement_intent, 0.0, 1.0)
 	var glide_lean := glide_lean_degrees + glide_movement_extra_lean_degrees * glide_intent + (glide_sprint_extra_lean_degrees if actor.is_glide_sprinting else 0.0) * glide_intent
 	lean = lerpf(lean, -deg_to_rad(glide_lean), glide_blend)
+	if air_pose_enabled and not grounded and not actor.is_gliding and not actor.is_climbing and actor.velocity.y < 0.0:
+		# Usa el mismo reloj de caída prolongada que la apertura de patas,
+		# sin añadir otro temporizador ni cambiar la pose fija del salto.
+		var fall_elapsed := air_stride_fall_elapsed + delta
+		var long_fall := smoothstep(air_fall_leg_spread_delay, air_fall_leg_spread_delay + air_fall_leg_spread_duration, fall_elapsed)
+		var falling := smoothstep(0.0, air_full_fall_speed, -actor.velocity.y)
+		lean -= deg_to_rad(air_fall_body_lean_degrees) * long_fall * falling * (1.0 - air_stride_weight)
 	body_pitch = lerp_angle(body_pitch, lean, blend)
 	var run_roll := clampf(-actor.angular_velocity * 0.018, -turn_lean, turn_lean) * run_blend
 	var bank_direction := 1.0 if glide_bank_invert else -1.0

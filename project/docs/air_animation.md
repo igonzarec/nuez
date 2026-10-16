@@ -143,6 +143,19 @@ extremos de descenso o retracción pueden cruzar las mallas. El coste es una
 mezcla por hueso y frame durante la pose y su transición de salida, sin
 generación de geometría.
 
+## Inclinación durante caída prolongada
+
+En **SquirrelExplorer > Animation**, dentro del grupo de pose aérea del script
+`squirrel_animator.gd`, **Air Fall Body Lean Degrees** inclina el cuerpo completo
+con la cabeza hacia delante. Inicial: 70°; 0 lo desactiva, 45° queda diagonal
+y 90° aproxima horizontal. Se guarda con la escena y responde en vivo.
+Requiere **Air Pose Enabled** y comparte **Air Fall Leg Spread Delay / Duration**
+para entrar gradualmente al caer, sin añadir otro reloj. Se atenúa mientras
+persiste la zancada del salto y responde a **Air Full Fall Speed**.
+No cambia Glide, trepa, movimiento físico ni cápsula de colisión; tampoco es
+una rotación aislada de cabeza. La inclinación se suaviza con la mezcla general
+del cuerpo y se recupera al aterrizar o cambiar de estado.
+
 ## Controles de planeo
 
 Mando: pulsar y mantener **R1 / RB** estando en el aire activa planeo; soltar
