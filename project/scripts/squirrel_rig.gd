@@ -32,6 +32,7 @@ var air_active := false
 var landing_pose_active := false
 var landing_clearance_meshes: Array[MeshInstance3D] = []
 var landing_clearance_height := 0.0
+var snow_visual_height := 0.0
 var landing_surface_rotation := Quaternion.IDENTITY
 var air_pose_targets: Dictionary = {}
 var air_position_targets: Dictionary = {}
@@ -438,6 +439,15 @@ func _update_landing_clearance(delta: float) -> void:
 	var actor := get_parent() as ExplorerPlayer
 	if not actor or not body_pivot:
 		return
+	var snow_target := 0.0
+	var snow_response := 10.0
+	if actor.is_on_floor() and not actor.is_climbing and not actor.is_gliding and not actor.is_glide_landing:
+		for surface in get_tree().get_nodes_in_group("snow_surface_receivers"):
+			var contact: Dictionary = surface.snow_contact(actor.global_position)
+			if not contact.is_empty():
+				snow_target = maxf(snow_target,contact.visual_height)
+				snow_response = contact.response
+	snow_visual_height = lerpf(snow_visual_height,snow_target,1.0-exp(-snow_response*delta))
 	if not actor.is_glide_landing:
 		landing_surface_rotation = Quaternion.IDENTITY
 	var required := 0.0
@@ -454,7 +464,7 @@ func _update_landing_clearance(delta: float) -> void:
 				margin -= actor.glide_landing_belly_sink
 			for corner in 8:
 				# Retira la corrección anterior antes de calcular la nueva.
-				var point := mesh_instance.global_transform * bounds.get_endpoint(corner) - lift_axis * landing_clearance_height
+				var point := mesh_instance.global_transform * bounds.get_endpoint(corner) - lift_axis * body_pivot.position.y
 				var distance := normal.dot(point - actor.glide_landing_floor_point)
 				required = maxf(required, (margin - distance) / lift_projection)
 		var max_lift := actor.glide_landing_clearance_max_lift
@@ -465,7 +475,7 @@ func _update_landing_clearance(delta: float) -> void:
 		landing_clearance_height = required
 	else:
 		landing_clearance_height = lerpf(landing_clearance_height, required, 1.0 - exp(-actor.glide_landing_clearance_recovery * delta))
-	body_pivot.position = Vector3.UP * landing_clearance_height
+	body_pivot.position = Vector3.UP * (landing_clearance_height+snow_visual_height)
 
 
 

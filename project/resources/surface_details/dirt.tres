@@ -1,0 +1,17 @@
+[gd_resource type="Resource" format=3 uid="uid://c832xtdlhhl2d"]
+
+[ext_resource type="Script" uid="uid://321tugn6loou" path="res://scripts/surface_details/detail_style.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+kind = 2
+texture_id = 1
+density = 5.0
+size_min = 0.035
+size_max = 0.15
+thickness = 0.38
+color_a = Color(0.32, 0.23, 0.13, 1)
+color_b = Color(0.62, 0.46, 0.27, 1)
+color_variation = 0.2
+roughness = 1.0
+specular = 0.0

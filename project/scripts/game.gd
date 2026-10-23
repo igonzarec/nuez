@@ -91,6 +91,8 @@ func _build_session(data: Dictionary) -> void:
 	level.add_child(camera_rig)
 	player.camera_rig = camera_rig
 	camera_rig.sensitivity = settings.sensitivity
+	camera_rig.toon_enabled = settings.get("toon_enabled", false)
+	camera_rig.toon_softness = settings.get("toon_softness", 0.08)
 	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
 	# TrailAudio conserva todas las conexiones de audio del personaje y la cámara.
 	audio.bind_camera(camera_rig)
@@ -422,17 +424,18 @@ func _settings_back() -> void:
 
 func _on_setting(key: String, value: Variant) -> void:
 	settings[key] = value
-	_apply_settings()
+	_apply_settings(key in ["resolution", "fullscreen"])
 
-func _apply_settings() -> void:
+func _apply_settings(update_display := true) -> void:
+	camera_rig.toon_enabled = settings.get("toon_enabled", false)
+	camera_rig.toon_softness = settings.get("toon_softness", 0.08)
 	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
 	audio.apply(settings)
 	pixel_material.set_shader_parameter("pixel_size", settings.get("pixel_size", 2.0))
 	camera_rig.sensitivity = settings.sensitivity
-	if DisplayServer.get_name() != "headless":
-		var mode := DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
-		if DisplayServer.window_get_mode() != mode:
-			DisplayServer.window_set_mode(mode)
+	if update_display:
+		# Godot termina la configuración inicial de ventana después de _ready.
+		TrailDisplay.apply.call_deferred(settings)
 
 func _save() -> void:
 	save_failed = not store.write_json(store.save_path, progress)

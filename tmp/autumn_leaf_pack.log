@@ -1,0 +1,10 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+Saved leaves_albedo.png (1024, 1024) RGBA8
+Saved leaves_height.png (1024, 1024) RGBA8
+Saved leaves_normal.png (1024, 1024) RGBA8
+Saved leaves_albedo_height.png (1024, 1024) RGBA8
+Saved leaves_normal_roughness.png (1024, 1024) RGBA8
+Maximum opposite-edge RGB difference: 0.53333334624767

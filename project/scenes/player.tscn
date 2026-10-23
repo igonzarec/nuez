@@ -6,7 +6,7 @@
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
 step_volume_db = -10.0
-running_step_gain_db = 6.0
+sprint_speed = 20.87
 walk_member_animation_speed = 2.35
 run_member_animation_speed = 2.87
 jump_velocity = 8.0
@@ -28,7 +28,8 @@ glide_high_speed_turn_rate_multiplier = 0.30000000000000004
 glide_visual_turn_follow = 0.3
 glide_visual_turn_speed = 2.0
 glide_turn_speed_retention = 0.0
-climb_grab_distance = 1.2999999999999998
+climb_speed = 4.0
+climb_grab_distance = 1.5
 climb_facing_angle_degrees = 45.0
 climb_sustain_min_slope_degrees = 10.0
 climb_mantle_enabled = true
@@ -47,7 +48,7 @@ climb_mantle_clearance = 0.0
 climb_mantle_floor_margin = 0.02
 climb_arm_forward_offset = 0.2
 climb_body_lean_degrees = -14.0
-climb_visual_wall_offset = -0.10999999999999999
+climb_visual_wall_offset = -0.11
 
 [node name="Animation" type="Node" parent="." unique_id=46449727]
 script = ExtResource("2")

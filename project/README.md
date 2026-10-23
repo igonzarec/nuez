@@ -11,6 +11,21 @@ Una expedición 3D breve para **Godot 4.6**, con una ardilla sin ropa ni accesor
 
 Incluye **Dialogue Manager 3.10.4** (MIT, Nathan Hoad) para conversaciones editables, elecciones y condiciones narrativas. No requiere .NET ni una solución C#. La ardilla utiliza el modelo artesanal `playertest2.glb`, incluido en el proyecto; el escenario y el audio se construyen con recursos propios. Las capturas de referencia no están incluidas como assets.
 
+## Dirección del terreno y la nieve
+
+El terreno principal usa Terrain3D para pintar el aspecto del suelo. La
+arquitectura acordada para la nieve separa esa textura de las zonas de
+comportamiento: el autor pintará la nieve visible y marcará aparte nieve ligera
+o profunda, con colores editables visibles sólo en el editor. Las huellas y el
+hundimiento del personaje responderán a esas zonas. La nevada dependerá de
+zonas de clima colocadas por el autor. El pasto conservará la apariencia del
+`GrassParticles` original y las hojas tendrán su lógica propia, aunque la
+autoría pueda compartir un pincel. **Esta migración aún está pendiente.**
+
+Consulta [Dirección de superficies y nieve](docs/snow_surface_architecture.md)
+para el plan y sus límites; las nuevas muestras de material están en
+[Texturas clay para Terrain3D](docs/clay_terrain_textures.md).
+
 ## Controles
 
 | Acción | Teclado y ratón | Mando estándar |

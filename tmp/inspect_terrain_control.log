@@ -1,0 +1,30 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+terrain3d-01-01.res spacing=1.0 auto=34/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-01-02.res spacing=1.0 auto=372/1024 intermediate_mix=0 ids={ "0/0": 661, "9/9": 351, "10/10": 12 }
+terrain3d-01-03.res spacing=1.0 auto=528/1024 intermediate_mix=0 ids={ "0/0": 528, "9/9": 496 }
+terrain3d-01-04.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-01_00.res spacing=1.0 auto=38/1024 intermediate_mix=0 ids={ "0/0": 943, "2/2": 81 }
+terrain3d-01_01.res spacing=1.0 auto=800/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-01_02.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-02-01.res spacing=1.0 auto=836/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-02-02.res spacing=1.0 auto=1014/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-02-03.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-02_00.res spacing=1.0 auto=750/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-02_01.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-03-01.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d-03_00.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d_00-01.res spacing=1.0 auto=28/1024 intermediate_mix=0 ids={ "0/0": 935, "4/4": 4, "1/1": 56, "2/2": 29 }
+terrain3d_00-02.res spacing=1.0 auto=4/1024 intermediate_mix=0 ids={ "9/9": 145, "0/0": 495, "2/2": 65, "1/1": 40, "10/10": 278, "5/5": 1 }
+terrain3d_00-03.res spacing=1.0 auto=77/1024 intermediate_mix=0 ids={ "0/0": 417, "9/9": 589, "2/2": 18 }
+terrain3d_00-04.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d_00_00.res spacing=1.0 auto=250/1024 intermediate_mix=0 ids={ "0/0": 750, "1/1": 16, "2/2": 258 }
+terrain3d_00_01.res spacing=1.0 auto=862/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d_00_02.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }
+terrain3d_01-01.res spacing=1.0 auto=859/1024 intermediate_mix=0 ids={ "0/0": 931, "2/2": 93 }
+terrain3d_01-02.res spacing=1.0 auto=487/1024 intermediate_mix=0 ids={ "2/2": 115, "0/0": 903, "1/1": 6 }
+terrain3d_01-03.res spacing=1.0 auto=714/1024 intermediate_mix=0 ids={ "0/0": 935, "6/6": 1, "2/2": 88 }
+terrain3d_01_00.res spacing=1.0 auto=1000/1024 intermediate_mix=0 ids={ "0/0": 1000, "2/2": 24 }
+terrain3d_01_01.res spacing=1.0 auto=1024/1024 intermediate_mix=0 ids={ "0/0": 1024 }

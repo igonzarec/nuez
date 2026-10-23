@@ -4,6 +4,21 @@ Una bitácora breve de decisiones y aprendizajes del proyecto. La documentación
 de referencia explica el detalle; aquí queda el contexto de cómo va creciendo
 el juego.
 
+## 2026-10-23 · La nieve deja de ser un detalle disperso
+
+La prueba de nieve generada por `SurfaceDetails` resultó pesada y no alcanzó
+el aspecto del `SnowTerrain` de prueba ni de la textura `snow_powder_v2`. Decidimos
+separar **aspecto**, **respuesta del personaje** y **clima**: el autor pinta la
+textura en Terrain3D y marca aparte zonas de nieve ligera o profunda; unas
+activarán huellas y otras podrán sumar hundimiento visual y un camino
+comprimido. Las zonas tendrán colores editables visibles sólo en el editor.
+La nevada seguirá zonas de clima colocadas por el autor, sin deducirse de cada
+parche blanco. El pasto recuperará la apariencia de `GrassParticles` original
+y las hojas mantendrán su lógica propia, aunque compartan un pincel de autoría.
+Aprendizaje: un pincel común no obliga a representar materiales tan distintos
+con la misma geometría. Esta arquitectura es la dirección acordada; aún falta
+implementarla y comprobar su coste y aspecto en juego.
+
 ## 2026-10-04 · Copos y huellas ocultos por el blur
 
 Al activar el blur compartido en la escena de nieve, su prioridad 100 hacía

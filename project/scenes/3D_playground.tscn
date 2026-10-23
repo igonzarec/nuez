@@ -40,16 +40,7 @@ snowfall_enabled = false
 [node name="SquirrelExplorer" parent="." unique_id=382837686 instance=ExtResource("3_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 110, 120, 110)
 climb_grab_distance = 1.15
-climb_member_speed = 0.4
-climb_arm_base_elevation_degrees = 81.0
-climb_arm_base_spread_degrees = 42.5
-climb_arm_depth_degrees = 45.0
-climb_leg_base_elevation_degrees = 50.5
-climb_leg_base_spread_degrees = 28.0
 climb_sound_phases = Vector2(0.485, 2.945)
-climb_sound_phase = 0.23
-climb_head_sway_degrees = 8.0
-climb_head_sway_phase = 0.5
 
 [node name="CameraRig" parent="." unique_id=62750041 instance=ExtResource("4_camera")]
 
@@ -79,12 +70,13 @@ enabled = false
 environment = SubResource("Environment_045tv")
 
 [node name="Sunlight" type="DirectionalLight3D" parent="." unique_id=332969130]
-transform = Transform3D(0.7431448, 0.4648172, -0.4813322, 0, 0.7193398, 0.69465834, 0.6691306, -0.5162318, 0.53457355, 0, 0, 0)
+transform = Transform3D(0.7431448, 0.6691306, 2.9248625e-08, 0, -4.371139e-08, 0.9999999, 0.6691306, -0.7431448, -3.248389e-08, 0, 0, 0)
 light_color = Color(0.93333334, 0.8997023, 0.6882639, 1)
 light_energy = 0.35
 shadow_enabled = true
-shadow_opacity = 0.95
-directional_shadow_max_distance = 250.0
+shadow_opacity = 0.79
+directional_shadow_max_distance = 0.0
+directional_shadow_pancake_size = 0.0
 
 [node name="StylizedSky" parent="." unique_id=1532614155 instance=ExtResource("7_sky")]
 primary_profile = ExtResource("9_rof4l")

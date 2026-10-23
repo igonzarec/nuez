@@ -1,0 +1,8 @@
+config_version=5
+[application]
+config/name="Surface editor check"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+[editor_plugins]
+enabled=PackedStringArray("res://addons/terrain_3d/plugin.cfg", "res://addons/surface_painter/plugin.cfg", "res://addons/surface_smoke/plugin.cfg")
+[rendering]
+renderer/rendering_method="gl_compatibility"

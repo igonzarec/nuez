@@ -1,6 +1,15 @@
 class_name TrailCamera
 extends Node3D
 
+@export_group("Vista toon experimental")
+## Activa el sombreado toon del mundo durante la ejecución; también disponible en Ajustes. En vivo, incluso en pausa. Desactivarlo restaura los materiales originales. No modifica archivos ni el cielo sin iluminación. El primer cambio puede compilar shaders.
+@export var toon_enabled := false
+## Suavidad de la transición entre luz y sombra, de 0 a 1. 0 crea un corte duro; aumentar suaviza el terminador. En vivo; requiere Toon Enabled. Usa la rugosidad del modelo toon y elimina el brillo especular directo durante la vista previa.
+@export_range(0.0, 1.0, 0.01) var toon_softness := 0.08
+@export_group("")
+
+var _toon_preview: Node
+
 ## Se emite al pedir un recentrado manual con R2/RT o C.
 signal recenter_requested
 
@@ -153,6 +162,10 @@ var _lift_hold_left := 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_to_group("surface_detail_toon_source")
+	_toon_preview = preload("res://scripts/core/toon_preview.gd").new()
+	_toon_preview.source = self
+	add_child(_toon_preview)
 	pitch = deg_to_rad(pitch_degrees)
 	# Fixed-radius orbit: a SpringArm would retract into the player near props.
 	camera = Camera3D.new()

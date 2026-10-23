@@ -1,0 +1,14 @@
+[gd_resource type="Resource" format=3 uid="uid://b1yljeflaocvs"]
+
+[ext_resource type="Script" uid="uid://321tugn6loou" path="res://scripts/surface_details/detail_style.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+texture_id = 10
+density = 18.0
+size_min = 0.04
+size_max = 0.14
+thickness = 0.32
+maximum_slope = 65.0
+realism = 0.9
+grain_strength = 0.35

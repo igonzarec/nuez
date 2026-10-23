@@ -1,0 +1,14 @@
+[gd_resource type="Terrain3DTextureAsset" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/snow_powder_v2/snow_albedo_height.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/textures/snow_powder_v2/snow_normal_roughness.png" id="2"]
+
+[resource]
+name = "Snow Powder V2"
+albedo_texture = ExtResource("1")
+normal_texture = ExtResource("2")
+uv_scale = 0.5
+normal_depth = 0.65
+roughness = 0.0
+ao_strength = 0.0
+

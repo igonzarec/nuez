@@ -91,7 +91,7 @@ func _action(command: String) -> void:
 
 func _setting(key: String, value: Variant) -> void:
 	_settings[key] = value
-	_apply_settings()
+	_apply_settings(key in ["resolution", "fullscreen"])
 	if key == "pixel_size":
 		if not _pixel_material:
 			var finish := CanvasLayer.new()
@@ -106,13 +106,15 @@ func _setting(key: String, value: Variant) -> void:
 			finish.add_child(screen)
 		_pixel_material.set_shader_parameter("pixel_size", value)
 
-func _apply_settings() -> void:
+func _apply_settings(update_display := true) -> void:
 	if is_instance_valid(_audio): _audio.apply(_settings)
 	if is_instance_valid(_camera):
+		_camera.toon_enabled = _settings.get("toon_enabled", false)
+		_camera.toon_softness = _settings.get("toon_softness", 0.08)
 		_camera.sensitivity = _settings.sensitivity
 		_camera.glide_forward_enabled = _settings.get("glide_forward_enabled", false)
-	if DisplayServer.get_name() != "headless":
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if _settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
+	if update_display:
+		TrailDisplay.apply.call_deferred(_settings)
 
 func _save_settings() -> void:
 	if not _store.write_json(_store.settings_path, _settings):

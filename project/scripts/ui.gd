@@ -15,6 +15,7 @@ var overlay: Control
 var page: VBoxContainer
 var first_button: Button
 var dialogue_label: Label
+var display_status: Label
 var gamepad := false
 var panel_name := ""
 var buttons: Dictionary = {}
@@ -199,7 +200,7 @@ func dialogue(speaker: String, text: String) -> void:
 	_focus()
 
 func settings(values: Dictionary) -> void:
-	_begin("settings", 510)
+	_begin("settings", 680)
 	_heading("A TU RITMO", "Ajustes")
 	for item: Array in [["master", "Volumen general"], ["music", "Música"], ["sfx", "Sonidos"], ["climb_sfx", "Raspado de escalada"], ["sensitivity", "Sensibilidad del ratón"]]:
 		var row := HBoxContainer.new()
@@ -221,6 +222,44 @@ func settings(values: Dictionary) -> void:
 	fullscreen.button_pressed = values.fullscreen
 	fullscreen.toggled.connect(func(value: bool) -> void: setting_changed.emit("fullscreen", value))
 	page.add_child(fullscreen)
+	var resolution_row := HBoxContainer.new()
+	page.add_child(resolution_row)
+	var resolution_label := _label("Resolución", 17)
+	resolution_label.custom_minimum_size.x = 230
+	resolution_row.add_child(resolution_label)
+	var resolution := OptionButton.new()
+	resolution.disabled = values.get("fullscreen", false) == true
+	fullscreen.toggled.connect(func(value: bool) -> void: resolution.disabled = value)
+	resolution.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	resolution.tooltip_text = "Se aplica al instante en modo ventana. En pantalla completa el juego usa la resolución nativa del monitor."
+	var selected_resolution: String = TrailDisplay.validated_resolution(values.get("resolution", TrailDisplay.DEFAULT_RESOLUTION))
+	for item: String in TrailDisplay.RESOLUTIONS:
+		resolution.add_item(TrailDisplay.resolution_label(item))
+		resolution.set_item_metadata(resolution.item_count - 1, item)
+		if item == selected_resolution:
+			resolution.select(resolution.item_count - 1)
+	resolution.item_selected.connect(func(index: int) -> void: setting_changed.emit("resolution", resolution.get_item_metadata(index)))
+	resolution_row.add_child(resolution)
+	display_status = _label("", 15, Color("c9d6c6"))
+	display_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	page.add_child(display_status)
+	var toon := CheckButton.new()
+	toon.text = "Sombreado toon · experimental"
+	toon.tooltip_text = "Prueba luz y sombra con un corte de dibujo animado en terreno, personaje y materiales iluminados. Se aplica al instante."
+	toon.button_pressed = values.get("toon_enabled", false)
+	toon.toggled.connect(func(value: bool) -> void: setting_changed.emit("toon_enabled", value))
+	page.add_child(toon)
+	page.add_child(_label("Suavidad del sombreado toon", 17))
+	var toon_softness := HSlider.new()
+	toon_softness.min_value = 0.0
+	toon_softness.max_value = 1.0
+	toon_softness.step = 0.01
+	toon_softness.value = values.get("toon_softness", 0.08)
+	toon_softness.editable = toon.button_pressed
+	toon_softness.tooltip_text = "Menor: corte más marcado entre luz y sombra. Mayor: transición más suave."
+	toon.toggled.connect(func(value: bool) -> void: toon_softness.editable = value)
+	toon_softness.value_changed.connect(func(value: float) -> void: setting_changed.emit("toon_softness", value))
+	page.add_child(toon_softness)
 	var fast_reset := CheckButton.new()
 	fast_reset.text = "Reinicio rápido · Start"
 	fast_reset.tooltip_text = "Durante la exploración, Start devuelve a la ardilla junto al farol de la cima en lugar de abrir la pausa."
@@ -284,6 +323,7 @@ func completion(data: Dictionary) -> void:
 	_focus()
 
 func close() -> void:
+	display_status = null
 	if is_instance_valid(overlay):
 		root.remove_child(overlay)
 		overlay.queue_free()
@@ -304,5 +344,10 @@ func toast(message: String) -> void:
 	toast_time = 3.5
 
 func _process(delta: float) -> void:
+	if is_instance_valid(display_status) and DisplayServer.get_name() != "headless":
+		var actual := DisplayServer.window_get_size()
+		display_status.text = "Tamaño actual de ventana: %d × %d.\nLas resoluciones que no caben se ajustan al espacio disponible." % [actual.x, actual.y]
+		if Engine.is_embedded_in_editor():
+			display_status.text += "\nEl juego está integrado en el editor. Para comprobar el tamaño de ventana, ejecútalo en una ventana independiente."
 	toast_time = maxf(0, toast_time - delta)
 	toast_label.visible = toast_time > 0

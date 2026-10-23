@@ -1,0 +1,6 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+SCRIPT ERROR: Parse Error: Unexpected "Indent" in class body.
+   at: GDScript::reload (res://scripts/surface_details/detail_style.gd:10)
+ERROR: Failed to load script "res://scripts/surface_details/detail_style.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2907)

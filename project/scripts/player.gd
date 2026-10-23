@@ -5,6 +5,8 @@ signal feedback(kind: String)
 signal respawned
 signal gliding_changed(active: bool)
 
+var _snow_step_side := -1.0
+
 @export_group("Audio de pasos")
 ## Volumen general de pasos en dB: caminar, correr y Mantle Surface Assist, incluida nieve. -14 conserva la mezcla anterior; -10 aumenta 4 dB. La nieve conserva su mezcla local y recibe esa diferencia. Mayor suena más; no afecta trepa normal ni aterrizajes. Se guarda con la escena y se consulta en vivo para nuevos pasos.
 @export_range(-60.0, 6.0, 0.5, "suffix:dB") var step_volume_db := -14.0
@@ -799,6 +801,8 @@ func _physics_process(delta: float) -> void:
 		if step_time > step_distance:
 			step_time = fmod(step_time, step_distance)
 			feedback.emit("step")
+			get_tree().call_group("snow_surface_receivers","record_snow_step",self,_snow_step_side)
+			_snow_step_side = -_snow_step_side
 	if global_position.y < -12.0:
 		respawn()
 		return
