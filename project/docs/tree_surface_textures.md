@@ -11,6 +11,9 @@ En `grass_terrain.tscn`:
 1. Seleccionar **STPine1**, STPine2, etc. en el dock inferior de Terrain3D.
 2. En el Inspector del asset abrir **Colores del árbol**.
 3. Cambiar **Foliage Color** (hojas) y **Bark Color** (tronco) directamente.
+   Para aclarar la corteza conservando las vetas, subir **Bark Brightness**:
+   `1` conserva el aspecto actual, `1.5` aclara y `0.5` oscurece. Rango: 0–4;
+   volver a `1` desactiva el ajuste. No requiere preparar/regenerar LOD.
 4. Guardar el recurso de materiales (y la escena si se cambió su asignación).
 
 **TreeColors no es necesario para aplicar estos materiales.** TreeMeshAsset
@@ -43,6 +46,7 @@ en el siguiente ciclo del editor/juego; no necesitan reconstruir ni reexportar e
 | --- | --- | --- |
 | Activación | Enabled | Activa el setup del mesh. Apagar restaura sus materiales importados. |
 | Tronco | Bark Enabled / Color | Activa el cambio de tronco y elige su color/tinte. Blanco mantiene el color de la textura marrón. |
+| Tronco | Bark Brightness | Multiplicador RGB independiente del tinte: 1 conserva, >1 aclara, <1 oscurece y 0 produce negro. Disponible también junto a Bark Color en Colores del árbol. Requiere Bark Enabled. |
 | Tronco | Bark Material Keywords / Surface Indices | Identifica superficies por fragmentos de nombre o índices desde 0. |
 | Tronco | Bark Texture Mode / Texture | Conservar usa la importada; Reemplazar usa la elegida; Sin textura produce color liso. |
 | Hojas | Foliage Enabled / Color | Activa el cambio de follaje y elige el tinte. La textura blanca se multiplica por él. |
@@ -52,6 +56,21 @@ en el siguiente ciclo del editor/juego; no necesitan reconstruir ni reexportar e
 | Hojas | Alpha Scissor Threshold | De 0 a 1: subir recorta más borde; bajar conserva más. Requiere alfa en la textura. |
 | Hojas | Foliage Double Sided | Dibuja ambos lados de los planos; apagar descarta las caras traseras. |
 | Acabado | Override Finish / Roughness / Specular | Conserva el acabado importado o ajusta rugosidad (1 mate, 0 brillante) y reflejos. |
+
+**Aclarado del tronco:** Bark Brightness se guarda únicamente en Tree Materials,
+junto al tinte, y se aplica a las copias temporales del material en todos los LOD.
+El valor inicial es `1`: los recursos existentes conservan su aspecto y sus
+ajustes. Sólo modifica RGB, conserva alfa y no añade emisión ni pases de dibujo.
+El material sigue respondiendo a luces y sombras. Conservar, Reemplazar y Sin
+textura admiten el ajuste. Si Bark Color es muy oscuro, probar primero blanco o
+un tinte suave y luego Brightness entre `1.2` y `2`; multiplicar negro no lo aclara.
+Los valores altos pueden saturar zonas claras y reducir su detalle visible.
+Las superficies de follaje y los materiales ShaderMaterial originales se conservan
+según las reglas existentes. Un Material Override del asset sigue teniendo prioridad.
+
+Se conserva StandardMaterial3D, cuyo [albedo en Godot 4.6 admite valores RGB
+mayores que 1](https://github.com/godotengine/godot/blob/4.6-stable/scene/resources/material.cpp#L2012),
+sin sustituir los mapas ni las opciones de sombreado importadas por un shader propio.
 
 ### Futuros árboles
 

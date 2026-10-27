@@ -156,3 +156,15 @@ nivel por distancia, sin simplificar geometría en tiempo real. Así, futuros
 integrada en el proyecto y dependiente de Terrain3D, todavía no un plugin
 independiente. El flujo y sus controles están en
 [tree_lod_preparation.md](tree_lod_preparation.md).
+
+## 2026-10-27 · Aclarar la corteza sin borrar sus vetas
+
+Añadimos **Bark Brightness** junto a Bark Color para separar el tinte del
+aclarado del tronco. El color por sí solo multiplica la textura: blanco la
+conserva, pero no la aclara. El nuevo multiplicador permite superar ese punto
+con el mismo StandardMaterial3D, manteniendo mapas, iluminación y alfa, sin
+añadir emisión ni pases de dibujo. Se aplica en vivo a todos los LOD y se
+guarda en Tree Materials; su valor inicial de 1 conserva los ajustes existentes.
+Aprendizaje: multiplicar negro no recupera detalle y un valor excesivo puede
+saturar las zonas claras. Los scripts pasan la comprobación de Godot 4.6;
+queda valorar el acabado con la iluminación real del nivel.

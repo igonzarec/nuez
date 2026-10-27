@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://dcmuxj0l6q7i3"
+path="res://.godot/imported/boing drum.wav-6475215b8312f79b1842500721e2e647.sample"
+
+[deps]
+
+source_file="res://audio/sfx/boing drum.wav"
+dest_files=["res://.godot/imported/boing drum.wav-6475215b8312f79b1842500721e2e647.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=false
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=2

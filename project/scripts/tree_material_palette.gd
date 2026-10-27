@@ -49,6 +49,13 @@ extends Resource
 		if bark_color != value:
 			bark_color = value
 			emit_changed()
+## Multiplicador RGB del tronco, sin unidades: 1 conserva el aspecto actual, mayor aclara la textura y menor oscurece (0 negro). No cambia alfa ni emite luz. Sólo con Bark Enabled; valores altos pueden perder detalle en zonas claras. En vivo en todos los LOD, sin regenerar ni añadir pases de dibujo.
+@export_range(0.0, 4.0, 0.05) var bark_brightness := 1.0:
+	set(value):
+		value = clampf(value, 0.0, 4.0)
+		if bark_brightness != value:
+			bark_brightness = value
+			emit_changed()
 ## Conservar usa la textura importada; Reemplazar usa Bark Texture; Sin textura produce color liso. No modifica el GLB. En vivo.
 @export_enum("Conservar", "Reemplazar", "Sin textura") var bark_texture_mode := 0:
 	set(value):
@@ -145,7 +152,7 @@ func matches_asset(asset_name: String) -> bool:
 
 func signature() -> int:
 	return hash([enabled, asset_prefix, asset_names, bark_enabled, bark_material_keywords,
-		bark_surface_indices, bark_color, bark_texture_mode, bark_texture, foliage_enabled,
+		bark_surface_indices, bark_color, bark_brightness, bark_texture_mode, bark_texture, foliage_enabled,
 		foliage_material_keywords, foliage_surface_indices, foliage_color, foliage_texture_mode,
 		foliage_texture, foliage_transparency, alpha_scissor_threshold, foliage_double_sided,
 		override_finish, roughness, specular])
@@ -164,6 +171,11 @@ func make_material(original: Material, surface_name: String, surface: int) -> St
 		return null
 	var material := original.duplicate() as StandardMaterial3D if original != null else StandardMaterial3D.new()
 	material.albedo_color = foliage_color if foliage else bark_color
+	if not foliage and bark_brightness != 1.0:
+		# StandardMaterial3D accepts RGB above 1. Keep alpha and the imported
+		# shading features intact; never bake this multiplier into the saved tint.
+		material.albedo_color = Color(bark_color.r * bark_brightness,
+			bark_color.g * bark_brightness, bark_color.b * bark_brightness, bark_color.a)
 	var mode := foliage_texture_mode if foliage else bark_texture_mode
 	if mode == 1:
 		material.albedo_texture = foliage_texture if foliage else bark_texture

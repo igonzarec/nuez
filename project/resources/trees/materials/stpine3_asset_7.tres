@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="TreeMaterialPalette" format=3]
+[gd_resource type="Resource" script_class="TreeMaterialPalette" format=3 uid="uid://btxg3eymvhr3q"]
 
-[ext_resource type="Texture2D" path="res://assets/textures/trees/stpine/bark.png" id="1_v4fka"]
-[ext_resource type="Texture2D" path="res://assets/textures/trees/stpine/leaves.png" id="2_3wly4"]
-[ext_resource type="Script" path="res://scripts/tree_material_palette.gd" id="3_flecw"]
+[ext_resource type="Texture2D" uid="uid://bt3qf0tr8jhgk" path="res://assets/textures/trees/stpine/bark.png" id="1_v4fka"]
+[ext_resource type="Texture2D" uid="uid://pdtr62y4hsxj" path="res://assets/textures/trees/stpine/leaves.png" id="2_3wly4"]
+[ext_resource type="Script" uid="uid://2uvkc3q5pixw" path="res://scripts/tree_material_palette.gd" id="3_flecw"]
 
 [resource]
 resource_name = "STPine3 - materiales (asset 7)"
@@ -11,6 +11,7 @@ asset_names = PackedStringArray()
 bark_material_keywords = PackedStringArray("trunk", "bark", "wood")
 bark_surface_indices = PackedInt32Array()
 bark_color = Color(1, 1, 1, 1)
+bark_brightness = null
 bark_texture_mode = 1
 bark_texture = ExtResource("1_v4fka")
 foliage_material_keywords = PackedStringArray("leaves", "leaf", "foliage", "green")

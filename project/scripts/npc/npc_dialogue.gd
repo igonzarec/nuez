@@ -85,7 +85,31 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		_open_dialogue()
 
-func _open_dialogue() -> void:
+## Abre una reacción con el mismo bloqueo, mirada y globo de la conversación normal.
+## El llamador puede reintentar mientras el jugador termina de aterrizar.
+func try_open_reaction(player: ExplorerPlayer, text: String) -> bool:
+	if not _npc.dialogue_enabled or text.strip_edges().is_empty() or get_tree().paused:
+		return false
+	if is_instance_valid(_balloon) or get_tree().get_first_node_in_group("active_dialogue"):
+		return false
+	if not is_instance_valid(player) or not player.control_enabled or not player.is_on_floor() or player.is_splat or player.is_climbing:
+		return false
+	# is_on_floor conserva el último contacto hasta el siguiente move_and_slide.
+	# No abrir el regaño en ese frame si el resorte acaba de impulsarlo.
+	if player.velocity.y > 0.0:
+		return false
+	if not _body.is_on_floor() or _body.is_splat or _body.is_climbing:
+		return false
+	if player.global_position.distance_to(_body.global_position) > _npc.dialogue_reach:
+		return false
+	var ray := PhysicsRayQueryParameters3D.create(player.global_position + Vector3.UP * 0.8, _body.global_position + Vector3.UP * 0.8, 1, [player.get_rid(), _body.get_rid()])
+	if not player.get_world_3d().direct_space_state.intersect_ray(ray).is_empty():
+		return false
+	_player = player
+	_open_dialogue(text)
+	return true
+
+func _open_dialogue(text: String = "") -> void:
 	if _npc.face_on_dialogue:
 		_player.face_interaction_partner(_body)
 		_body.face_interaction_partner(_player)
@@ -97,7 +121,7 @@ func _open_dialogue() -> void:
 	_balloon.set_follow_target(_body)
 	_balloon.close_requested.connect(_close_dialogue)
 	_balloon.advance_requested.connect(_close_dialogue)
-	_balloon.show_manual(_npc.display_name, _npc.dialogue_text)
+	_balloon.show_manual(_npc.display_name, text if not text.is_empty() else _npc.dialogue_text)
 
 func _close_dialogue() -> void:
 	if is_instance_valid(_npc):

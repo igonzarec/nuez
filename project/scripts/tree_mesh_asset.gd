@@ -83,6 +83,17 @@ const LodPreparer = preload("res://scripts/tree_lod_preparer.gd")
 		emit_changed()
 		request_material_update()
 
+## Multiplicador RGB del tronco de ESTE mesh: 1 conserva su aspecto, mayor aclara y menor oscurece (0 negro). No cambia alfa ni emite luz; valores altos pueden perder detalle claro. Requiere Bark Enabled. En vivo en todos los LOD, sin regenerar ni añadir pases. Se guarda en Tree Materials; volver a 1 desactiva el ajuste.
+@export_range(0.0, 4.0, 0.05) var bark_brightness: float:
+	get:
+		request_material_update()
+		return tree_materials.bark_brightness if tree_materials != null else 1.0
+	set(value):
+		_ensure_materials()
+		tree_materials.bark_brightness = value
+		emit_changed()
+		request_material_update()
+
 @export_group("Materiales del árbol")
 ## Colores, texturas y recorte de hojas de ESTE mesh, aplicados automáticamente sin nodos auxiliares. Abrir para ajustes avanzados; las ediciones se agrupan en el siguiente ciclo. Usar Make Unique si se comparte el recurso y se desean colores independientes.
 @export var tree_materials: Palette = Palette.new():
@@ -167,9 +178,9 @@ func _ensure_materials() -> void:
 
 
 func _validate_property(property: Dictionary) -> void:
-	if property.name in ["foliage_color", "bark_color"]:
+	if property.name in ["foliage_color", "bark_color", "bark_brightness"]:
 		# Inspector proxies only: serialize the source resource once, avoiding
-		# duplicate color values overwriting it in an unpredictable loading order.
+		# duplicate appearance values overwriting it in an unpredictable loading order.
 		property.usage = property.usage & ~PROPERTY_USAGE_STORAGE
 	if property.name == "lod_preparation_report":
 		property.usage |= PROPERTY_USAGE_READ_ONLY

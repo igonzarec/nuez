@@ -39,3 +39,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2)
 
 [node name="Point4" parent="Route" index="3"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 2)
+
+[node name="StompReaction" parent="." index="4"]
+bounce_speed = 7.5
+compression = 0.35
+lateral_expansion = 0.6
+spring_frequency = 3.0
+spring_damping = 5.0

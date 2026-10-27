@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://dieeaegrojuhq" path="res://resources/nature/glb 2/STPine3.glb" id="1_q215c"]
 [ext_resource type="PackedScene" path="res://resources/trees/lod_scenes/st_pine_3_asset_7_lods.tscn" id="2_0h7lx"]
 [ext_resource type="Script" uid="uid://jrmle4utr8mv" path="res://scripts/tree_mesh_asset.gd" id="3_v5n5r"]
-[ext_resource type="Resource" path="res://resources/trees/materials/stpine3_asset_7.tres" id="4_2uln1"]
+[ext_resource type="Resource" uid="uid://btxg3eymvhr3q" path="res://resources/trees/materials/stpine3_asset_7.tres" id="4_2uln1"]
 
 [resource]
 name = "STPine3"

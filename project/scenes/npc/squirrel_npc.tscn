@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/npc/squirrel_npc.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://assets/playertest2/playertest2.glb" id="3"]
 [ext_resource type="Script" path="res://scripts/npc/patrol_point.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/npc/npc_dialogue.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/npc/npc_stomp_reaction.gd" id="6"]
 
 [node name="SquirrelNPC" type="Node3D" groups=["npcs"]]
 script = ExtResource("1")
@@ -18,6 +19,9 @@ rotation = Vector3(0, 3.1415927, 0)
 
 [node name="Dialogue" type="Node" parent="."]
 script = ExtResource("5")
+
+[node name="StompReaction" type="Node" parent="."]
+script = ExtResource("6")
 
 [node name="Point1" type="Marker3D" parent="Route"]
 position = Vector3(-2, 0, -2)

@@ -337,6 +337,9 @@ func _apply_proportions() -> void:
 	var size := clampf(overall_size, 0.25, 3.0) if proportions_enabled else 1.0
 	if is_instance_valid(_size_root):
 		_size_root.scale = _original_visual_scale * size
+		var spring := get_node_or_null("StompReaction")
+		if spring:
+			_size_root.scale *= spring.visual_scale
 	var collision_size := size if scale_collision_with_size else 1.0
 	if is_instance_valid(_size_collider) and not is_equal_approx(_last_collision_size, collision_size):
 		var capsule := _size_collider.shape as CapsuleShape3D

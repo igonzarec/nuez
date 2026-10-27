@@ -302,6 +302,67 @@ Con varios terrenos, asigna el correcto explícitamente. Sin Terrain3D se usan
 rayos físicos. Los controles de pendiente, desnivel, anticipación y alcance de
 rayos están en **NPC · suelo y seguridad**, con ayuda en cada propiedad.
 
+## Caer sobre un NPC: resorte y regaño
+
+Peter y todas las escenas heredadas de `squirrel_npc.tscn` incluyen el nodo
+**StompReaction**. Selecciónalo para ajustar los grupos **Contacto y rebote**,
+**Resorte visual**, **Sonido del impacto** y **Regaño**. Todos los valores
+responden en vivo; sus ayudas del Inspector explican unidades y dependencias.
+
+El player colisiona con los NPC en la **capa física 4** y con el escenario en
+la capa 1. El NPC conserva su cápsula ajustada por Overall Size. Player Collision
+Enabled permite atravesarlo al apagarlo; Bounce Enabled desactiva sólo la
+reacción. Sólo una caída sobre la zona superior de la cápsula dispara el resorte:
+los choques laterales y el ascenso del salto no cuentan. Top Normal Min y
+Top Height Fraction afinan esa zona; no hay colisión detallada por oreja o cola.
+
+Por defecto, Bounce Speed = **5 m/s**, Compression = **0,18**,
+Spring Frequency = **3,5 Hz** y Spring Damping = **8** dan un impulso moderado
+y una oscilación breve. Más damping elimina antes las oscilaciones; menos lo
+hace más elástico. Preview Spring dispara una muestra en el editor. La
+compresión es visual, mantiene los pies como origen y conserva las proporciones
+personalizadas; la cápsula estable evita hundimientos y contactos repetidos.
+No se genera geometría ni se altera la ruta.
+
+El audio espacial usa `res://audio/sfx/boing drum.wav`, copia del archivo correcto
+`sounds/boing drum.wav`, con un solo boing por impacto. El WAV Repeater contiene
+una secuencia de golpes dentro de la propia grabación y ya no se utiliza.
+Sound Volume Db = **0**, Sound Unit Size = **14 m**
+y Sound Max Distance = **45 m** mantienen el efecto audible desde la cámara
+habitual, que orbita a unos 14 m. Unit Size mayor reduce la atenuación con la
+distancia. Se mezcla por SFX/Master (Master si no existe SFX). Puedes sustituir
+Impact Sound, ajustar volumen, tono y distancia o vaciarlo para silenciarlo.
+
+**Peter → StompReaction** sobrescribe ahora los valores suaves de la base con
+Bounce Speed = **7,5 m/s**, Compression = **0,35**, Lateral Expansion = **0,6**,
+Spring Frequency = **3 Hz** y Spring Damping = **5**. Con gravedad del player
+de 22 m/s², el rebote sube aproximadamente **1,28 m** desde el contacto
+(antes unos 0,57 m). Aumentar Bounce Speed eleva el salto; aumentar Compression
+aprieta más; bajar Damping prolonga las oscilaciones; Frequency las acelera.
+Estos ajustes están guardados en Peter, sin cambiar la intensidad de futuros
+NPC. Preview Spring permite verlos sin ejecutar el juego.
+
+El rebote del player no genera polvo de movimiento: se bloquea únicamente la
+emisión hasta el aterrizaje. Las partículas ya emitidas permanecen visibles y
+terminan su vida natural; no se ocultan, borran ni reinician. Al tocar suelo
+vuelve la emisión habitual en la posición actual, conservando sus valores del
+Inspector.
+Los NPC usan la capa 4 para
+evitar interferir con los bloqueadores de cámara, que usan la capa 3.
+Mientras Bounce Enabled esté activo, apoyarse sobre la cabeza vuelve a disparar
+el rebote incluso a velocidad casi cero: el NPC no sirve como plataforma para
+quedarse parado. Se comprueba también el apoyo quieto, respetando el intervalo
+Impact Cooldown. Las colisiones laterales no disparan el resorte.
+
+Tras **2 impactos en 8 segundos**, el NPC pide que dejes de usarlo como
+trampolín. El diálogo espera a que ambos estén apoyados y el player esté dentro
+de Dialogue Reach, con línea de visión y sin otra conversación abierta. Si te
+alejas, la petición caduca al terminar Count Window. Complaint Cooldown limita
+los regaños a uno cada **20 s**; el rebote sigue funcionando. Complaint Text es
+independiente del texto habitual y editable por NPC. El diálogo reutiliza la
+mirada gradual, los gestos, el bloqueo de locomoción y la protección del botón
+compartido de salto/interacción, sin pausar el mundo.
+
 ## Crear el siguiente NPC
 
 Crea una **nueva escena heredada de squirrel_npc.tscn**, asigna otro nombre

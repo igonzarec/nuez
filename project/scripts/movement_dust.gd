@@ -42,6 +42,11 @@ func setup(owner_rig: SquirrelRig, owner_actor: ExplorerPlayer) -> void:
 func _process(_delta: float) -> void:
 	if actor == null or particles == null:
 		return
+	# El contacto del trampolín conserva is_on_floor durante un frame.
+	# Bloquea la generación, sin ocultar/congelar la simulación.
+	if actor.npc_bounce_in_progress:
+		particles.emitting = false
+		return
 	var sliding_glide := actor.is_glide_landing
 	var running := actor.is_on_floor() and actor.horizontal_speed >= actor.movement_dust_run_speed and actor.action_pressed("sprint") and not actor.is_sliding and not actor.is_climbing and not actor.is_gliding and not actor.is_splat and not sliding_glide
 	var glide_dust := sliding_glide and actor.glide_landing_dust_enabled and actor.is_on_floor() and actor.horizontal_speed > 0.1

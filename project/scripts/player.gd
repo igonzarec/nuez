@@ -637,7 +637,7 @@ func _ready() -> void:
 	fall_peak_y = global_position.y
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	collision_layer = 2
-	collision_mask = 1
+	collision_mask = 1 if is_in_group("npc_actors") else 9
 	floor_snap_length = snap_distance
 	floor_max_angle = deg_to_rad(walkable_slope_degrees)
 	floor_constant_speed = true
@@ -708,6 +708,8 @@ func set_controls(enabled: bool) -> void:
 	angular_velocity = 0
 
 func respawn() -> void:
+	_npc_bounce_airborne = false
+	npc_bounce_in_progress = false
 	_interaction_facing_left = 0.0
 	_interaction_partner = null
 	_interaction_turn_pending = false
@@ -774,6 +776,9 @@ func _physics_process(delta: float) -> void:
 		glide_recoil_requires_release = false
 	if is_splat and _tick_splat(delta):
 		return
+	if _try_npc_support_bounce():
+		animator.tick(delta, horizontal_speed)
+		return
 	fall_peak_y = global_position.y if is_on_floor() else maxf(fall_peak_y, global_position.y)
 	if is_glide_recoiling and _tick_glide_recoil(delta):
 		return
@@ -782,7 +787,7 @@ func _physics_process(delta: float) -> void:
 	if not interaction_press_consumed and climbing.tick(delta):
 		fall_peak_y = global_position.y
 		return
-	var grounded := is_on_floor()
+	var grounded := is_on_floor() and not _npc_bounce_airborne
 	var steep_normal := _steep_support()
 	is_sliding = steep_normal != Vector3.ZERO
 	if is_sliding:
@@ -917,6 +922,12 @@ func _physics_process(delta: float) -> void:
 	var impact_speed := maxf(0, -velocity.y)
 	var position_before_move := global_position
 	move_and_slide()
+	_npc_bounce_airborne = false
+	if _try_npc_bounce(incoming_velocity):
+		animator.tick(delta, horizontal_speed)
+		return
+	if is_on_floor():
+		npc_bounce_in_progress = false
 	if landing_from_glide and not is_on_floor() and _try_glide_recoil(incoming_velocity):
 		animator.tick(delta, horizontal_speed)
 		return
@@ -981,6 +992,53 @@ func _physics_process(delta: float) -> void:
 		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, action_pressed("sprint"))
 
 
+var _npc_bounce_airborne := false
+var npc_bounce_in_progress := false
+
+func _try_npc_support_bounce() -> bool:
+	if is_instance_valid(command_source) or not is_on_floor() or _npc_bounce_airborne or velocity.y > 0.0:
+		return false
+	# Incluye apoyo quieto, que puede no producir slide collisions al moverse 0 m.
+	var hit := KinematicCollision3D.new()
+	if not test_move(global_transform, Vector3.DOWN * (safe_margin + 0.02), hit):
+		return false
+	var other := hit.get_collider() as ExplorerPlayer
+	if not other or not is_instance_valid(other.command_source):
+		return false
+	var spring := other.command_source.get_node_or_null("StompReaction")
+	return spring != null and spring.try_stomp(self, hit, maxf(0.0, -velocity.y))
+
+func _try_npc_bounce(incoming: Vector3) -> bool:
+	if is_instance_valid(command_source) or incoming.y > 0.0 or is_in_dialogue():
+		return false
+	for index in get_slide_collision_count():
+		var hit := get_slide_collision(index)
+		var other := hit.get_collider() as ExplorerPlayer
+		if not other or not is_instance_valid(other.command_source):
+			continue
+		var spring := other.command_source.get_node_or_null("StompReaction")
+		if spring and spring.try_stomp(self, hit, -incoming.y):
+			return true
+	return false
+
+## Impulso externo de un NPC: consume coyote/buffer y evita tratar el contacto como aterrizaje.
+func bounce_from_npc(speed: float) -> void:
+	velocity.y = speed
+	_npc_bounce_airborne = true
+	npc_bounce_in_progress = true
+	jump_consumed = true
+	coyote_left = 0.0
+	buffer_left = 0.0
+	landing_time = 0.0
+	is_gliding = false
+	is_glide_landing = false
+	is_glide_recoiling = false
+	is_sliding = false
+	glide_button_pressed_in_air = false
+	glide_recoil_requires_release = true
+	fall_peak_y = global_position.y
+	animator.jump_started()
+
 func _try_glide_recoil(incoming: Vector3) -> bool:
 	if not glide_recoil_enabled:
 		return false
@@ -1035,7 +1093,11 @@ func _tick_glide_recoil(delta: float) -> bool:
 	velocity = planar + Vector3.UP * (velocity.y - gravity * glide_recoil_gravity_scale * delta)
 	var impact_speed := maxf(0.0, -velocity.y)
 	var before := global_position
+	var incoming_velocity := velocity
 	move_and_slide()
+	if _try_npc_bounce(incoming_velocity):
+		animator.tick(delta, horizontal_speed)
+		return true
 	previous_motion = (global_position - before) / maxf(delta, 0.001)
 	horizontal_speed = Vector2(previous_motion.x, previous_motion.z).length()
 	if is_on_floor():
