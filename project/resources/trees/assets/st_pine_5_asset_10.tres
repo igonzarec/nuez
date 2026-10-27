@@ -1,0 +1,25 @@
+[gd_resource type="Terrain3DMeshAsset" script_class="TreeMeshAsset" format=3 uid="uid://btdepevyt6ums"]
+
+[ext_resource type="PackedScene" uid="uid://44klgxayjtpg" path="res://resources/nature/glb 2/STPine5.glb" id="1_x84yy"]
+[ext_resource type="PackedScene" path="res://resources/trees/lod_scenes/st_pine_5_asset_10_lods.tscn" id="2_s6g2m"]
+[ext_resource type="Script" uid="uid://jrmle4utr8mv" path="res://scripts/tree_mesh_asset.gd" id="3_sjim6"]
+[ext_resource type="Resource" path="res://resources/trees/materials/stpine5_asset_10.tres" id="4_djdbb"]
+
+[resource]
+name = "STPine5"
+id = 10
+scene_file = ExtResource("2_s6g2m")
+density = 0.09308066
+last_lod = 2
+last_shadow_lod = 1
+lod0_range = 80.0
+lod1_range = 220.0
+lod2_range = 900.0
+script = ExtResource("3_sjim6")
+lod_source_model = ExtResource("1_x84yy")
+lod_preparation_report = "LOD0: 476 triángulos
+LOD1: 238 triángulos
+LOD2: 102 triángulos
+Revisar silueta, UV y recorte alfa antes de aceptar las distancias finales."
+prepared_lod_scene = ExtResource("2_s6g2m")
+tree_materials = ExtResource("4_djdbb")

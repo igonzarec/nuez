@@ -1,4 +1,128 @@
-# Colores y LOD continuo de los pinos
+# Materiales por mesh y colores de árboles
+
+Los STPine ahora tienen también LOD nativos preparados por asset y alcance
+editable. Ver [preparación de LOD](tree_lod_preparation.md) para generar futuros
+árboles y configurar sus distancias/sombras sin TreeColors.
+
+## Árboles nuevos: configuración en cada mesh
+
+En `grass_terrain.tscn`:
+
+1. Seleccionar **STPine1**, STPine2, etc. en el dock inferior de Terrain3D.
+2. En el Inspector del asset abrir **Colores del árbol**.
+3. Cambiar **Foliage Color** (hojas) y **Bark Color** (tronco) directamente.
+4. Guardar el recurso de materiales (y la escena si se cambió su asignación).
+
+**TreeColors no es necesario para aplicar estos materiales.** TreeMeshAsset
+escucha los cambios de su propio recurso, las importaciones y los ajustes del
+asset. Actualiza sus superficies una sola vez en el siguiente ciclo del editor
+o juego, agrupando las ediciones y sin un proceso periódico auxiliar.
+
+Cada mesh recibe un recurso de materiales independiente. Cambiar STPine1 no
+cambia STPine2. Sus instancias pintadas comparten el material de ese asset:
+se actualizan juntas sin crear un material por árbol ni regenerar geometría.
+La configuración se guarda dentro del asset Terrain3D, cuyo script es
+`res://scripts/tree_mesh_asset.gd` (clase TreeMeshAsset).
+
+Los colores directos editan el mismo recurso de materiales; sólo éste se guarda,
+para evitar valores duplicados que se sobrescriban al cargar. Para texturas,
+recorte alfa y selección de superficies, abrir **Materiales del árbol → Tree
+Materials**. Allí también se pueden editar los mismos colores.
+
+El preset anterior `stpine.tres` sirve sólo como punto de partida para migrar
+STPine existentes y nuevos. Al configurarse un asset se duplica el preset;
+editar el preset después ya no cambia las copias. La lista antigua del nodo se
+conserva como dato de migración oculto para no perder ajustes guardados.
+
+### Controles del mesh
+
+Los valores tienen ayuda al posar el cursor en el Inspector. Todos se aplican
+en el siguiente ciclo del editor/juego; no necesitan reconstruir ni reexportar el GLB.
+
+| Grupo | Controles | Efecto |
+| --- | --- | --- |
+| Activación | Enabled | Activa el setup del mesh. Apagar restaura sus materiales importados. |
+| Tronco | Bark Enabled / Color | Activa el cambio de tronco y elige su color/tinte. Blanco mantiene el color de la textura marrón. |
+| Tronco | Bark Material Keywords / Surface Indices | Identifica superficies por fragmentos de nombre o índices desde 0. |
+| Tronco | Bark Texture Mode / Texture | Conservar usa la importada; Reemplazar usa la elegida; Sin textura produce color liso. |
+| Hojas | Foliage Enabled / Color | Activa el cambio de follaje y elige el tinte. La textura blanca se multiplica por él. |
+| Hojas | Foliage Material Keywords / Surface Indices | Identifica superficies de follaje por nombre o índice. Si coincide con tronco, gana follaje. |
+| Hojas | Foliage Texture Mode / Texture | Conserva, reemplaza o elimina la textura de hojas. Eliminar una máscara puede revelar los planos rectangulares. |
+| Hojas | Foliage Transparency | Conserva el modo original, fuerza opaco o usa Alpha Scissor. STPine usa Alpha Scissor con una máscara válida. |
+| Hojas | Alpha Scissor Threshold | De 0 a 1: subir recorta más borde; bajar conserva más. Requiere alfa en la textura. |
+| Hojas | Foliage Double Sided | Dibuja ambos lados de los planos; apagar descarta las caras traseras. |
+| Acabado | Override Finish / Roughness / Specular | Conserva el acabado importado o ajusta rugosidad (1 mate, 0 brillante) y reflejos. |
+
+### Futuros árboles
+
+Crear un recurso **TreeMeshAsset** y asignarle el GLB en **Scene File**. También
+se puede añadir un GLB al dock y asignar `res://scripts/tree_mesh_asset.gd` en el
+campo **Script** de su asset Terrain3D. El setup nace en el propio recurso:
+no necesita nodos en la escena. El botón **Reaplicar materiales**, dentro del
+mesh, permite forzar una actualización tras recargar scripts.
+
+Configurar las texturas desde **Materiales del árbol → Tree Materials**. Un
+setup nuevo conserva las texturas importadas por defecto. Los STPine actuales
+ya tienen recursos independientes en `res://resources/trees/materials/`, con
+máscara foliar y corteza válidas de `res://assets/textures/trees/stpine/`.
+Hay dos assets llamados STPine5: cada ID conserva su archivo propio.
+
+Las superficies se reconocen por fragmentos `trunk/bark/wood` y
+`leaves/leaf/foliage/green`, sin distinguir mayúsculas. Para nombres diferentes,
+ajustar Keywords o Surface Indices desde 0, comprobando todos los LOD.
+Una única superficie con tronco y hojas necesita separarse en el modelo o una
+máscara/shader para poder usar dos colores. No se sustituyen scripts ajenos.
+
+TreeColors conserva una migración opcional para assets antiguos que aún no
+sean TreeMeshAsset. Una vez guardada la asignación del script y los materiales,
+la aplicación funciona sin esa migración ni el nodo.
+
+Para compartir expresamente materiales entre dos assets, asignar el mismo
+recurso Tree Materials. Para independizarlos de nuevo, usar **Make Unique**.
+Las texturas se pueden compartir; los ajustes de color son propios de cada
+recurso de materiales.
+
+### Editor, compatibilidad y límites
+
+Enabled dentro de los materiales del mesh activa sus cambios y restaura las
+superficies importadas al apagar. Bark/Foliage Enabled permiten restaurar sólo
+una parte. Cambiar la textura, transparencia, recorte o acabado emite la señal
+Changed del recurso y actualiza el mesh sin tocar el nodo.
+
+El recurso TreeMeshAsset se reconecta al cargar y al cambiar Scene File, y aplica
+los materiales de todos sus LOD nativos. **Reaplicar materiales** devuelve un
+Callable mediante getter, evitando el Nil de inicializadores durante recargas.
+Los controles directos son accesos al mismo recurso: sólo éste se serializa,
+sin guardar colores duplicados que se puedan sobrescribir al cargar.
+
+El campo **Material Override** del asset debe quedar vacío para ver materiales
+por superficie. Se respeta un override existente, sin eliminarlo. Las paletas
+no sustituyen ShaderMaterial personalizados. Los nuevos meshes usan todos sus
+LOD nativos; no se les añade el sistema lejano de los pinos anteriores.
+
+Los cinco PineTree anteriores conservan su sistema de LOD y colores compartidos
+en **TreeColors → Corteza - pinos anteriores / Follaje - pinos anteriores**.
+Esos controles no cambian los STPine: éstos se editan en su propio asset. Se
+conservan los valores personalizados, IDs, escalas, densidades y pinceladas.
+
+Se modifican copias de materiales en memoria y las superficies de las mallas
+generadas por Terrain3D, sin guardar cambios en los GLB. Todas las instancias que
+compartan la misma malla reciben esos materiales: usar un controlador por
+biblioteca de assets y evitar configuraciones distintas sobre una malla
+compartida deliberadamente. Cambiar colores conserva las otras propiedades del
+material; no hornea shaders ni repara UV incompatibles.
+
+Comprobación puntual en Godot 4.6: se retiró TreeColors de una copia temporal de
+la escena antes de añadirla al árbol. Los materiales cargaron automáticamente;
+editar hojas actualizó sus 19 lotes pintados sin modificar otro asset ni tronco.
+También se comprobó edición avanzada de corte alfa y rugosidad, restauración al
+apagar, reutilización de materiales sin cambios y guardado/recarga del asset
+sin nodo auxiliar. Las inspecciones no guardaron pinceladas ni añadieron suites
+de pruebas. Falta valorar el aspecto con la iluminación del nivel.
+
+Referencia: [materiales y recorte alfa en Godot 4.6](https://docs.godotengine.org/en/4.6/tutorials/3d/standard_material_3d.html).
+
+## Pinos anteriores: colores y LOD
 
 En `grass_terrain.tscn`, seleccionar **Terrain3D → TreeColors**.
 Funciona en el editor y en el juego con Godot 4.6 Compatibility. El script

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="TreeMaterialPalette" format=3 uid="uid://cmk8xnurtyq8p"]
+
+[ext_resource type="Script" uid="uid://2uvkc3q5pixw" path="res://scripts/tree_material_palette.gd" id="1_palette"]
+[ext_resource type="Texture2D" uid="uid://pdtr62y4hsxj" path="res://assets/textures/trees/stpine/leaves.png" id="2_leaves"]
+[ext_resource type="Texture2D" uid="uid://bt3qf0tr8jhgk" path="res://assets/textures/trees/stpine/bark.png" id="3_bark"]
+
+[resource]
+resource_name = "STPine - hojas y tronco"
+script = ExtResource("1_palette")
+asset_prefix = "STPine"
+asset_names = PackedStringArray()
+bark_material_keywords = PackedStringArray("trunk", "bark", "wood")
+bark_surface_indices = PackedInt32Array()
+bark_color = Color(1, 1, 1, 1)
+bark_texture_mode = 1
+bark_texture = ExtResource("3_bark")
+foliage_material_keywords = PackedStringArray("leaves", "leaf", "foliage", "green")
+foliage_surface_indices = PackedInt32Array()
+foliage_color = Color(0.27, 0.4, 0.16, 1)
+foliage_texture_mode = 1
+foliage_texture = ExtResource("2_leaves")
+foliage_transparency = 2

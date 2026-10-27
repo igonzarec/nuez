@@ -163,6 +163,8 @@ extends Node
 @export_group("Splat por caída")
 ## Activa la pose de pansazo; desactivar conserva el bloqueo físico y el sonido. En vivo.
 @export var splat_pose_enabled := true
+## Inicia la inclinación del pansazo desde la orientación visual real al impactar, sin volver primero a erguido. Incluye pitch y balanceo existentes; mezcla hacia la pose de suelo durante Compress Duration. Apagar recupera la entrada anterior. Se captura al entrar al siguiente splat; no cambia escala, duración ni física.
+@export var splat_inherit_entry_tilt_enabled := true
 ## Segundos para pasar de la pose de llegada al pansazo. Mayor suaviza el golpe; se limita a la duración del estado. En vivo.
 @export_range(0.01, 0.5, 0.01, "suffix:s") var splat_compress_duration := 0.10
 ## Segundos finales para levantarse antes de recuperar control. Mayor alarga la incorporación y reduce el tiempo inmóvil; se limita al estado. En vivo.
@@ -191,18 +193,80 @@ extends Node
 @export_range(0.0, 1.0, 0.01, "suffix:m") var splat_clearance_max_lift := 0.6
 
 @export_group("Splat · movimiento antes de levantarse")
-## Activa el pataleo rápido justo antes de la incorporación, mientras conserva el cuerpo aplastado. Requiere Splat Pose Enabled. No añade tiempo al bloqueo ni cambia la física. En vivo.
+## Activa el pataleo previo y el movimiento automático de brazos al iniciar la incorporación. Las pulsaciones pueden mover los brazos antes. Requiere Splat Pose Enabled. No añade tiempo al bloqueo ni cambia la física. En vivo.
 @export var splat_wiggle_enabled := true
-## Segundos de movimiento inmediatamente anteriores a Recover Duration. Mayor permite más sacudidas; se recorta si no cabe entre la compresión y la incorporación. 0 lo desactiva. En vivo.
+## Mueve automáticamente brazos, piernas, cabeza, torso y cola después de la compresión, sin exigir pulsaciones. Apagar conserva las ventanas anteriores de pataleo previo e incorporación. Requiere Wiggle Enabled y Pose Enabled; no cambia la duración del estado. En vivo.
+@export var splat_wiggle_auto_full_state_enabled := true
+## Multiplicador de rapidez automática respecto a Wiggle Frequency. 1 conserva la base; 1,5 es un 50 % más rápido. Respeta Wiggle Max Hz. Las pulsaciones parten de esta rapidez para acelerar sin frenar el movimiento automático. En vivo.
+@export_range(1.0, 3.0, 0.05) var splat_wiggle_auto_speed_multiplier := 1.5
+## Con Auto Full State Enabled, segundos de entrada suave al forcejeo tras comprimir (mínimo interno 0,01 s). Sin esa opción, duración de las ventanas previas de pataleo/incorporación. No limita las pulsaciones manuales. En vivo.
 @export_range(0.0, 1.5, 0.01, "suffix:s") var splat_wiggle_duration := 0.35
 ## Ciclos de movimiento por segundo, con lados alternados. Mayor produce un pataleo más rápido; 0 lo deja quieto. Frecuencias altas pueden perder amplitud con Pose Response bajo. En vivo.
 @export_range(0.0, 15.0, 0.25, "suffix:Hz") var splat_wiggle_frequency := 7.0
+## Límite global de ciclos por segundo para el wiggle automático y por pulsaciones. Mayor permite más rapidez; 0 detiene las oscilaciones. Se impone aunque Wiggle Frequency o Tap Max Frequency sean mayores, sin sobrescribirlos. Cabeza y torso derivan su frecuencia del valor ya limitado. 20 conserva el rango previo. En vivo.
+@export_range(0.0, 20.0, 0.25, "or_greater", "suffix:Hz") var splat_wiggle_max_hz := 20.0
 ## Giro adicional máximo de brazos hacia delante y atrás, en grados. Mayor agita más los brazos; 0 elimina sólo su movimiento. Mantiene la apertura de Splat Arm Spread. Valores altos pueden cruzar el suelo. En vivo.
 @export_range(0.0, 50.0, 0.5, "suffix:°") var splat_wiggle_arm_degrees := 14.0
 ## Giro adicional máximo de piernas alternadas, en grados. Mayor refuerza el pataleo; 0 deja las patas quietas. Mantiene Splat Leg Spread. Valores altos pueden cruzar el suelo. En vivo.
 @export_range(0.0, 50.0, 0.5, "suffix:°") var splat_wiggle_leg_degrees := 20.0
 ## Rapidez de respuesta de huesos durante el pataleo, en s⁻¹. Mayor conserva mejor movimientos rápidos; menor los amortigua. Sólo afecta este intervalo; la incorporación conserva Splat Pose Response. En vivo.
 @export_range(1.0, 90.0, 0.5) var splat_wiggle_pose_response := 50.0
+
+@export_group("Splat · cabeza y torso")
+## Activa el giro lateral de cabeza como diciendo «no» durante el pataleo automático o por pulsaciones. Requiere Wiggle Enabled y Pose Enabled. No cambia la orientación del jugador ni la cámara. En vivo.
+@export var splat_head_shake_enabled := true
+## Giro máximo a cada lado del cuello, en grados. Mayor marca el gesto de «no»; 0 deja la cabeza sin giro adicional. Se suma a Head Pitch y al movimiento heredado del torso. En vivo.
+@export_range(0.0, 45.0, 0.5, "suffix:°") var splat_head_shake_degrees := 12.0
+## Fracción de la frecuencia del pataleo para la cabeza. 0,35 produce 2,45 Hz con Wiggle Frequency 7 Hz; menor hace un «no» más pausado. También sigue la aceleración por pulsaciones. En vivo.
+@export_range(0.05, 1.0, 0.05) var splat_head_shake_frequency_multiplier := 0.35
+## Límite propio de ciclos por segundo del gesto de «no», después de aplicar Head Shake Frequency Multiplier a la frecuencia de wiggle ya limitada. Mayor permite girar más rápido; 0 detiene sólo el giro de cabeza. Se respeta también con pulsaciones y no sobrescribe el multiplicador. 20 conserva el rango previo de controles. En vivo.
+@export_range(0.0, 20.0, 0.1, "or_greater", "suffix:Hz") var splat_head_shake_max_hz := 20.0
+## Activa inclinación lateral suave del torso respecto a las caderas durante el pataleo. Requiere Wiggle Enabled y Pose Enabled. Sólo mueve huesos: no balancea la cápsula ni la cámara. En vivo.
+@export var splat_torso_sway_enabled := true
+## Inclinación máxima del torso a izquierda y derecha, en grados. Mayor refuerza el forcejeo; valores altos pueden separar o cruzar piezas. La cabeza y los brazos acompañan al ser hijos del torso. En vivo.
+@export_range(0.0, 20.0, 0.5, "suffix:°") var splat_torso_sway_degrees := 4.0
+## Fracción de la frecuencia del pataleo para el balanceo. 0,25 produce 1,75 Hz con Wiggle Frequency 7 Hz; menor balancea más despacio. También sigue la aceleración por pulsaciones. En vivo.
+@export_range(0.05, 1.0, 0.05) var splat_torso_sway_frequency_multiplier := 0.25
+
+@export_group("Splat · extremidades por pulsaciones")
+## Permite agitar brazos y piernas desde cada pulsación de salto durante splat: Cruz en PlayStation, A en Xbox y Espacio. Comparten rapidez y alternan lados. Mantener pulsado no repite. No adelanta recuperación, salta ni reproduce el sonido de salto. Requiere Wiggle Enabled y Pose Enabled. En vivo.
+@export var splat_tap_enabled := true
+## Segundos de movimiento tras cada pulsación. Pulsar de nuevo renueva la ventana sin reiniciar el ciclo; mayor mantiene brazos y piernas activos más tiempo. Se desvanece al dejar de pulsar. La amplitud se ajusta por separado en Wiggle Arm/Leg Degrees. En vivo.
+@export_range(0.05, 1.5, 0.01, "suffix:s") var splat_tap_duration := 0.35
+## Frecuencia máxima en Hz al acumular pulsaciones. La base es Wiggle Frequency; nunca se usa un máximo inferior a ella. Mayor permite agitar más rápido. En vivo.
+@export_range(1.0, 20.0, 0.25, "suffix:Hz") var splat_tap_max_frequency := 14.0
+## Aumento de energía por pulsación, como fracción de 0 a 1. Mayor alcanza la frecuencia máxima con menos pulsaciones. Sólo cambia rapidez, no amplitud ni duración del splat. En vivo.
+@export_range(0.05, 1.0, 0.05) var splat_tap_speed_gain := 0.3
+## Energía perdida por segundo sin nuevas pulsaciones, en fracción/s. Mayor exige pulsar más seguido para mantener rapidez; menor conserva más el impulso. La ventana Duration sigue limitando el movimiento. En vivo.
+@export_range(0.0, 5.0, 0.1) var splat_tap_speed_decay := 0.6
+## Rapidez por segundo para entrar y salir del refuerzo de pulsaciones. Mayor acelera y desacelera antes; menor suaviza el cambio. Conserva los relojes y posiciones del movimiento automático, sin reiniciar ciclos al pulsar. No cambia duración ni límites de Hz. En vivo.
+@export_range(1.0, 60.0, 0.5) var splat_tap_transition_response := 12.0
+
+@export_group("Splat · movimiento de cola")
+## Activa el balanceo lateral de cola durante el forcejeo automático y las pulsaciones. Sin Auto Full State Enabled, sólo se mueve durante Tap Duration. Requiere Wiggle Enabled y Pose Enabled. No modifica movimiento ni duración del estado. En vivo.
+@export var splat_tail_sway_enabled := true
+## Giro máximo de cola a cada lado desde su base, en grados. Mayor amplía el barrido; 0 deja la cola quieta. Valores altos pueden cruzar suelo o cuerpo. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var splat_tail_sway_degrees := 18.0
+## Fracción de la frecuencia efectiva del pataleo usada por la cola. Menor da un barrido más pausado; las pulsaciones aceleran ambos respetando Tail Sway Max Hz y el límite global de wiggle. En vivo.
+@export_range(0.05, 1.0, 0.05) var splat_tail_sway_frequency_multiplier := 0.5
+## Límite independiente de ciclos por segundo de la cola después de su multiplicador. Mayor permite barrer más rápido; 0 detiene sólo la oscilación de cola. No afecta cabeza, torso ni extremidades. En vivo.
+@export_range(0.0, 20.0, 0.1, "suffix:Hz") var splat_tail_sway_max_hz := 3.0
+
+@export_group("Splat · apoyo para levantarse")
+## Añade preparación de manos, empuje de pecho e incorporación final dentro de Recover Duration. Apagar recupera la transición anterior. Requiere Splat Pose Enabled; no cambia duración total ni física. En vivo.
+@export var splat_support_enabled := true
+## Fracción inicial de Recover Duration dedicada a recoger los brazos y apoyar las manos antes de levantar el pecho. Mayor prolonga la preparación y deja menos tiempo para empujar. 0,25 equivale al primer 25 %. En vivo.
+@export_range(0.05, 0.5, 0.01) var splat_support_plant_fraction := 0.25
+## Fracción de Recover Duration donde termina el empuje y empieza la incorporación final soltando las manos. Mayor conserva el apoyo más tiempo. Debe superar Plant Fraction; se limita a al menos 0,05 más. En vivo.
+@export_range(0.15, 0.95, 0.01) var splat_support_push_end_fraction := 0.72
+## Inclinación del cuerpo hacia el suelo al acabar el empuje, en grados: 0 erguido, 90 tumbado. Menor levanta más el pecho antes de soltar manos. Se limita a Body Pitch de la pose de splat. En vivo.
+@export_range(0.0, 90.0, 0.5, "suffix:°") var splat_support_body_pitch_degrees := 35.0
+## Apertura lateral de brazos durante el apoyo, en grados. Menor acerca las manos al pecho; mayor las separa. Sustituye temporalmente Arm Spread de la pose aplastada. En vivo.
+@export_range(0.0, 70.0, 0.5, "suffix:°") var splat_support_arm_spread_degrees := 22.0
+## Corrección de giro de brazos respecto a la inclinación actual del cuerpo, en grados. 0 los orienta aproximadamente hacia el suelo mientras sube el pecho; positivo/negativo adelanta o retrasa el apoyo. Es pose visual, sin IK ni fijación exacta de manos. En vivo.
+@export_range(-45.0, 45.0, 0.5, "suffix:°") var splat_support_arm_pitch_offset_degrees := 0.0
+## Rapidez mínima de respuesta de los huesos mientras prepara y empuja, en s⁻¹. Mayor permite colocar manos en recuperaciones cortas; menor suaviza. La inclinación del cuerpo conserva Splat Pose Response. En vivo.
+@export_range(1.0, 90.0, 0.5) var splat_support_pose_response := 55.0
 
 var actor: ExplorerPlayer
 var glide_blend := 0.0
@@ -229,8 +293,28 @@ var air_stride_launch_weight := 0.0
 var air_stride_capture_pending := true
 var air_was_airborne := false
 var air_stride_fall_elapsed := 0.0
+var splat_tap_left := 0.0
+var splat_tap_energy := 0.0
+var splat_tap_phase := 0.0
+var splat_tap_blend := 0.0
+var splat_head_shake_phase := 0.0
+var splat_torso_sway_phase := 0.0
+var splat_tail_sway_phase := 0.0
+var splat_entry_rotation := Quaternion.IDENTITY
+var splat_entry_angles := Vector3.ZERO
+var splat_inherit_entry_tilt := true
 
 func splat_started() -> void:
+	splat_tap_blend = 0.0
+	splat_tail_sway_phase = 0.0
+	splat_entry_rotation = actor.model.body_pivot.quaternion
+	splat_entry_angles = Vector3(body_pitch, body_roll, body_bank)
+	splat_inherit_entry_tilt = splat_inherit_entry_tilt_enabled
+	splat_head_shake_phase = 0.0
+	splat_torso_sway_phase = 0.0
+	splat_tap_left = 0.0
+	splat_tap_energy = 0.0
+	splat_tap_phase = 0.0
 	recoil_started()
 	air_was_airborne = false
 	air_elapsed = 0.0
@@ -266,6 +350,15 @@ func jump_started() -> void:
 	landing_elapsed = -1.0
 
 func reset() -> void:
+	splat_tap_blend = 0.0
+	splat_tail_sway_phase = 0.0
+	splat_entry_rotation = Quaternion.IDENTITY
+	splat_entry_angles = Vector3.ZERO
+	splat_head_shake_phase = 0.0
+	splat_torso_sway_phase = 0.0
+	splat_tap_left = 0.0
+	splat_tap_energy = 0.0
+	splat_tap_phase = 0.0
 	was_glide_landing = false
 	glide_blend = 0.0
 	run_blend = 0.0
@@ -392,34 +485,122 @@ func _tick_splat(delta: float) -> void:
 	var compress_time := minf(splat_compress_duration, duration)
 	var recover_time := minf(splat_recover_duration, maxf(0.001, duration - compress_time))
 	var elapsed := actor.splat_elapsed
-	var weight := smoothstep(0.0, compress_time, elapsed) * (1.0 - smoothstep(duration - recover_time, duration, elapsed))
+	var recover_start := duration - recover_time
+	var recover_progress := clampf((elapsed - recover_start) / maxf(0.001, recover_time), 0.0, 1.0)
+	var compress_weight := smoothstep(0.0, compress_time, elapsed)
+	var weight := compress_weight * (1.0 - smoothstep(0.0, 1.0, recover_progress))
+	var body_weight := weight
+	var support_weight := 0.0
+	if splat_support_enabled and splat_pose_enabled and elapsed >= recover_start:
+		var plant_end := splat_support_plant_fraction
+		var push_end := maxf(plant_end + 0.05, splat_support_push_end_fraction)
+		var chest_weight := clampf(splat_support_body_pitch_degrees / maxf(0.01, splat_body_pitch_degrees), 0.0, 1.0)
+		# Primero coloca las manos manteniendo la panza baja; luego empuja.
+		weight = compress_weight * (1.0 - smoothstep(plant_end, 1.0, recover_progress))
+		body_weight = lerpf(1.0, chest_weight, smoothstep(plant_end, push_end, recover_progress))
+		body_weight *= compress_weight * (1.0 - smoothstep(push_end, 1.0, recover_progress))
+		support_weight = smoothstep(0.0, plant_end, recover_progress) * (1.0 - smoothstep(push_end, 1.0, recover_progress))
 	if not splat_pose_enabled:
 		weight = 0.0
+		body_weight = 0.0
 	var blend := 1.0 - exp(-splat_pose_response * delta)
-	body_pitch = lerp_angle(body_pitch, -deg_to_rad(splat_body_pitch_degrees) * weight, blend)
+	body_pitch = lerp_angle(body_pitch, -deg_to_rad(splat_body_pitch_degrees) * body_weight, blend)
 	body_roll = lerp_angle(body_roll, 0.0, blend)
 	body_bank = lerp_angle(body_bank, 0.0, blend)
 	actor.model.set_body_tilt(body_pitch, body_roll, body_bank)
 	if splat_surface_follow_enabled:
 		var normal := (actor.model.global_basis.orthonormalized().inverse() * actor.splat_floor_normal).normalized()
 		actor.model.body_pivot.quaternion = Quaternion.IDENTITY.slerp(Quaternion(Vector3.UP, normal), weight) * actor.model.body_pivot.quaternion
+	if splat_inherit_entry_tilt and splat_pose_enabled and elapsed < compress_time:
+		# El objetivo de entrada es la pose completa, nunca una pose erguida
+		# multiplicada por un peso que empieza en cero.
+		var target_rotation := Quaternion(Vector3.RIGHT, -deg_to_rad(splat_body_pitch_degrees))
+		if splat_surface_follow_enabled:
+			var normal := (actor.model.global_basis.orthonormalized().inverse() * actor.splat_floor_normal).normalized()
+			target_rotation = Quaternion(Vector3.UP, normal) * target_rotation
+		actor.model.body_pivot.quaternion = splat_entry_rotation.slerp(target_rotation, compress_weight)
+		body_pitch = lerp_angle(splat_entry_angles.x, -deg_to_rad(splat_body_pitch_degrees), compress_weight)
+		body_roll = lerp_angle(splat_entry_angles.y, 0.0, compress_weight)
+		body_bank = lerp_angle(splat_entry_angles.z, 0.0, compress_weight)
 	actor.model.scale = actor.model.scale.lerp(Vector3.ONE.lerp(splat_flat_scale.clamp(Vector3.ONE * 0.05, Vector3.ONE * 3.0), weight), blend)
 	actor.model.position = actor.model.position.lerp(Vector3.UP * splat_visual_height * weight, blend)
-	# Reserva el tramo final de la pausa: no adelanta ni prolonga la incorporación.
-	var recover_start := duration - recover_time
+	# Automático y pulsaciones comparten oscilador: X cambia rapidez,
+	# nunca el punto del ciclo ni la posición objetivo de cada miembro.
 	var wiggle_start := maxf(compress_time, recover_start - splat_wiggle_duration)
 	var arm_pitches := Vector2.ZERO
+	var arm_wiggle := Vector2.ZERO
 	var leg_pitches := Vector2.ZERO
 	var pose_response := splat_pose_response
-	if splat_wiggle_enabled and splat_pose_enabled and splat_wiggle_frequency > 0.0 and elapsed > wiggle_start and elapsed < recover_start:
-		var progress := clampf((elapsed - wiggle_start) / maxf(0.001, recover_start - wiggle_start), 0.0, 1.0)
-		# Envolvente suave: empieza y termina en reposo antes de levantarse.
-		var envelope := pow(sin(PI * progress), 2.0)
-		var wave := sin((elapsed - wiggle_start) * TAU * splat_wiggle_frequency) * envelope
-		arm_pitches = Vector2(wave, -wave) * splat_wiggle_arm_degrees
-		leg_pitches = Vector2(-wave, wave) * splat_wiggle_leg_degrees
-		pose_response = splat_wiggle_pose_response
-	actor.model.update_splat_pose(weight, splat_arm_spread_degrees, splat_leg_spread_degrees, splat_head_pitch_degrees, pose_response, arm_pitches, leg_pitches)
+	var wiggle_limit := maxf(0.0, splat_wiggle_max_hz)
+	var base_frequency := clampf(splat_wiggle_frequency, 0.0, wiggle_limit)
+	var auto_frequency := clampf(base_frequency * splat_wiggle_auto_speed_multiplier, 0.0, wiggle_limit)
+	var gesture_frequency := 0.0
+	var gesture_envelope := 0.0
+	var tail_sway := 0.0
+	var arm_envelope := 0.0
+	var leg_envelope := 0.0
+	var arms_enabled := splat_wiggle_enabled and splat_pose_enabled
+	var recover_fade := 1.0 - smoothstep(0.8, 1.0, recover_progress)
+	if arms_enabled:
+		if splat_wiggle_auto_full_state_enabled:
+			var ramp_duration := maxf(0.01, minf(splat_wiggle_duration, recover_start - compress_time))
+			arm_envelope = smoothstep(compress_time, compress_time + ramp_duration, elapsed) * recover_fade
+			leg_envelope = arm_envelope
+		else:
+			if elapsed > wiggle_start and elapsed < recover_start:
+				var progress := clampf((elapsed - wiggle_start) / maxf(0.001, recover_start - wiggle_start), 0.0, 1.0)
+				leg_envelope = pow(sin(PI * progress), 2.0)
+			var auto_end := minf(duration, recover_start + splat_wiggle_duration)
+			if elapsed > recover_start and elapsed < auto_end:
+				var progress := (elapsed - recover_start) / maxf(0.001, auto_end - recover_start)
+				arm_envelope = pow(sin(PI * progress), 2.0)
+	splat_tap_left = maxf(0.0, splat_tap_left - delta)
+	splat_tap_energy = maxf(0.0, splat_tap_energy - splat_tap_speed_decay * delta)
+	if arms_enabled and splat_tap_enabled and not actor.interaction_press_consumed and actor.action_just_pressed("jump"):
+		splat_tap_left = splat_tap_duration
+		splat_tap_energy = minf(1.0, splat_tap_energy + splat_tap_speed_gain)
+	var tap_target := 0.0
+	if arms_enabled and splat_tap_enabled and splat_tap_left > 0.0 and wiggle_limit > 0.0:
+		tap_target = smoothstep(0.0, minf(0.1, splat_tap_duration), splat_tap_left)
+	splat_tap_blend = lerpf(splat_tap_blend, tap_target, 1.0 - exp(-splat_tap_transition_response * delta))
+	if arms_enabled:
+		var tap_max := clampf(splat_tap_max_frequency, auto_frequency, wiggle_limit)
+		var boosted_frequency := lerpf(auto_frequency, tap_max, splat_tap_energy)
+		gesture_frequency = lerpf(auto_frequency, boosted_frequency, splat_tap_blend)
+		if not splat_wiggle_auto_full_state_enabled:
+			# Sin automático continuo, las pulsaciones despiertan la pose
+			# progresivamente, conservando igualmente el reloj existente.
+			arm_envelope = lerpf(arm_envelope, recover_fade, splat_tap_blend)
+			leg_envelope = lerpf(leg_envelope, recover_fade, splat_tap_blend)
+		gesture_envelope = maxf(arm_envelope, leg_envelope)
+		if gesture_frequency > 0.0:
+			var wave := sin(splat_tap_phase)
+			arm_wiggle = Vector2(wave, -wave) * arm_envelope * splat_wiggle_arm_degrees
+			leg_pitches = Vector2(-wave, wave) * leg_envelope * splat_wiggle_leg_degrees
+			splat_tap_phase = fmod(splat_tap_phase + delta * TAU * gesture_frequency, TAU)
+		if gesture_envelope > 0.0:
+			pose_response = splat_wiggle_pose_response
+	var tail_active := splat_wiggle_auto_full_state_enabled or splat_tap_blend > 0.001
+	if arms_enabled and splat_tail_sway_enabled and tail_active and gesture_frequency > 0.0:
+		var tail_frequency := clampf(gesture_frequency * splat_tail_sway_frequency_multiplier, 0.0, maxf(0.0, splat_tail_sway_max_hz))
+		if tail_frequency > 0.0:
+			tail_sway = sin(splat_tail_sway_phase) * gesture_envelope * splat_tail_sway_degrees
+			splat_tail_sway_phase = fmod(splat_tail_sway_phase + delta * TAU * tail_frequency, TAU)
+	var upper_motion := Vector2.ZERO
+	if gesture_frequency > 0.0:
+		# Relojes independientes para que cabeza y torso no vibren tan rápido
+		# como las patas ni salten de fase al acelerar con las pulsaciones.
+		var head_frequency := clampf(gesture_frequency * splat_head_shake_frequency_multiplier, 0.0, maxf(0.0, splat_head_shake_max_hz))
+		splat_head_shake_phase = fmod(splat_head_shake_phase + delta * TAU * head_frequency, TAU)
+		splat_torso_sway_phase = fmod(splat_torso_sway_phase + delta * TAU * gesture_frequency * splat_torso_sway_frequency_multiplier, TAU)
+		if splat_head_shake_enabled and head_frequency > 0.0:
+			upper_motion.x = sin(splat_head_shake_phase) * gesture_envelope * splat_head_shake_degrees
+		if splat_torso_sway_enabled:
+			upper_motion.y = sin(splat_torso_sway_phase) * gesture_envelope * splat_torso_sway_degrees
+	if support_weight > 0.0:
+		pose_response = maxf(pose_response, splat_support_pose_response)
+	var support_pitch := rad_to_deg(body_pitch) + splat_support_arm_pitch_offset_degrees
+	actor.model.update_splat_pose(weight, splat_arm_spread_degrees, splat_leg_spread_degrees, splat_head_pitch_degrees, pose_response, arm_pitches, leg_pitches, support_weight, splat_support_arm_spread_degrees, support_pitch, arm_wiggle, upper_motion, tail_sway)
 
 
 func _tick_recoil(delta: float) -> void:

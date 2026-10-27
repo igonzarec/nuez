@@ -73,3 +73,21 @@ el patrón de las membranas de planeo en `project/scripts/squirrel_rig.gd`.
 No uses una Shape Key con valor `0` como sustituto de visibilidad: una Shape
 Key deforma la malla, pero no la oculta. Tampoco dependas de ocultar el objeto
 desde el Outliner de Blender para resolver una condición de juego.
+
+## Interacción y diálogo con NPC
+
+Regla general para cualquier NPC nuevo: conversar mantiene el mundo, la cámara
+y las animaciones activos, pero bloquea el desplazamiento y las acciones de
+locomoción de ambos interlocutores, incluido el salto, hasta terminar. El NPC
+espera y luego retoma su ruta. Player y NPC se orientan mutuamente y mantienen
+la mirada durante el diálogo. El giro hacia el interlocutor debe ser gradual,
+desde la orientación actual y con velocidad editable; no aplicar giros instantáneos.
+El botón compartido de salto/interacción sirve
+sólo para avanzar o cerrar el diálogo; la pulsación que lo cierra tampoco salta.
+
+Reutilizar la base `project/scenes/npc/squirrel_npc.tscn` y su componente de
+diálogo y su bloqueo compartido de locomoción; no desactivar procesamiento ni
+pausar el árbol para conversar. Los gestos de brazos al hablar deben ser
+editables y reutilizables entre NPC. Consultar `project/docs/squirrel_npcs.md` para los controles y
+la integración. Conservar estas reglas también si se amplía el sistema de IA
+o se añaden otros tipos de NPC.

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="TreeMaterialPalette" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/trees/stpine/bark.png" id="1_xvbp3"]
+[ext_resource type="Texture2D" path="res://assets/textures/trees/stpine/leaves.png" id="2_m3crs"]
+[ext_resource type="Script" path="res://scripts/tree_material_palette.gd" id="3_facwk"]
+
+[resource]
+resource_name = "STPine5 - materiales (asset 9)"
+script = ExtResource("3_facwk")
+asset_names = PackedStringArray()
+bark_material_keywords = PackedStringArray("trunk", "bark", "wood")
+bark_surface_indices = PackedInt32Array()
+bark_color = Color(1, 1, 1, 1)
+bark_texture_mode = 1
+bark_texture = ExtResource("1_xvbp3")
+foliage_material_keywords = PackedStringArray("leaves", "leaf", "foliage", "green")
+foliage_surface_indices = PackedInt32Array()
+foliage_color = Color(0.27, 0.4, 0.16, 1)
+foliage_texture_mode = 1
+foliage_texture = ExtResource("2_m3crs")
+foliage_transparency = 2

@@ -5,6 +5,41 @@ signal feedback(kind: String)
 signal respawned
 signal gliding_changed(active: bool)
 
+@export_group("Mirada al interactuar")
+## Orienta el modelo hacia el interlocutor al iniciar una conversación, sin cambiar velocidad, controles, postura ni cámara. Apagar conserva su orientación normal. Se consulta al iniciar la interacción.
+@export var interaction_facing_enabled := true
+## Segundos de seguimiento inicial fuera de un diálogo; 0 completa sólo el giro gradual solicitado. El giro siempre puede terminar aunque este tiempo expire. Durante una conversación mantiene la mirada hasta cerrar. Mayor prolonga el seguimiento; no pausa física ni animaciones. Se captura al iniciar.
+@export_range(0.0, 2.0, 0.05, "suffix:s") var interaction_facing_duration := 0.35
+## Velocidad máxima del giro hacia el interlocutor, en grados por segundo. Menor produce un giro más lento y suave; mayor gira más rápido. 240 tarda 0,75 s en dar media vuelta. Ambos actores usan su propio ajuste; se actualiza en vivo sin mover su posición ni girar la cámara.
+@export_range(1.0, 1080.0, 1.0, "suffix:°/s") var interaction_facing_speed_degrees := 240.0
+
+var _interaction_partner: WeakRef
+var _interaction_facing_left := 0.0
+var _interaction_turn_pending := false
+var _dialogue_owners: Dictionary = {}
+
+func is_in_dialogue() -> bool:
+	return not _dialogue_owners.is_empty()
+
+func begin_dialogue(owner: Node) -> void:
+	_dialogue_owners[owner.get_instance_id()] = true
+	velocity.x = 0.0
+	velocity.z = 0.0
+	horizontal_speed = 0.0
+	previous_motion = Vector3.ZERO
+	motion_acceleration = Vector3.ZERO
+	consume_interaction_press()
+
+func end_dialogue(owner: Node) -> void:
+	_dialogue_owners.erase(owner.get_instance_id())
+	if not is_in_dialogue():
+		_interaction_turn_pending = false
+		_interaction_facing_left = 0.0
+		_interaction_partner = null
+	# La pulsación que cierra el globo tampoco debe producir un salto.
+	consume_interaction_press()
+	input_grace = 0.16
+
 var _snow_step_side := -1.0
 
 @export_group("Audio de pasos")
@@ -571,6 +606,18 @@ var glide_turn_intent := 0.0
 var glide_signed_turn_angle := 0.0
 var glide_motion_heading := Vector3.ZERO
 
+## Fuente opcional de órdenes para NPC. Sin fuente, el jugador sigue usando Input.
+var command_source: Node
+
+func action_pressed(action: StringName) -> bool:
+	return bool(command_source.call("action_pressed", action)) if is_instance_valid(command_source) else Input.is_action_pressed(action)
+
+func action_just_pressed(action: StringName) -> bool:
+	return bool(command_source.call("action_just_pressed", action)) if is_instance_valid(command_source) else Input.is_action_just_pressed(action)
+
+func movement_input() -> Vector2:
+	return command_source.call("movement_input") if is_instance_valid(command_source) else Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+
 func _steep_support() -> Vector3:
 	# Sample beneath the feet, never a forward wall. Leave a real jump untouched.
 	if jump_consumed and velocity.y > 0.0: return Vector3.ZERO
@@ -616,6 +663,34 @@ func react(kind: String) -> void:
 	reaction_kind = kind
 	reaction_time = 0.45
 
+func face_interaction_partner(partner: Node3D) -> void:
+	if not interaction_facing_enabled or not is_instance_valid(partner) or not is_instance_valid(model):
+		return
+	_interaction_partner = weakref(partner)
+	_interaction_facing_left = interaction_facing_duration
+	_interaction_turn_pending = true
+
+func _face_partner(partner: Node3D, delta: float) -> void:
+	var direction := partner.global_position - global_position
+	direction.y = 0.0
+	if direction.length_squared() < 0.000001:
+		_interaction_turn_pending = false
+		return
+	var local_direction := global_basis.orthonormalized().inverse() * direction
+	var target_yaw := atan2(-local_direction.x, -local_direction.z)
+	model.rotation.y = rotate_toward(model.rotation.y, target_yaw, deg_to_rad(interaction_facing_speed_degrees) * delta)
+	_interaction_turn_pending = absf(wrapf(target_yaw - model.rotation.y, -PI, PI)) > 0.001
+
+func _process(delta: float) -> void:
+	if (_interaction_facing_left <= 0.0 and not is_in_dialogue() and not _interaction_turn_pending) or not _interaction_partner:
+		return
+	var partner := _interaction_partner.get_ref() as Node3D
+	if is_instance_valid(partner):
+		_face_partner(partner, delta)
+	else:
+		_interaction_turn_pending = false
+	_interaction_facing_left = maxf(0.0, _interaction_facing_left - delta)
+
 func set_controls(enabled: bool) -> void:
 	control_enabled = enabled
 	if not enabled:
@@ -633,6 +708,9 @@ func set_controls(enabled: bool) -> void:
 	angular_velocity = 0
 
 func respawn() -> void:
+	_interaction_facing_left = 0.0
+	_interaction_partner = null
+	_interaction_turn_pending = false
 	is_splat = false
 	splat_elapsed = 0.0
 	is_glide_recoiling = false
@@ -675,11 +753,24 @@ func respawn() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not control_enabled: return
+	if is_in_dialogue():
+		# Bloqueo de locomoción, no de procesamiento: gravedad, Idle y rig siguen vivos.
+		velocity.x = 0.0
+		velocity.z = 0.0
+		velocity.y = 0.0 if is_on_floor() else velocity.y - gravity * delta
+		move_and_slide()
+		horizontal_speed = 0.0
+		previous_motion = Vector3.ZERO
+		angular_velocity = 0.0
+		buffer_left = 0.0
+		animator.tick(delta, 0.0)
+		model.update_handmade_run(0.0, walk_member_animation_speed, run_member_animation_speed, false)
+		return
 	if interaction_press_consumed:
-		if not Input.is_action_pressed("jump"):
+		if not action_pressed("jump"):
 			interaction_press_consumed = false
 	input_grace = maxf(0, input_grace - delta)
-	if not Input.is_action_pressed("glide"):
+	if not action_pressed("glide"):
 		glide_recoil_requires_release = false
 	if is_splat and _tick_splat(delta):
 		return
@@ -705,19 +796,19 @@ func _physics_process(delta: float) -> void:
 	else:
 		coyote_left = maxf(0, coyote_left - delta)
 	buffer_left = maxf(0, buffer_left - delta)
-	var jump_pressed_this_frame := Input.is_action_just_pressed("jump") and not interaction_press_consumed
+	var jump_pressed_this_frame := action_just_pressed("jump") and not interaction_press_consumed
 	# Planeo tiene acción independiente: R1 en mando, otra pulsación de
 	# Espacio en teclado. Mantener salto desde tierra no activa el planeo.
-	if Input.is_action_just_pressed("glide") and not interaction_press_consumed and not grounded and not is_sliding and not glide_recoil_requires_release:
+	if action_just_pressed("glide") and not interaction_press_consumed and not grounded and not is_sliding and not glide_recoil_requires_release:
 		glide_button_pressed_in_air = true
-	if not Input.is_action_pressed("glide"):
+	if not action_pressed("glide"):
 		glide_button_pressed_in_air = false
 	# Un botón pulsado en el aire ahora sirve para iniciar planeo, no para
 	# convertir accidentalmente una caída en un salto de coyote.
 	if jump_pressed_this_frame and input_grace <= 0 and not glide_button_pressed_in_air:
 		buffer_left = jump_buffer
-	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and Input.is_action_pressed("glide") and not interaction_press_consumed
-	is_glide_sprinting = is_gliding and Input.is_action_pressed("sprint")
+	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and action_pressed("glide") and not interaction_press_consumed
+	is_glide_sprinting = is_gliding and action_pressed("sprint")
 	if grounded:
 		velocity.y = 0
 	elif is_gliding and velocity.y <= 0:
@@ -738,12 +829,12 @@ func _physics_process(delta: float) -> void:
 		landing_time = 0
 		feedback.emit("jump")
 		animator.jump_started()
-	var direction := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var direction := movement_input()
 	glide_movement_intent = direction.length()
 	# Movement follows the visible orbit, not its unsmoothed target yaw.
 	var yaw := camera_rig.rotation.y if camera_rig else 0.0
 	var desired := Vector3(direction.x, 0, direction.y).rotated(Vector3.UP, yaw)
-	var target_speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+	var target_speed := sprint_speed if action_pressed("sprint") else walk_speed
 	if is_glide_sprinting:
 		target_speed *= glide_sprint_speed_multiplier
 	var planar := Vector3(velocity.x, 0, velocity.z)
@@ -887,7 +978,7 @@ func _physics_process(delta: float) -> void:
 		return
 	animator.tick(delta, horizontal_speed)
 	if not is_gliding and not is_glide_landing:
-		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, Input.is_action_pressed("sprint"))
+		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, action_pressed("sprint"))
 
 
 func _try_glide_recoil(incoming: Vector3) -> bool:
@@ -963,7 +1054,7 @@ func _tick_glide_recoil(delta: float) -> bool:
 		return true
 	animator.tick(delta, horizontal_speed)
 	if not is_glide_recoiling:
-		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, Input.is_action_pressed("sprint"))
+		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, action_pressed("sprint"))
 	return true
 
 
@@ -1030,7 +1121,7 @@ func _tick_splat(delta: float) -> bool:
 func _tick_glide_landing(delta: float) -> bool:
 	# Una nueva pulsación de salto recupera inmediatamente el controlador normal.
 	var lost_support := not is_on_floor() and glide_landing_contact_lost >= glide_landing_contact_grace
-	if not glide_landing_enabled or glide_landing_left <= 0.0 or lost_support or _steep_support() != Vector3.ZERO or (Input.is_action_just_pressed("jump") and not interaction_press_consumed):
+	if not glide_landing_enabled or glide_landing_left <= 0.0 or lost_support or _steep_support() != Vector3.ZERO or (action_just_pressed("jump") and not interaction_press_consumed):
 		is_glide_landing = false
 		glide_landing_left = 0.0
 		animator.glide_blend = 0.0

@@ -536,7 +536,14 @@ func _build_mesh() -> void:
 	ribbon.section_length = 0.9 / float(blade_sections)
 	ribbon.section_segments = 1
 	ribbon.curve = taper_curve if taper_curve != null else _default_taper_curve()
-	_mesh = ribbon
+	# Keep the exact ribbon geometry/UVs, but not its trail skinning metadata.
+	# GLES3 warns about bind poses even when particle trails are disabled.
+	var arrays := ribbon.get_mesh_arrays()
+	arrays[Mesh.ARRAY_BONES] = null
+	arrays[Mesh.ARRAY_WEIGHTS] = null
+	var blade_mesh := ArrayMesh.new()
+	blade_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_mesh = blade_mesh
 
 
 func _default_taper_curve() -> Curve:

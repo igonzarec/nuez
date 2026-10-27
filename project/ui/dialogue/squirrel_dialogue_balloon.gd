@@ -19,6 +19,24 @@ signal close_requested
 signal advance_requested
 var manual_mode := false
 var speaker_subtitle := ""
+var _interlocutors: Array[ExplorerPlayer] = []
+
+## El globo posee el bloqueo de locomoción; liberar el globo siempre lo retira.
+func bind_interlocutors(actors: Array[ExplorerPlayer]) -> void:
+	release_interlocutors()
+	for actor in actors:
+		if is_instance_valid(actor) and not _interlocutors.has(actor):
+			_interlocutors.append(actor)
+			actor.begin_dialogue(self)
+
+func release_interlocutors() -> void:
+	for actor in _interlocutors:
+		if is_instance_valid(actor):
+			actor.end_dialogue(self)
+	_interlocutors.clear()
+
+func _exit_tree() -> void:
+	release_interlocutors()
 
 func set_follow_target(target: Node3D) -> void:
 	$Balloon/DialogueBox.set_follow_target(target)
@@ -35,6 +53,7 @@ func _ready() -> void:
 		$Balloon/DialogueBox.show()
 		%ResponsesMenu.hide()
 		return
+	add_to_group("active_dialogue")
 	# El mismo botón abre, avanza y confirma diálogos: E en teclado, X/cuadrado
 	# en control. ui_cancel mantiene Esc / B como salida.
 	next_action = &"interact"

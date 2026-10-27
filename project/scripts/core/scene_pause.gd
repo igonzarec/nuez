@@ -48,7 +48,7 @@ func _is_main_game(scene: Node) -> bool:
 	return scene.get_script() == load("res://scripts/game.gd")
 
 func _discover(node: Node) -> void:
-	if node is ExplorerPlayer: _player = node
+	if node is ExplorerPlayer and not is_instance_valid(node.command_source): _player = node
 	if node is TrailCamera: _camera = node
 	if node is TrailAudio: _audio = node
 	for child in node.get_children(): _discover(child)

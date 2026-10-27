@@ -1,0 +1,39 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+ERROR: Resource file not found: res:// (expected type: unknown)
+   at: _load (core/io/resource_loader.cpp:351)
+   GDScript backtrace (most recent call first):
+       [0] inspect (res://../tmp/inspect_peter_peak.gd:11)
+ERROR: Error loading resource: ''.
+   at: load (core/core_bind.cpp:78)
+   GDScript backtrace (most recent call first):
+       [0] inspect (res://../tmp/inspect_peter_peak.gd:11)
+WARNING: instance_reset_physics_interpolation() is deprecated.
+   at: _instance_reset_physics_interpolation_bind_compat_104269 (servers/rendering/rendering_server.compat.inc:58)
+   GDScript backtrace (most recent call first):
+       [0] inspect (res://../tmp/inspect_peter_peak.gd:11)
+PETER_PEAKS [(208.0, 170.0, -504.0), (216.0, 170.0, -504.0), (224.0, 170.0, -504.0), (200.0, 170.0, -496.0), (200.0, 170.0, -504.0), (208.0, 170.0, -488.0), (208.0, 170.0, -496.0), (216.0, 170.0, -496.0), (224.0, 170.0, -496.0), (232.0, 170.0, -496.0), (216.0, 170.0, -488.0), (224.0, 170.0, -488.0)]
+PETER_MATERIAL nuez_pierna_izquierda m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL nuez_pierna_izquierda m_hands (0.349, 0.2118, 0.1451, 1.0)
+PETER_MATERIAL nuez_pierna_derecha m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL nuez_pierna_derecha m_hands (0.349, 0.2118, 0.1451, 1.0)
+PETER_MATERIAL nuez_brazo_izquierdo m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL nuez_brazo_izquierdo m_hands (0.349, 0.2118, 0.1451, 1.0)
+PETER_MATERIAL nuez_brazo_derecho m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL nuez_brazo_derecho m_hands (0.349, 0.2118, 0.1451, 1.0)
+PETER_MATERIAL nuez_oreja_izquierda m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL nuez_oreja_izquierda m_ear (0.9255, 0.4431, 0.3176, 1.0)
+PETER_MATERIAL nuez_oreja_derecha m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL nuez_oreja_derecha m_ear (0.9255, 0.4431, 0.3176, 1.0)
+PETER_MATERIAL Icosphere m_ojos_negro (0.1922, 0.1608, 0.1412, 1.0)
+PETER_MATERIAL nuez_cabeza m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL nuez_cabeza m_rostro (0.8314, 0.5726, 0.3412, 1.0)
+PETER_MATERIAL nuez_ojo_derecho m_ojos_negro (0.1922, 0.1608, 0.1412, 1.0)
+PETER_MATERIAL nuez_ojo_izquierdo m_ojos_negro (0.1922, 0.1608, 0.1412, 1.0)
+PETER_MATERIAL nuez_torso m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL nuez_torso m_rostro (0.8314, 0.5726, 0.3412, 1.0)
+PETER_MATERIAL nuez_cola m_body (0.5882, 0.3098, 0.1569, 1.0)
+PETER_MATERIAL membrana_derecha m_hands (0.349, 0.2118, 0.1451, 1.0)
+PETER_MATERIAL membrana_izquierda m_hands (0.349, 0.2118, 0.1451, 1.0)

@@ -1,0 +1,41 @@
+[gd_scene format=3 uid="uid://w1pjcwim1pku"]
+
+[ext_resource type="PackedScene" path="res://scenes/npc/squirrel_npc.tscn" id="1"]
+
+[node name="Peter" unique_id=538982279 instance=ExtResource("1")]
+process_priority = 200
+process_physics_priority = -100
+display_name = "Peter"
+dialogue_text = "Vaya, esta montaña está algo simplista todavía... Pero bueno, ¿quién soy yo para juzgar?"
+talking_arm_hz = 3.0
+talking_arm_open_degrees = 26.0
+talking_arm_min_degrees = -62.0
+talking_arm_max_degrees = 82.5
+fur_color = Color(0.068511866, 0.3706892, 0.5882354, 1)
+tail_color = Color(0.06666667, 0.37254903, 0.5882353, 1)
+muzzle_belly_color = Color(0.68125, 0.59810644, 0.49935615, 1)
+paws_color = Color(0.06056504, 0.124602936, 0.18431373, 1)
+inner_ear_color = Color(0.55625, 0.37502813, 0.3683869, 1)
+overall_size = 1.48
+head_size = 0.7
+torso_width = 1.14
+torso_depth = 1.11
+arms_thickness = 1.11
+legs_thickness = 1.14
+tail_size = 1.39
+ears_size = 0.98
+
+[node name="EditorVisual" parent="." index="1"]
+transform = Transform3D(-1.48, 0, -2.2347379e-07, 0, 1.48, 0, 2.2347379e-07, 0, -1.48, 0, 0, 0)
+
+[node name="Point1" parent="Route" index="0"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, -2)
+
+[node name="Point2" parent="Route" index="1"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -2)
+
+[node name="Point3" parent="Route" index="2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2)
+
+[node name="Point4" parent="Route" index="3"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 2)

@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+[ext_resource type="ArrayMesh" path="res://resources/trees/lod_scenes/st_pine_6_asset_11_lod0.res" id="1_po43g"]
+[ext_resource type="ArrayMesh" path="res://resources/trees/lod_scenes/st_pine_6_asset_11_lod1.res" id="2_x5l7j"]
+[ext_resource type="ArrayMesh" path="res://resources/trees/lod_scenes/st_pine_6_asset_11_lod2.res" id="3_eogab"]
+
+[node name="st_pine_6_asset_11" type="Node3D" unique_id=904196951]
+
+[node name="st_pine_6_asset_11LOD0" type="MeshInstance3D" parent="." unique_id=438605570]
+mesh = ExtResource("1_po43g")
+
+[node name="st_pine_6_asset_11LOD1" type="MeshInstance3D" parent="." unique_id=1138651006]
+mesh = ExtResource("2_x5l7j")
+
+[node name="st_pine_6_asset_11LOD2" type="MeshInstance3D" parent="." unique_id=1446320903]
+mesh = ExtResource("3_eogab")

@@ -1,0 +1,691 @@
+#requires -version 5.1
+<#
+.SYNOPSIS
+    Batch-converts Blender (.blend) and FBX (.fbx) models to Godot-friendly GLB.
+
+.DESCRIPTION
+    A reusable WinForms front-end for Blender. It supports individual files or
+    whole folders, optional recursive scanning, destination selection, safe
+    per-file conversion, progress reporting, and failure logging.
+
+    The default settings are optimized for static Godot 4 assets such as trees,
+    rocks, props, and environment meshes.
+
+.NOTES
+    Run with:
+      powershell -ExecutionPolicy Bypass -File .\Convert-ModelsToGlb.ps1
+
+    The original source files are never modified.
+#>
+
+[CmdletBinding()]
+param(
+    [string]$BlenderPath = ""
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+# ----------------------------- Helpers -------------------------------------
+
+function Find-BlenderExecutable {
+    param([string]$Preferred)
+
+    if ($Preferred -and (Test-Path -LiteralPath $Preferred -PathType Leaf)) {
+        return $Preferred
+    }
+
+    $roots = @(
+        "C:\Program Files\Blender Foundation",
+        "C:\Program Files (x86)\Blender Foundation"
+    )
+
+    $candidates = @()
+    foreach ($root in $roots) {
+        if (Test-Path -LiteralPath $root -PathType Container) {
+            $candidates += Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
+                ForEach-Object { Join-Path $_.FullName "blender.exe" } |
+                Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+        }
+    }
+
+    if ($candidates.Count -gt 0) {
+        # Prefer the most recently modified install. This avoids hard-coding a Blender version.
+        return ($candidates | Sort-Object { (Get-Item -LiteralPath $_).LastWriteTime } -Descending | Select-Object -First 1)
+    }
+
+    $command = Get-Command blender.exe -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+
+    return ""
+}
+
+function Add-LogLine {
+    param(
+        [System.Windows.Forms.TextBox]$TextBox,
+        [string]$Text
+    )
+
+    $timestamp = (Get-Date).ToString("HH:mm:ss")
+    $TextBox.AppendText("[$timestamp] $Text`r`n")
+    $TextBox.SelectionStart = $TextBox.TextLength
+    $TextBox.ScrollToCaret()
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+function Get-RelativePathCompat {
+    param(
+        [string]$BasePath,
+        [string]$TargetPath
+    )
+
+    $base = [System.IO.Path]::GetFullPath($BasePath)
+    if (-not $base.EndsWith([System.IO.Path]::DirectorySeparatorChar.ToString())) {
+        $base += [System.IO.Path]::DirectorySeparatorChar
+    }
+
+    $target = [System.IO.Path]::GetFullPath($TargetPath)
+    $baseUri = New-Object System.Uri($base)
+    $targetUri = New-Object System.Uri($target)
+    $relativeUri = $baseUri.MakeRelativeUri($targetUri)
+    return [System.Uri]::UnescapeDataString($relativeUri.ToString()).Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+}
+
+function New-WorkerScript {
+    $path = Join-Path ([System.IO.Path]::GetTempPath()) ("model_to_glb_" + [guid]::NewGuid().ToString("N") + ".py")
+
+    $code = @'
+import bpy
+import sys
+from pathlib import Path
+
+args = sys.argv[sys.argv.index("--") + 1:]
+if len(args) < 8:
+    raise RuntimeError("Internal error: converter received too few arguments")
+
+source_path = Path(args[0])
+output_path = Path(args[1])
+apply_rotation = args[2] == "1"
+apply_scale = args[3] == "1"
+apply_location = args[4] == "1"
+bake_world = args[5] == "1"
+visible_only = args[6] == "1"
+flat_color_repair = args[7] == "1"
+
+suffix = source_path.suffix.lower()
+
+if suffix == ".blend":
+    bpy.ops.wm.open_mainfile(filepath=str(source_path))
+elif suffix == ".fbx":
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    imported = False
+    errors = []
+
+    # Blender has used import_scene.fbx for many releases. Keep a fallback for
+    # versions exposing the newer native FBX operator under wm.
+    try:
+        bpy.ops.import_scene.fbx(filepath=str(source_path))
+        imported = True
+    except Exception as exc:
+        errors.append(f"import_scene.fbx: {exc}")
+
+    if not imported:
+        try:
+            bpy.ops.wm.fbx_import(filepath=str(source_path))
+            imported = True
+        except Exception as exc:
+            errors.append(f"wm.fbx_import: {exc}")
+
+    if not imported:
+        raise RuntimeError("FBX import failed. " + " | ".join(errors))
+else:
+    raise RuntimeError(f"Unsupported source type: {suffix}")
+
+# Use mesh objects only. This makes static environment assets predictable in
+# Godot and avoids exporting cameras/lights bundled with asset packs.
+mesh_objects = [
+    obj for obj in bpy.context.scene.objects
+    if obj.type == "MESH" and (not visible_only or not obj.hide_render)
+]
+
+if not mesh_objects:
+    raise RuntimeError(f"No exportable mesh objects found in {source_path.name}")
+
+# Make linked mesh data single-user before applying transforms. This prevents
+# applying a transform to one object from unexpectedly modifying another object
+# that shares the same mesh datablock.
+for obj in mesh_objects:
+    if obj.data and obj.data.users > 1:
+        obj.data = obj.data.copy()
+
+# For static assets, parent empties imported from FBX can carry scale/rotation.
+# Preserve each mesh's world matrix, detach it, then apply transforms locally.
+# This is especially useful for Godot/Terrain3D assets.
+if bake_world:
+    for obj in mesh_objects:
+        world = obj.matrix_world.copy()
+        obj.parent = None
+        obj.matrix_world = world
+
+bpy.ops.object.select_all(action="DESELECT")
+for obj in mesh_objects:
+    obj.select_set(True)
+
+bpy.context.view_layer.objects.active = mesh_objects[0]
+
+if apply_location or apply_rotation or apply_scale:
+    bpy.ops.object.transform_apply(
+        location=apply_location,
+        rotation=apply_rotation,
+        scale=apply_scale,
+    )
+
+# Optional compatibility mode for old flat-color packs. This intentionally
+# discards complex shader graphs/textures, so it is OFF by default.
+if flat_color_repair:
+    def get_base_color(material):
+        if material.use_nodes and material.node_tree:
+            for node in material.node_tree.nodes:
+                if node.type == "BSDF_PRINCIPLED" and "Base Color" in node.inputs:
+                    return tuple(node.inputs["Base Color"].default_value)
+        return tuple(material.diffuse_color)
+
+    used_materials = set()
+    for obj in mesh_objects:
+        for slot in obj.material_slots:
+            if slot.material:
+                used_materials.add(slot.material)
+
+    for material in used_materials:
+        base_color = get_base_color(material)
+        material.use_nodes = True
+        nodes = material.node_tree.nodes
+        links = material.node_tree.links
+        nodes.clear()
+
+        output = nodes.new(type="ShaderNodeOutputMaterial")
+        shader = nodes.new(type="ShaderNodeBsdfPrincipled")
+        shader.inputs["Base Color"].default_value = base_color
+        shader.inputs["Roughness"].default_value = 1.0
+        links.new(shader.outputs["BSDF"], output.inputs["Surface"])
+
+output_path.parent.mkdir(parents=True, exist_ok=True)
+
+# Re-select meshes in case an operator changed selection state.
+bpy.ops.object.select_all(action="DESELECT")
+for obj in mesh_objects:
+    obj.select_set(True)
+bpy.context.view_layer.objects.active = mesh_objects[0]
+
+bpy.ops.export_scene.gltf(
+    filepath=str(output_path),
+    export_format="GLB",
+    use_selection=True,
+    export_materials="EXPORT",
+)
+
+print(f"CONVERTER_OK:{output_path}")
+'@
+
+    Set-Content -LiteralPath $path -Value $code -Encoding UTF8
+    return $path
+}
+
+# ----------------------------- UI ------------------------------------------
+
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Model → GLB Converter"
+$form.StartPosition = "CenterScreen"
+$form.Size = New-Object System.Drawing.Size(820, 700)
+$form.MinimumSize = New-Object System.Drawing.Size(760, 640)
+$form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$form.BackColor = [System.Drawing.Color]::FromArgb(248, 249, 250)
+
+$title = New-Object System.Windows.Forms.Label
+$title.Text = "Model → GLB Converter"
+$title.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 18)
+$title.AutoSize = $true
+$title.Location = New-Object System.Drawing.Point(18, 14)
+$form.Controls.Add($title)
+
+$subtitle = New-Object System.Windows.Forms.Label
+$subtitle.Text = "Batch-convert .blend and .fbx assets to Godot-friendly .glb files"
+$subtitle.ForeColor = [System.Drawing.Color]::DimGray
+$subtitle.AutoSize = $true
+$subtitle.Location = New-Object System.Drawing.Point(21, 49)
+$form.Controls.Add($subtitle)
+
+# Blender executable
+$lblBlender = New-Object System.Windows.Forms.Label
+$lblBlender.Text = "Blender"
+$lblBlender.AutoSize = $true
+$lblBlender.Location = New-Object System.Drawing.Point(20, 85)
+$form.Controls.Add($lblBlender)
+
+$txtBlender = New-Object System.Windows.Forms.TextBox
+$txtBlender.Location = New-Object System.Drawing.Point(20, 105)
+$txtBlender.Size = New-Object System.Drawing.Size(665, 24)
+$txtBlender.Anchor = "Top,Left,Right"
+$txtBlender.Text = Find-BlenderExecutable -Preferred $BlenderPath
+$form.Controls.Add($txtBlender)
+
+$btnBlender = New-Object System.Windows.Forms.Button
+$btnBlender.Text = "Browse…"
+$btnBlender.Location = New-Object System.Drawing.Point(695, 103)
+$btnBlender.Size = New-Object System.Drawing.Size(90, 28)
+$btnBlender.Anchor = "Top,Right"
+$form.Controls.Add($btnBlender)
+
+# Sources
+$lblSources = New-Object System.Windows.Forms.Label
+$lblSources.Text = "Source models"
+$lblSources.AutoSize = $true
+$lblSources.Location = New-Object System.Drawing.Point(20, 145)
+$form.Controls.Add($lblSources)
+
+$listSources = New-Object System.Windows.Forms.ListBox
+$listSources.Location = New-Object System.Drawing.Point(20, 166)
+$listSources.Size = New-Object System.Drawing.Size(765, 110)
+$listSources.Anchor = "Top,Left,Right"
+$listSources.HorizontalScrollbar = $true
+$form.Controls.Add($listSources)
+
+$btnFiles = New-Object System.Windows.Forms.Button
+$btnFiles.Text = "Add files…"
+$btnFiles.Location = New-Object System.Drawing.Point(20, 284)
+$btnFiles.Size = New-Object System.Drawing.Size(100, 29)
+$form.Controls.Add($btnFiles)
+
+$btnFolder = New-Object System.Windows.Forms.Button
+$btnFolder.Text = "Add folder…"
+$btnFolder.Location = New-Object System.Drawing.Point(128, 284)
+$btnFolder.Size = New-Object System.Drawing.Size(105, 29)
+$form.Controls.Add($btnFolder)
+
+$btnClear = New-Object System.Windows.Forms.Button
+$btnClear.Text = "Clear"
+$btnClear.Location = New-Object System.Drawing.Point(241, 284)
+$btnClear.Size = New-Object System.Drawing.Size(75, 29)
+$form.Controls.Add($btnClear)
+
+$chkRecursive = New-Object System.Windows.Forms.CheckBox
+$chkRecursive.Text = "Include subfolders when adding a folder"
+$chkRecursive.Checked = $true
+$chkRecursive.AutoSize = $true
+$chkRecursive.Location = New-Object System.Drawing.Point(334, 290)
+$form.Controls.Add($chkRecursive)
+
+# Output
+$lblOutput = New-Object System.Windows.Forms.Label
+$lblOutput.Text = "Output folder"
+$lblOutput.AutoSize = $true
+$lblOutput.Location = New-Object System.Drawing.Point(20, 329)
+$form.Controls.Add($lblOutput)
+
+$txtOutput = New-Object System.Windows.Forms.TextBox
+$txtOutput.Location = New-Object System.Drawing.Point(20, 349)
+$txtOutput.Size = New-Object System.Drawing.Size(665, 24)
+$txtOutput.Anchor = "Top,Left,Right"
+$form.Controls.Add($txtOutput)
+
+$btnOutput = New-Object System.Windows.Forms.Button
+$btnOutput.Text = "Browse…"
+$btnOutput.Location = New-Object System.Drawing.Point(695, 347)
+$btnOutput.Size = New-Object System.Drawing.Size(90, 28)
+$btnOutput.Anchor = "Top,Right"
+$form.Controls.Add($btnOutput)
+
+# Options group
+$options = New-Object System.Windows.Forms.GroupBox
+$options.Text = "Godot / export options"
+$options.Location = New-Object System.Drawing.Point(20, 390)
+$options.Size = New-Object System.Drawing.Size(765, 112)
+$options.Anchor = "Top,Left,Right"
+$form.Controls.Add($options)
+
+$chkApplyRotation = New-Object System.Windows.Forms.CheckBox
+$chkApplyRotation.Text = "Apply rotation"
+$chkApplyRotation.Checked = $true
+$chkApplyRotation.AutoSize = $true
+$chkApplyRotation.Location = New-Object System.Drawing.Point(15, 26)
+$options.Controls.Add($chkApplyRotation)
+
+$chkApplyScale = New-Object System.Windows.Forms.CheckBox
+$chkApplyScale.Text = "Apply scale"
+$chkApplyScale.Checked = $true
+$chkApplyScale.AutoSize = $true
+$chkApplyScale.Location = New-Object System.Drawing.Point(140, 26)
+$options.Controls.Add($chkApplyScale)
+
+$chkApplyLocation = New-Object System.Windows.Forms.CheckBox
+$chkApplyLocation.Text = "Apply location"
+$chkApplyLocation.Checked = $false
+$chkApplyLocation.AutoSize = $true
+$chkApplyLocation.Location = New-Object System.Drawing.Point(250, 26)
+$options.Controls.Add($chkApplyLocation)
+
+$chkBakeWorld = New-Object System.Windows.Forms.CheckBox
+$chkBakeWorld.Text = "Bake parent/world transforms (recommended for static assets)"
+$chkBakeWorld.Checked = $true
+$chkBakeWorld.AutoSize = $true
+$chkBakeWorld.Location = New-Object System.Drawing.Point(365, 26)
+$options.Controls.Add($chkBakeWorld)
+
+$chkVisibleOnly = New-Object System.Windows.Forms.CheckBox
+$chkVisibleOnly.Text = "Skip meshes hidden from render"
+$chkVisibleOnly.Checked = $true
+$chkVisibleOnly.AutoSize = $true
+$chkVisibleOnly.Location = New-Object System.Drawing.Point(15, 56)
+$options.Controls.Add($chkVisibleOnly)
+
+$chkOverwrite = New-Object System.Windows.Forms.CheckBox
+$chkOverwrite.Text = "Overwrite existing GLB"
+$chkOverwrite.Checked = $true
+$chkOverwrite.AutoSize = $true
+$chkOverwrite.Location = New-Object System.Drawing.Point(225, 56)
+$options.Controls.Add($chkOverwrite)
+
+$chkPreserveFolders = New-Object System.Windows.Forms.CheckBox
+$chkPreserveFolders.Text = "Preserve folder structure"
+$chkPreserveFolders.Checked = $true
+$chkPreserveFolders.AutoSize = $true
+$chkPreserveFolders.Location = New-Object System.Drawing.Point(395, 56)
+$options.Controls.Add($chkPreserveFolders)
+
+$chkFlatColor = New-Object System.Windows.Forms.CheckBox
+$chkFlatColor.Text = "Legacy flat-color material repair (removes complex shaders/textures)"
+$chkFlatColor.Checked = $false
+$chkFlatColor.AutoSize = $true
+$chkFlatColor.Location = New-Object System.Drawing.Point(15, 83)
+$options.Controls.Add($chkFlatColor)
+
+# Progress / status
+$progress = New-Object System.Windows.Forms.ProgressBar
+$progress.Location = New-Object System.Drawing.Point(20, 518)
+$progress.Size = New-Object System.Drawing.Size(650, 22)
+$progress.Anchor = "Top,Left,Right"
+$progress.Minimum = 0
+$progress.Maximum = 100
+$form.Controls.Add($progress)
+
+$btnConvert = New-Object System.Windows.Forms.Button
+$btnConvert.Text = "Convert"
+$btnConvert.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 9)
+$btnConvert.Location = New-Object System.Drawing.Point(680, 514)
+$btnConvert.Size = New-Object System.Drawing.Size(105, 31)
+$btnConvert.Anchor = "Top,Right"
+$form.Controls.Add($btnConvert)
+
+$status = New-Object System.Windows.Forms.Label
+$status.Text = "Ready"
+$status.AutoSize = $true
+$status.ForeColor = [System.Drawing.Color]::DimGray
+$status.Location = New-Object System.Drawing.Point(20, 547)
+$form.Controls.Add($status)
+
+$log = New-Object System.Windows.Forms.TextBox
+$log.Location = New-Object System.Drawing.Point(20, 570)
+$log.Size = New-Object System.Drawing.Size(765, 78)
+$log.Anchor = "Top,Bottom,Left,Right"
+$log.Multiline = $true
+$log.ReadOnly = $true
+$log.ScrollBars = "Vertical"
+$log.BackColor = [System.Drawing.Color]::White
+$form.Controls.Add($log)
+
+# Track both source path and the folder root from which it was added.
+$script:SourceItems = New-Object System.Collections.ArrayList
+
+function Refresh-SourceList {
+    $listSources.Items.Clear()
+    foreach ($item in $script:SourceItems) {
+        [void]$listSources.Items.Add($item.Path)
+    }
+    $status.Text = "$($script:SourceItems.Count) model(s) selected"
+}
+
+function Add-SourceItem {
+    param(
+        [string]$Path,
+        [string]$Root
+    )
+
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $exists = $script:SourceItems | Where-Object { $_.Path -ieq $full }
+    if ($exists) { return }
+
+    [void]$script:SourceItems.Add([pscustomobject]@{
+        Path = $full
+        Root = [System.IO.Path]::GetFullPath($Root)
+    })
+}
+
+$btnBlender.Add_Click({
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = "Select blender.exe"
+    $dialog.Filter = "Blender (blender.exe)|blender.exe|Executable (*.exe)|*.exe"
+    $dialog.FileName = "blender.exe"
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $txtBlender.Text = $dialog.FileName
+    }
+})
+
+$btnFiles.Add_Click({
+    $dialog = New-Object System.Windows.Forms.OpenFileDialog
+    $dialog.Title = "Add Blender or FBX models"
+    $dialog.Filter = "Supported models (*.blend;*.fbx)|*.blend;*.fbx|Blender (*.blend)|*.blend|FBX (*.fbx)|*.fbx"
+    $dialog.Multiselect = $true
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        foreach ($file in $dialog.FileNames) {
+            Add-SourceItem -Path $file -Root (Split-Path -Parent $file)
+        }
+        Refresh-SourceList
+    }
+})
+
+$btnFolder.Add_Click({
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = "Select a folder containing .blend or .fbx models"
+    $dialog.ShowNewFolderButton = $false
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $root = $dialog.SelectedPath
+        $search = if ($chkRecursive.Checked) { [System.IO.SearchOption]::AllDirectories } else { [System.IO.SearchOption]::TopDirectoryOnly }
+        $files = @()
+        $files += [System.IO.Directory]::GetFiles($root, "*.blend", $search)
+        $files += [System.IO.Directory]::GetFiles($root, "*.fbx", $search)
+        foreach ($file in ($files | Sort-Object)) {
+            Add-SourceItem -Path $file -Root $root
+        }
+        Refresh-SourceList
+        Add-LogLine -TextBox $log -Text "Added $($files.Count) model(s) from: $root"
+    }
+})
+
+$btnClear.Add_Click({
+    $script:SourceItems.Clear()
+    Refresh-SourceList
+    $progress.Value = 0
+})
+
+$btnOutput.Add_Click({
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = "Select the GLB output folder"
+    $dialog.ShowNewFolderButton = $true
+    if ($txtOutput.Text -and (Test-Path -LiteralPath $txtOutput.Text -PathType Container)) {
+        $dialog.SelectedPath = $txtOutput.Text
+    }
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $txtOutput.Text = $dialog.SelectedPath
+    }
+})
+
+$btnConvert.Add_Click({
+    try {
+        $blender = $txtBlender.Text.Trim()
+        if (-not (Test-Path -LiteralPath $blender -PathType Leaf)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Select a valid blender.exe first.",
+                "Model → GLB Converter",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            ) | Out-Null
+            return
+        }
+
+        if ($script:SourceItems.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Add at least one .blend or .fbx model.",
+                "Model → GLB Converter",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            ) | Out-Null
+            return
+        }
+
+        $outputRoot = $txtOutput.Text.Trim()
+        if (-not $outputRoot) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Choose an output folder.",
+                "Model → GLB Converter",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            ) | Out-Null
+            return
+        }
+
+        if (-not (Test-Path -LiteralPath $outputRoot -PathType Container)) {
+            New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
+        }
+
+        $btnConvert.Enabled = $false
+        $btnFiles.Enabled = $false
+        $btnFolder.Enabled = $false
+        $btnClear.Enabled = $false
+        $progress.Value = 0
+        $log.Clear()
+
+        $worker = New-WorkerScript
+        $success = 0
+        $failed = New-Object System.Collections.Generic.List[string]
+        $skipped = 0
+
+        try {
+            $count = $script:SourceItems.Count
+            for ($i = 0; $i -lt $count; $i++) {
+                $item = $script:SourceItems[$i]
+                $source = $item.Path
+                $name = [System.IO.Path]::GetFileNameWithoutExtension($source)
+
+                $targetDir = $outputRoot
+                if ($chkPreserveFolders.Checked) {
+                    $sourceDir = Split-Path -Parent $source
+                    $relativeDir = Get-RelativePathCompat -BasePath $item.Root -TargetPath $sourceDir
+                    if ($relativeDir -and $relativeDir -ne ".") {
+                        $targetDir = Join-Path $outputRoot $relativeDir
+                    }
+                }
+
+                $target = Join-Path $targetDir ($name + ".glb")
+
+                $status.Text = "Converting $($i + 1) of $count: $(Split-Path -Leaf $source)"
+                $progress.Value = [Math]::Min(99, [int](($i / [double]$count) * 100))
+                Add-LogLine -TextBox $log -Text "[$($i + 1)/$count] $(Split-Path -Leaf $source)"
+
+                if ((Test-Path -LiteralPath $target) -and -not $chkOverwrite.Checked) {
+                    $skipped++
+                    Add-LogLine -TextBox $log -Text "Skipped (already exists): $target"
+                    continue
+                }
+
+                if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) {
+                    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                }
+
+                $arguments = @(
+                    "--background",
+                    "--python", $worker,
+                    "--",
+                    $source,
+                    $target,
+                    $(if ($chkApplyRotation.Checked) { "1" } else { "0" }),
+                    $(if ($chkApplyScale.Checked) { "1" } else { "0" }),
+                    $(if ($chkApplyLocation.Checked) { "1" } else { "0" }),
+                    $(if ($chkBakeWorld.Checked) { "1" } else { "0" }),
+                    $(if ($chkVisibleOnly.Checked) { "1" } else { "0" }),
+                    $(if ($chkFlatColor.Checked) { "1" } else { "0" })
+                )
+
+                $output = & $blender @arguments 2>&1
+                $exitCode = $LASTEXITCODE
+
+                if ($exitCode -eq 0 -and (Test-Path -LiteralPath $target -PathType Leaf)) {
+                    $success++
+                    Add-LogLine -TextBox $log -Text "OK → $target"
+                }
+                else {
+                    $tail = ($output | Select-Object -Last 8) -join " | "
+                    $failed.Add("$source`r`n  $tail")
+                    Add-LogLine -TextBox $log -Text "FAILED: $source"
+                }
+
+                [System.Windows.Forms.Application]::DoEvents()
+            }
+        }
+        finally {
+            if ($worker -and (Test-Path -LiteralPath $worker)) {
+                Remove-Item -LiteralPath $worker -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        $progress.Value = 100
+        $status.Text = "Done — $success converted, $skipped skipped, $($failed.Count) failed"
+
+        if ($failed.Count -gt 0) {
+            $logPath = Join-Path $outputRoot ("conversion-errors-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".txt")
+            Set-Content -LiteralPath $logPath -Value ($failed -join "`r`n`r`n") -Encoding UTF8
+            Add-LogLine -TextBox $log -Text "Failure log saved to: $logPath"
+        }
+
+        $message = "Conversion complete.`n`nConverted: $success`nSkipped: $skipped`nFailed: $($failed.Count)`n`nOutput:`n$outputRoot"
+        $icon = if ($failed.Count -gt 0) { [System.Windows.Forms.MessageBoxIcon]::Warning } else { [System.Windows.Forms.MessageBoxIcon]::Information }
+        [System.Windows.Forms.MessageBox]::Show(
+            $message,
+            "Model → GLB Converter",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            $icon
+        ) | Out-Null
+    }
+    catch {
+        Add-LogLine -TextBox $log -Text ("ERROR: " + $_.Exception.Message)
+        $status.Text = "Error"
+        [System.Windows.Forms.MessageBox]::Show(
+            $_.Exception.Message,
+            "Model → GLB Converter",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        ) | Out-Null
+    }
+    finally {
+        $btnConvert.Enabled = $true
+        $btnFiles.Enabled = $true
+        $btnFolder.Enabled = $true
+        $btnClear.Enabled = $true
+    }
+})
+
+# Nice initial state: if launched from a scripts folder, propose sibling GLB folder
+# only when it exists; otherwise leave output explicit instead of guessing.
+if (-not $txtOutput.Text) {
+    $scriptDir = Split-Path -Parent $PSCommandPath
+    $candidate = Join-Path (Split-Path -Parent $scriptDir) "GLB"
+    if (Test-Path -LiteralPath $candidate -PathType Container) {
+        $txtOutput.Text = $candidate
+    }
+}
+
+Add-LogLine -TextBox $log -Text "Ready. Add .blend/.fbx files or a folder."
+[void]$form.ShowDialog()

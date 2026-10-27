@@ -88,7 +88,21 @@ son propiedades.
 - El pasto no tiene colision ni afecta a los pasos ni a las huellas.
 - El viento del pasto es independiente del viento del cielo: hoy no comparten
   direccion y hay que ajustarlos a mano.
-- Se ha verificado por lectura del codigo y el shader, no por ejecucion.
+- La geometria de la hoja se ha inspeccionado en Godot 4.6; falta revisar visualmente el efecto completo y medir su rendimiento.
+
+## Compatibility: malla de hoja sin datos de estela
+
+La forma sigue generandose a partir de RibbonTrailMesh, con los mismos controles
+de secciones, perfil y planos cruzados. Antes de asignarla a las particulas se
+copia a una ArrayMesh sin huesos ni pesos de estela. Esto evita que GLES3 reciba
+bind poses de particle trails, una funcion que Compatibility no admite, aunque
+Trail Enabled estuviera apagado. No se altera la densidad ni la colocacion.
+
+Comprobacion puntual en Godot 4.6: ambas mallas conservan posiciones, normales,
+UV e indices identicos (24 vertices y 60 indices con cinco secciones y forma
+cruzada). La copia carece de los 96 indices de hueso de la cinta original.
+Se comprobo tambien el parseo del script; no se ejecutaron suites de pruebas.
+El ejemplo externo del addon sigue usando su RibbonTrailMesh original.
 
 Referencias: [Terrain3DData](https://terrain3d.readthedocs.io/en/stable/api/class_terrain3ddata.html),
 [GPUParticles3D](https://docs.godotengine.org/en/4.6/classes/class_gpuparticles3d.html).

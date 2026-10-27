@@ -41,9 +41,20 @@
 [ext_resource type="Texture2D" uid="uid://3tr38ts01r25" path="res://assets/textures/soft_surface/cliff/normal_roughness.png" id="40_uun2w"]
 [ext_resource type="Texture2D" uid="uid://cvf7vqmy7lqct" path="res://assets/textures/soft_surface/grass_path_dust_green/albedo_height.png" id="41_vxme2"]
 [ext_resource type="Texture2D" uid="uid://6vjnf667qucd" path="res://assets/textures/soft_surface/grass_path_dust_green/normal_roughness.png" id="42_jarjj"]
+[ext_resource type="PackedScene" uid="uid://w1pjcwim1pku" path="res://scenes/npc/peter.tscn" id="56_s3x6e"]
 [ext_resource type="Script" uid="uid://csgihj7g0opie" path="res://scripts/grass/grass_particles.gd" id="grass_particles_script"]
+[ext_resource type="Resource" uid="uid://cmk8xnurtyq8p" path="res://resources/trees/palettes/stpine.tres" id="stpine_palette"]
 [ext_resource type="Script" uid="uid://bpsbousa24rmb" path="res://scripts/surface_details/surface_details.gd" id="surface_details_script"]
 [ext_resource type="Terrain3DTextureAsset" uid="uid://bqrtvhq6jqrk5" path="res://assets/textures/autumn_leaves/autumn_leaves_terrain3d.tres" id="surface_leaves_texture"]
+[ext_resource type="Terrain3DMeshAsset" path="res://resources/trees/assets/st_pine_1_asset_5.tres" id="tree_lod_asset_5"]
+[ext_resource type="Terrain3DMeshAsset" path="res://resources/trees/assets/st_pine_2_asset_6.tres" id="tree_lod_asset_6"]
+[ext_resource type="Terrain3DMeshAsset" path="res://resources/trees/assets/st_pine_3_asset_7.tres" id="tree_lod_asset_7"]
+[ext_resource type="Terrain3DMeshAsset" path="res://resources/trees/assets/st_pine_4_asset_8.tres" id="tree_lod_asset_8"]
+[ext_resource type="Terrain3DMeshAsset" path="res://resources/trees/assets/st_pine_5_asset_9.tres" id="tree_lod_asset_9"]
+[ext_resource type="Terrain3DMeshAsset" path="res://resources/trees/assets/st_pine_5_asset_10.tres" id="tree_lod_asset_10"]
+[ext_resource type="Terrain3DMeshAsset" path="res://resources/trees/assets/st_pine_6_asset_11.tres" id="tree_lod_asset_11"]
+[ext_resource type="Terrain3DMeshAsset" path="res://resources/trees/assets/st_pine_7_asset_12.tres" id="tree_lod_asset_12"]
+[ext_resource type="Script" uid="uid://2uvkc3q5pixw" path="res://scripts/tree_material_palette.gd" id="tree_palette_script"]
 [ext_resource type="Script" uid="uid://w8v8a8v25xcd" path="res://scripts/tree_surface_textures.gd" id="tree_surface_script"]
 
 [sub_resource type="Gradient" id="Gradient_1a0we"]
@@ -282,7 +293,7 @@ albedo_texture = ExtResource("41_vxme2")
 normal_texture = ExtResource("42_jarjj")
 
 [sub_resource type="Terrain3DAssets" id="Terrain3DAssets_4vitj"]
-mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_nvx6h"), SubResource("Terrain3DMeshAsset_q5ia3"), SubResource("Terrain3DMeshAsset_q74ww"), SubResource("Terrain3DMeshAsset_n7ean"), SubResource("Terrain3DMeshAsset_gdbfv")])
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_nvx6h"), SubResource("Terrain3DMeshAsset_q5ia3"), SubResource("Terrain3DMeshAsset_q74ww"), SubResource("Terrain3DMeshAsset_n7ean"), SubResource("Terrain3DMeshAsset_gdbfv"), ExtResource("tree_lod_asset_5"), ExtResource("tree_lod_asset_6"), ExtResource("tree_lod_asset_7"), ExtResource("tree_lod_asset_8"), ExtResource("tree_lod_asset_9"), ExtResource("tree_lod_asset_10"), ExtResource("tree_lod_asset_11"), ExtResource("tree_lod_asset_12")])
 texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_jarjj"), SubResource("Terrain3DTextureAsset_rfq74"), SubResource("Terrain3DTextureAsset_omwqk"), SubResource("Terrain3DTextureAsset_en2rn"), SubResource("Terrain3DTextureAsset_3pr23"), SubResource("Terrain3DTextureAsset_j5n0b"), SubResource("Terrain3DTextureAsset_cvdcj"), SubResource("Terrain3DTextureAsset_ue6v3"), SubResource("Terrain3DTextureAsset_v45tt"), SubResource("Terrain3DTextureAsset_rg0ov"), SubResource("Terrain3DTextureAsset_cnh62"), ExtResource("surface_leaves_texture"), SubResource("Terrain3DTextureAsset_j2o8y"), SubResource("Terrain3DTextureAsset_xlory"), SubResource("Terrain3DTextureAsset_rfioc"), SubResource("Terrain3DTextureAsset_vxme2"), SubResource("Terrain3DTextureAsset_88yd0"), SubResource("Terrain3DTextureAsset_weell"), SubResource("Terrain3DTextureAsset_7315d")])
 
 [node name="GrassMountainPlayground" type="Node3D" unique_id=2027448239]
@@ -334,7 +345,11 @@ process_fps = 5
 
 [node name="TreeColors" type="Node" parent="Terrain3D" unique_id=501568060]
 script = ExtResource("tree_surface_script")
+material_palettes = Array[ExtResource("tree_palette_script")]([ExtResource("stpine_palette")])
 bark_color = Color(0.3625, 0.31416667, 0.29690477, 1)
 foliage_color = Color(0.2703869, 0.359375, 0.25669643, 1)
 fade_start = 200.0
 fade_end = 200.0
+
+[node name="Peter" parent="." unique_id=538982279 instance=ExtResource("56_s3x6e")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 138.70961, 120.59238, 127.49542)

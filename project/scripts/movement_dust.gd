@@ -43,7 +43,7 @@ func _process(_delta: float) -> void:
 	if actor == null or particles == null:
 		return
 	var sliding_glide := actor.is_glide_landing
-	var running := actor.is_on_floor() and actor.horizontal_speed >= actor.movement_dust_run_speed and Input.is_action_pressed("sprint") and not actor.is_sliding and not actor.is_climbing and not actor.is_gliding and not actor.is_splat and not sliding_glide
+	var running := actor.is_on_floor() and actor.horizontal_speed >= actor.movement_dust_run_speed and actor.action_pressed("sprint") and not actor.is_sliding and not actor.is_climbing and not actor.is_gliding and not actor.is_splat and not sliding_glide
 	var glide_dust := sliding_glide and actor.glide_landing_dust_enabled and actor.is_on_floor() and actor.horizontal_speed > 0.1
 	var slope_dust := actor.is_sliding and actor.slide_dust_enabled and not actor.is_climbing and not actor.is_gliding and actor.slide_velocity.length() > actor.slide_dust_min_speed
 	var active := actor.movement_dust_enabled and (running or glide_dust or slope_dust)

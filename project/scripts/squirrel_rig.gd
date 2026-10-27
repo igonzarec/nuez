@@ -521,13 +521,26 @@ func update_air_pose(airborne: bool, enabled: bool, lift: float, spread: float, 
 	_set_air_position("head", Vector3.DOWN * head_retract * compression + Vector3.BACK * head_forward)
 
 
-func update_splat_pose(weight: float, arm_spread: float, leg_spread: float, head_pitch: float, response: float, arm_pitches: Vector2 = Vector2.ZERO, leg_pitches: Vector2 = Vector2.ZERO) -> void:
+func update_splat_pose(weight: float, arm_spread: float, leg_spread: float, head_pitch: float, response: float, arm_pitches: Vector2 = Vector2.ZERO, leg_pitches: Vector2 = Vector2.ZERO, support_weight: float = 0.0, support_spread: float = 0.0, support_pitch: float = 0.0, arm_wiggle: Vector2 = Vector2.ZERO, upper_motion: Vector2 = Vector2.ZERO, tail_sway: float = 0.0) -> void:
 	glide_amount = 0.0
 	update_air_pose(true, true, arm_spread * weight, leg_spread * weight, 0.0, 0.0, weight, 0.0, 0.0, head_pitch, response, 0.0, Vector2.ZERO, Vector2.ZERO, 0.0, 0.0, response, arm_pitches * weight)
 	if not playertest2_skeleton:
 		return
+	# Ejes anatómicos del rig: UP gira el cuello diciendo «no»;
+	# BACK inclina el pecho a los lados sin girar las caderas.
+	_set_air_rotation("head", Vector3.UP, deg_to_rad(upper_motion.x), deg_to_rad(head_pitch * weight))
+	_set_air_rotation("spine", Vector3.BACK, deg_to_rad(upper_motion.y))
+	_set_air_rotation("tail_base", Vector3.UP, deg_to_rad(tail_sway))
 	for side_name in ["left", "right"]:
 		var side := -1.0 if side_name == "left" else 1.0
+		if support_weight > 0.0 or not arm_wiggle.is_zero_approx():
+			# El giro acompaña el pecho: los brazos apuntan al suelo al empujar,
+			# después se sueltan suavemente hacia la postura erguida.
+			var arm_pitch := arm_pitches.x if side_name == "left" else arm_pitches.y
+			var spread := lerpf(arm_spread * weight, support_spread, support_weight)
+			arm_pitch = lerpf(arm_pitch * weight, support_pitch, support_weight)
+			arm_pitch += arm_wiggle.x if side_name == "left" else arm_wiggle.y
+			_set_air_rotation("arm_" + side_name, Vector3.BACK, deg_to_rad(spread * side), deg_to_rad(arm_pitch))
 		var pitch := leg_pitches.x if side_name == "left" else leg_pitches.y
 		_set_air_rotation("leg_" + side_name, Vector3.BACK, deg_to_rad(leg_spread * side * weight), deg_to_rad(pitch * weight))
 

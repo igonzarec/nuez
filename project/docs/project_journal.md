@@ -132,3 +132,27 @@ El diagnóstico y la comprobación manual están en `terrain_snow_playground.md`
   la interfaz y una referencia visual para localizarla.
 - El usuario dispone de teclado numérico; se pueden usar atajos como `Numpad
   1`, `Numpad 3` y `Numpad 0` al guiar la vista en Blender.
+
+## 2026-10-27 · Los STPine ganan paisaje lejano sin perder la copa
+
+Los árboles de `glb 2` ahora preparan tres LOD por asset y dejan a Terrain3D
+elegirlos por distancia, sin depender de TreeColors. Se conservaron colores,
+IDs y pinceladas; el punto de partida es 80/220/900 m, con sombras sólo en los
+dos primeros niveles. La comparación visual descubrió que simplificar toda la
+copa borraba ramas altas: ahora se reduce cada pieza de follaje y se conserva
+su carta UV. STPine1 pasa de 1500 a 944 y 278 triángulos. La preparación queda
+guardada en disco y sirve para futuros meshes. Aprendizaje: contar triángulos
+no basta; hay que revisar silueta y alfa. El cambio nativo ocurre por celdas y
+aún falta medir el rendimiento del bosque completo.
+
+Creamos una herramienta propia de editor con scripts `@tool`: TreeMeshAsset
+extiende el asset nativo de Terrain3D y reúne materiales, colores y distancias
+en el Inspector; tree_lod_preparer prepara los tres niveles con el botón
+«Preparar / regenerar LOD». El trabajo geométrico se hace una vez en el editor
+y se guarda en recursos derivados, conservando el GLB original. Durante el juego,
+Terrain3D reutiliza esas mallas para todas las instancias del asset y elige el
+nivel por distancia, sin simplificar geometría en tiempo real. Así, futuros
+árboles compatibles se configuran sin código nuevo por modelo. Es una herramienta
+integrada en el proyecto y dependiente de Terrain3D, todavía no un plugin
+independiente. El flujo y sus controles están en
+[tree_lod_preparation.md](tree_lod_preparation.md).

@@ -1,27 +1,41 @@
 @tool
 extends Node
-## Colores lisos y LOD lejano persistente para pinos de Terrain3D, sin texturas.
+## Colores y LOD lejano de pinos Terrain3D; paletas reutilizables para otras familias con texturas opcionales.
 
 const LodMesh = preload("res://scripts/tree_lod_mesh.gd")
 const TRANSITION = preload("res://shaders/tree_lod_transition.gdshader")
+const TreePalette = preload("res://scripts/tree_material_palette.gd")
+const TreeMeshSetup = preload("res://scripts/tree_mesh_asset.gd")
+
+@export_group("Configuración por mesh")
+## Migración opcional: añade TreeMeshAsset a nuevos assets compatibles. Tras guardar, cada asset aplica sus materiales por sí mismo, sin este nodo. No cambia ID ni pinceladas ni sustituye scripts ajenos. Los PineTree anteriores conservan su LOD. Para crear árboles sin este nodo, usar TreeMeshAsset directamente.
+@export var configure_new_meshes := true
+## Fuerza conexión con Terrain3D, configura meshes nuevos y reaplica sus materiales ahora. No mueve árboles ni regenera geometría; también refresca los lotes del editor.
+@export_tool_button("Actualizar materiales", "Reload") var refresh_materials_action: Callable:
+	get:
+		# The Inspector can ask for this during a tool-script hot reload, before
+		# member initializers run. Always construct a valid Callable on access.
+		return Callable(self, "refresh_materials")
+## Biblioteca anterior guardada sólo para migrar configuraciones existentes a cada asset; ya no se edita desde el nodo.
+@export_storage var material_palettes: Array[TreePalette] = []
 
 @export_group("Activación")
 ## Activa colores y LOD. Apagar restaura los materiales anteriores y retira las copias lejanas. En vivo, hasta 0.3 s.
 @export var enabled := true
 ## Previsualiza en el editor. Apagar restaura los materiales allí; no afecta al juego. En vivo.
 @export var editor_preview := true
-## Terrain3D cuyos assets se decoran. Cambiar requiere recargar la escena.
+## Terrain3D cuyos assets se decoran. Cambiar restaura el terreno anterior y conecta el nuevo en hasta 0.3 s, también después de recargar scripts en el editor.
 @export var terrain_path := NodePath("..")
 ## Sólo assets cuyo nombre comienza con este texto. Vacío incluye todos los compatibles con Wood/Green. En vivo; no cambia IDs ni colocaciones.
 @export var asset_prefix := "PineTree_"
 
-@export_group("Corteza")
+@export_group("Corteza - pinos anteriores")
 ## Aplica el color a Wood. Apagar usa el color original, manteniendo el LOD si está activo. En vivo.
 @export var bark_enabled := true
 ## Color liso de la corteza. Más claro ilumina el resultado; la iluminación aporta volumen. En vivo.
 @export var bark_color := Color(0.46, 0.30, 0.18)
 
-@export_group("Follaje")
+@export_group("Follaje - pinos anteriores")
 ## Aplica el color a Green. Apagar usa el color original, manteniendo el LOD si está activo. En vivo.
 @export var foliage_enabled := true
 ## Color liso del follaje. Más claro ilumina el resultado; usar naranja para otoño. En vivo.
@@ -71,6 +85,14 @@ var _ranges: Dictionary = {}
 var _batches: Dictionary = {}
 var _elapsed := 0.0
 var _signature := 0
+var _palette_assignment_signature := 0
+var _palette_surfaces: Array[Dictionary] = []
+
+func refresh_materials() -> void:
+	_signature = 0
+	_sync()
+	if is_instance_valid(_terrain) and _terrain is Terrain3D and _terrain.get_instancer() != null:
+		_terrain.get_instancer().update_mmis()
 
 func _ready() -> void:
 	_terrain = get_node_or_null(terrain_path)
@@ -85,6 +107,7 @@ func _process(delta: float) -> void:
 
 func _exit_tree() -> void:
 	_restore()
+	_restore_palettes()
 
 func _restore() -> void:
 	for entry in _surfaces:
@@ -101,13 +124,41 @@ func _restore() -> void:
 	_batches.clear()
 
 func _sync() -> void:
+	# Tool-script reloads can preserve the node without re-running _ready().
+	# Resolve the path again instead of relying on a stale/null cached reference.
+	if is_inside_tree():
+		var terrain := get_node_or_null(terrain_path)
+		if terrain != _terrain:
+			_restore()
+			_restore_palettes()
+			_terrain = terrain
+			_signature = 0
 	if not is_instance_valid(_terrain) or not _terrain is Terrain3D or _terrain.assets == null:
+		_restore_palettes()
 		return
+	# Release any old controller-owned materials before autonomous assets take over.
+	if not _palette_surfaces.is_empty():
+		_restore_palettes()
+	_ensure_mesh_setups()
+	# Restore both paths before moving an asset between the legacy LOD system
+	# and a palette, so neither captures the other's temporary material.
+	var assignments: Array = []
+	for asset in _terrain.assets.get_mesh_list():
+		if asset != null:
+			assignments.append([asset, _palette_for_asset(asset)])
+	var assignment_stamp := hash(assignments)
+	if assignment_stamp != _palette_assignment_signature:
+		_palette_assignment_signature = assignment_stamp
+		_restore()
+		_restore_palettes()
+		_signature = 0
 	var active := enabled and (not Engine.is_editor_hint() or editor_preview)
 	var assets: Array = []
 	var geometry: Array = []
 	for asset in _terrain.assets.get_mesh_list():
 		if asset == null or not asset.name.begins_with(asset_prefix):
+			continue
+		if asset.get_script() == TreeMeshSetup or _palette_for_asset(asset) != null:
 			continue
 		# Native multi-LOD assets and material overrides need their own integration.
 		if asset.last_lod != 0 or asset.material_override != null:
@@ -149,6 +200,58 @@ func _sync() -> void:
 	if active and lod_enabled:
 		_sync_batches(assets)
 	_update_camera()
+
+
+func _palette_for_asset(asset: Terrain3DMeshAsset) -> TreePalette:
+	if asset.get_script() == TreeMeshSetup:
+		# Its materials are now owned and updated by the asset itself.
+		return null
+	return _legacy_palette_for_asset(asset.name)
+
+
+func _legacy_palette_for_asset(asset_name: String) -> TreePalette:
+	for palette in material_palettes:
+		if palette != null and palette.matches_asset(asset_name):
+			return palette
+	return null
+
+
+func _ensure_mesh_setups() -> void:
+	if not configure_new_meshes:
+		return
+	for asset in _terrain.assets.get_mesh_list():
+		if asset == null or asset.get_script() != null:
+			continue
+		# Keep the original Wood/Green LOD pipeline and its authored values intact.
+		if asset.name.begins_with(asset_prefix):
+			continue
+		var source := _legacy_palette_for_asset(asset.name)
+		var setup := source.duplicate() as TreePalette if source != null else TreePalette.new()
+		var mesh := asset.get_mesh() as ArrayMesh
+		if mesh == null:
+			continue
+		var compatible := false
+		for surface in mesh.get_surface_count():
+			if setup.make_material(mesh.surface_get_material(surface), mesh.surface_get_name(surface), surface) != null:
+				compatible = true
+				break
+		if not compatible:
+			continue
+		setup.asset_prefix = ""
+		setup.asset_names = PackedStringArray()
+		setup.resource_name = asset.name + " - materiales"
+		asset.set_script(TreeMeshSetup)
+		asset.set("tree_materials", setup)
+		asset.notify_property_list_changed()
+		asset.emit_changed()
+
+
+func _restore_palettes() -> void:
+	for entry in _palette_surfaces:
+		if entry.mesh.surface_get_material(entry.surface) == entry.material:
+			entry.mesh.surface_set_material(entry.surface, entry.original)
+	_palette_surfaces.clear()
+
 
 func _compatible(mesh: Mesh) -> bool:
 	for i in mesh.get_surface_count():

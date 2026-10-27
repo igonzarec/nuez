@@ -111,12 +111,12 @@ func _build_session(data: Dictionary) -> void:
 func _set_state(value: State) -> void:
 	state = value
 	var playing := state == State.PLAYING
-	# Dialogue Manager usa una interfaz propia que debe seguir procesando. El
-	# personaje queda inmóvil mediante set_controls, sin congelar su globo.
-	var manager_dialogue := state == State.DIALOGUE and dialogue_manager_resource != null
-	get_tree().paused = state not in [State.PLAYING, State.ENDING] and not manager_dialogue
-	player.set_controls(playing)
-	camera_rig.enabled = playing
+	# El globo bloquea sólo la locomoción de sus interlocutores; el mundo sigue vivo.
+	var movement_enabled := state in [State.PLAYING, State.DIALOGUE]
+	get_tree().paused = state not in [State.PLAYING, State.DIALOGUE, State.ENDING]
+	if player.control_enabled != movement_enabled:
+		player.set_controls(movement_enabled)
+	camera_rig.enabled = movement_enabled
 	interaction.enabled = playing
 	if not playing:
 		interaction.clear()
@@ -204,7 +204,8 @@ func _input(event: InputEvent) -> void:
 	if state == State.PLAYING and is_instance_valid(interaction.selected):
 		var contextual_accept := event is InputEventJoypadButton and event.is_action_pressed("ui_accept") and player.is_on_floor() and not player.is_climbing
 		if event.is_action_pressed("interact") or contextual_accept:
-			player.consume_interaction_press()
+			if contextual_accept:
+				player.consume_interaction_press()
 			get_viewport().set_input_as_handled()
 			interact()
 
@@ -273,6 +274,7 @@ func _on_seed(seed_node: LightFragment) -> void:
 func open_dialogue(speaker: String, pages: Array, finishes := false, subtitle := "") -> void:
 	# Capturar antes del cambio de estado: este puede limpiar la selección.
 	var speaker_target: Node3D = interaction.selected
+	_face_dialogue_speaker(speaker_target)
 	dialogue_manager_resource = null
 	dialogue_manager_target = null
 	dialogue_manager_balloon = null
@@ -282,6 +284,7 @@ func open_dialogue(speaker: String, pages: Array, finishes := false, subtitle :=
 	_set_state(State.DIALOGUE)
 	dialogue_manager_balloon = preload("res://ui/dialogue/squirrel_dialogue_balloon.tscn").instantiate()
 	add_child(dialogue_manager_balloon)
+	dialogue_manager_balloon.bind_interlocutors([player])
 	dialogue_manager_balloon.set_speaker_name(speaker, subtitle)
 	dialogue_manager_balloon.set_follow_target(speaker_target)
 	dialogue_manager_balloon.close_requested.connect(_close_dialogue)
@@ -293,6 +296,7 @@ func open_dialogue(speaker: String, pages: Array, finishes := false, subtitle :=
 func open_resource_dialogue(target: TrailInteractable) -> void:
 	if target.dialogue_resource == null:
 		return
+	_face_dialogue_speaker(target)
 	dialogue_manager_resource = target.dialogue_resource
 	dialogue_manager_target = target
 	dialogue_finishes_game = false
@@ -304,7 +308,21 @@ func open_resource_dialogue(target: TrailInteractable) -> void:
 		[self, target]
 	)
 	dialogue_manager_balloon.set_follow_target(target)
+	dialogue_manager_balloon.bind_interlocutors([player])
 	dialogue_manager_balloon.close_requested.connect(_close_dialogue)
+
+func _face_dialogue_speaker(target: Node3D) -> void:
+	if not is_instance_valid(target):
+		return
+	player.face_interaction_partner(target)
+	for child in target.get_children():
+		if child is TrailResident and player.interaction_facing_enabled:
+			var point := Vector3(player.global_position.x, child.global_position.y, player.global_position.z)
+			if child.global_position.distance_squared_to(point) > 0.000001:
+				var direction: Vector3 = target.global_basis.orthonormalized().inverse() * (point - child.global_position)
+				var turn := wrapf(atan2(direction.x, direction.z) - child.rotation.y, -PI, PI)
+				var duration := absf(turn) / deg_to_rad(maxf(1.0, player.interaction_facing_speed_degrees))
+				child.create_tween().tween_property(child, "rotation:y", child.rotation.y + turn, maxf(0.001, duration))
 
 func _show_dialogue_page() -> void:
 	if dialogue_pages.is_empty():

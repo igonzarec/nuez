@@ -89,7 +89,7 @@ func _release() -> void:
 func tick(delta: float) -> bool:
 	cooldown = maxf(0.0, cooldown - delta)
 	mantle_retry_left = maxf(0.0, mantle_retry_left - delta)
-	var grab_held := Input.is_action_pressed("climb")
+	var grab_held := actor.action_pressed("climb")
 	if actor.is_splat or actor.is_glide_recoiling or not actor.climb_enabled or not grab_held:
 		if actor.is_climbing:
 			_release()
@@ -121,7 +121,7 @@ func tick(delta: float) -> bool:
 	if mantle_stage != 0:
 		_mantle_tick(delta)
 		return true
-	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var input := actor.movement_input()
 	var contact := _wall_hit(-wall_normal, true)
 	# Al rebasar la pared el pecho puede dejar de verla. Sólo se continúa
 	# sobre suelo cercano bajo los pies; nunca se busca un destino lejano.
