@@ -243,23 +243,7 @@ func settings(values: Dictionary) -> void:
 	display_status = _label("", 15, Color("c9d6c6"))
 	display_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(display_status)
-	var toon := CheckButton.new()
-	toon.text = "Sombreado toon · experimental"
-	toon.tooltip_text = "Prueba luz y sombra con un corte de dibujo animado en terreno, personaje y materiales iluminados. Se aplica al instante."
-	toon.button_pressed = values.get("toon_enabled", false)
-	toon.toggled.connect(func(value: bool) -> void: setting_changed.emit("toon_enabled", value))
-	page.add_child(toon)
-	page.add_child(_label("Suavidad del sombreado toon", 17))
-	var toon_softness := HSlider.new()
-	toon_softness.min_value = 0.0
-	toon_softness.max_value = 1.0
-	toon_softness.step = 0.01
-	toon_softness.value = values.get("toon_softness", 0.08)
-	toon_softness.editable = toon.button_pressed
-	toon_softness.tooltip_text = "Menor: corte más marcado entre luz y sombra. Mayor: transición más suave."
-	toon.toggled.connect(func(value: bool) -> void: toon_softness.editable = value)
-	toon_softness.value_changed.connect(func(value: float) -> void: setting_changed.emit("toon_softness", value))
-	page.add_child(toon_softness)
+	_appearance_controls(page, values)
 	var fast_reset := CheckButton.new()
 	fast_reset.text = "Reinicio rápido · Start"
 	fast_reset.tooltip_text = "Durante la exploración, Start devuelve a la ardilla junto al farol de la cima en lugar de abrir la pausa."
@@ -351,3 +335,62 @@ func _process(delta: float) -> void:
 			display_status.text += "\nEl juego está integrado en el editor. Para comprobar el tamaño de ventana, ejecútalo en una ventana independiente."
 	toast_time = maxf(0, toast_time - delta)
 	toast_label.visible = toast_time > 0
+
+func _appearance_controls(page: Control, values: Dictionary) -> void:
+	page.add_child(_label("Laboratorio de apariencia", 21))
+	var general := _appearance_check(page, values, "toon_enabled", "Usar toon general", false)
+	general.tooltip_text = "Activado sustituye los perfiles particulares. Apagado recupera mundo, terreno, personaje y detalles locales."
+	_appearance_profile(page, values, "toon_", general, false)
+	for category in ["world", "terrain", "character"]:
+		var title: String = {"world": "Mundo y vegetación", "terrain": "Terreno", "character": "Personaje"}[category]
+		page.add_child(_label(title + " · perfil particular", 18))
+		var prefix: String = "toon_" + category + "_"
+		var local := _appearance_check(page, values, prefix + "enabled", "Activar toon particular", false)
+		local.tooltip_text = "Apagado conserva el material original y sus ajustes propios. El general activo tiene prioridad; los valores particulares se conservan."
+		local.disabled = general.button_pressed
+		general.toggled.connect(func(on: bool) -> void: local.disabled = on)
+		_appearance_profile(page, values, prefix, local, true, general)
+	page.add_child(_label("Personaje · acabado mate", 18))
+	var matte := _appearance_check(page, values, "character_matte_enabled", "Probar acabado mate", false)
+	matte.tooltip_text = "Independiente del toon. Afecta al jugador y las ardillas NPC; desactivar recupera materiales originales."
+	for property in ["roughness", "specular", "metallic"]:
+		var title: String = {"roughness": "Rugosidad", "specular": "Reflejo especular", "metallic": "Metalicidad"}[property]
+		var slider := _appearance_slider(page, values, "character_matte_" + property, title, 0.0, 1.0, 0.01, 1.0 if property == "roughness" else 0.0)
+		slider.editable = matte.button_pressed
+		matte.toggled.connect(func(on: bool) -> void: slider.editable = on)
+
+func _appearance_check(page: Control, values: Dictionary, key: String, title: String, fallback: bool) -> CheckButton:
+	var check := CheckButton.new()
+	check.text = title
+	check.button_pressed = values.get(key, fallback)
+	check.toggled.connect(func(value: bool) -> void: setting_changed.emit(key, value))
+	page.add_child(check)
+	return check
+
+func _appearance_slider(page: Control, values: Dictionary, key: String, title: String, low: float, high: float, step_value: float, fallback: float) -> HSlider:
+	var label := _label(title, 16)
+	page.add_child(label)
+	var slider := HSlider.new()
+	slider.min_value = low
+	slider.max_value = high
+	slider.step = step_value
+	slider.value = values.get(key, fallback)
+	label.text = title + " · " + str(snappedf(slider.value, step_value))
+	slider.value_changed.connect(func(value: float) -> void:
+		label.text = title + " · " + str(snappedf(value, step_value))
+		setting_changed.emit(key, value))
+	page.add_child(slider)
+	return slider
+
+func _appearance_profile(page: Control, values: Dictionary, prefix: String, check: CheckButton, local: bool, general: CheckButton = null) -> void:
+	for control in [
+		["bands", "Bandas de luz", 2.0, 6.0, 1.0, 3.0],
+		["softness", "Suavidad", 0.0, 1.0, 0.01, 0.08],
+		["light_offset", "Umbral · positivo ilumina más", -1.0, 1.0, 0.01, 0.0],
+		["contrast", "Contraste de luz directa", 0.1, 3.0, 0.05, 1.0],
+		["normal_strength", "Fuerza de normales", 0.0, 1.0, 0.01, 1.0]]:
+		var slider := _appearance_slider(page, values, prefix + control[0], control[1], control[2], control[3], control[4], control[5])
+		slider.editable = check.button_pressed and (not local or not general.button_pressed)
+		check.toggled.connect(func(on: bool) -> void: slider.editable = on and (not local or not general.button_pressed))
+		if general:
+			general.toggled.connect(func(on: bool) -> void: slider.editable = check.button_pressed and not on)

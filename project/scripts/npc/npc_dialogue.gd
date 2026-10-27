@@ -32,7 +32,7 @@ func _find_player(node: Node) -> ExplorerPlayer:
 func _process(delta: float) -> void:
 	if is_instance_valid(_balloon):
 		_npc.dialogue_speaking = _balloon.page_label.is_typing and not _balloon.page_label.waiting_for_page
-		if not _npc.dialogue_enabled or not is_instance_valid(_player):
+		if not _npc.dialogue_enabled or not is_instance_valid(_player) or _player.npc_bounce_in_progress or _player.get_npc_support():
 			_close_dialogue()
 		return
 	_clock -= delta
@@ -42,7 +42,7 @@ func _process(delta: float) -> void:
 	_near = false
 	if not is_instance_valid(_player):
 		_player = _find_player(get_tree().current_scene) if get_tree().current_scene else null
-	if is_instance_valid(_player) and _player.control_enabled and not get_tree().paused and not get_tree().get_first_node_in_group("active_dialogue"):
+	if is_instance_valid(_player) and _player.can_start_npc_dialogue() and not get_tree().paused and not get_tree().get_first_node_in_group("active_dialogue"):
 		var best := INF
 		var nearest: SquirrelNPC
 		for item in get_tree().get_nodes_in_group("npcs"):
@@ -78,6 +78,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if get_tree().get_first_node_in_group("active_dialogue"):
 		return
+	if not _player.can_start_npc_dialogue():
+		return
 	var contextual_accept := event is InputEventJoypadButton and event.is_action_pressed("ui_accept") and _player.is_on_floor()
 	if event.is_action_pressed("interact") or contextual_accept:
 		if contextual_accept:
@@ -92,7 +94,7 @@ func try_open_reaction(player: ExplorerPlayer, text: String) -> bool:
 		return false
 	if is_instance_valid(_balloon) or get_tree().get_first_node_in_group("active_dialogue"):
 		return false
-	if not is_instance_valid(player) or not player.control_enabled or not player.is_on_floor() or player.is_splat or player.is_climbing:
+	if not is_instance_valid(player) or not player.can_start_npc_dialogue():
 		return false
 	# is_on_floor conserva el último contacto hasta el siguiente move_and_slide.
 	# No abrir el regaño en ese frame si el resorte acaba de impulsarlo.
@@ -106,10 +108,12 @@ func try_open_reaction(player: ExplorerPlayer, text: String) -> bool:
 	if not player.get_world_3d().direct_space_state.intersect_ray(ray).is_empty():
 		return false
 	_player = player
-	_open_dialogue(text)
-	return true
+	return _open_dialogue(text)
 
-func _open_dialogue(text: String = "") -> void:
+func _open_dialogue(text: String = "") -> bool:
+	# Validar en el instante de abrir, no sólo al actualizar el prompt.
+	if not is_instance_valid(_player) or not _player.can_start_npc_dialogue():
+		return false
 	if _npc.face_on_dialogue:
 		_player.face_interaction_partner(_body)
 		_body.face_interaction_partner(_player)
@@ -122,6 +126,7 @@ func _open_dialogue(text: String = "") -> void:
 	_balloon.close_requested.connect(_close_dialogue)
 	_balloon.advance_requested.connect(_close_dialogue)
 	_balloon.show_manual(_npc.display_name, text if not text.is_empty() else _npc.dialogue_text)
+	return true
 
 func _close_dialogue() -> void:
 	if is_instance_valid(_npc):

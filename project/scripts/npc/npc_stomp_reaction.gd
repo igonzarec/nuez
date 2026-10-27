@@ -7,6 +7,8 @@ extends Node
 @export var player_collision_enabled := true
 ## Activa rebote, compresión y sonido al caer desde arriba. Desactivar conserva la colisión si Player Collision Enabled está activo. En vivo.
 @export var bounce_enabled := true
+## Velocidad mínima de separación horizontal del player en m/s al apoyarse o rebotar encima. Mayor lo desliza más rápido fuera de la cabeza; se mantiene hasta llegar al escenario. En vivo; también evita quedarse encima durante el cooldown del rebote.
+@export_range(0.5, 8.0, 0.1, "suffix:m/s") var slip_speed := 2.0
 ## Velocidad vertical de salida en m/s; mayor da más altura. 5 produce unos 0,6 m con gravedad 20. En vivo; independiente de la velocidad de caída.
 @export_range(1.0, 15.0, 0.1, "suffix:m/s") var bounce_speed := 5.0
 ## Velocidad descendente mínima en m/s para contactos sin apoyo. Mayor ignora roces lentos en el aire; si el player ya está apoyado encima siempre rebota para impedir quedarse parado. En vivo; requiere Bounce Enabled.

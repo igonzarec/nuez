@@ -62,7 +62,7 @@ func _input(event: InputEvent) -> void:
 			get_tree().paused = true
 			_ui.pause_menu(true)
 		elif _ui.panel_name == "controls":
-			_ui.settings(_settings)
+			_ui.settings(_appearance_menu_values())
 		elif _ui.panel_name == "settings":
 			_save_settings()
 			_ui.pause_menu(true)
@@ -79,7 +79,7 @@ func _action(command: String) -> void:
 	if is_instance_valid(_audio): _audio.play("ui")
 	match command:
 		"resume": _resume()
-		"settings", "controls_back": _ui.settings(_settings)
+		"settings", "controls_back": _ui.settings(_appearance_menu_values())
 		"controls": _ui.controls_menu()
 		"settings_back":
 			_save_settings()
@@ -109,8 +109,7 @@ func _setting(key: String, value: Variant) -> void:
 func _apply_settings(update_display := true) -> void:
 	if is_instance_valid(_audio): _audio.apply(_settings)
 	if is_instance_valid(_camera):
-		_camera.toon_enabled = _settings.get("toon_enabled", false)
-		_camera.toon_softness = _settings.get("toon_softness", 0.08)
+		_camera.apply_appearance_settings(_settings)
 		_camera.sensitivity = _settings.sensitivity
 		_camera.glide_forward_enabled = _settings.get("glide_forward_enabled", false)
 	if update_display:
@@ -119,3 +118,8 @@ func _apply_settings(update_display := true) -> void:
 func _save_settings() -> void:
 	if not _store.write_json(_store.settings_path, _settings):
 		_ui.toast("No se pudieron guardar los ajustes.")
+
+func _appearance_menu_values() -> Dictionary:
+	var values := _settings.duplicate()
+	if is_instance_valid(_camera): values.merge(_camera.appearance_settings(), true)
+	return values

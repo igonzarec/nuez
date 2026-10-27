@@ -9,6 +9,10 @@ uniform int toon_bands : hint_range(2, 6, 1) = 3;
 uniform float toon_softness : hint_range(0.0, 0.5, 0.01) = 0.06;
 /** Strength of painted texture normals. Zero removes texture bump shading, but keeps terrain geometry normals. Updates live. */
 uniform float toon_normal_strength : hint_range(0.0, 1.0, 0.01) = 0.0;
+/** Offset of direct lighting before banding. Positive expands lit areas; negative expands dark areas. Live. */
+uniform float toon_light_offset : hint_range(-1.0, 1.0, 0.01) = 0.0;
+/** Direct light contrast around midpoint. 1 unchanged; larger values separate bands. Live; independent of ambient light. */
+uniform float toon_contrast : hint_range(0.1, 3.0, 0.05) = 1.0;
 group_uniforms;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_disabled,skip_vertex_transform;
 
@@ -685,6 +689,7 @@ void light() {
     float lambert = max(dot(NORMAL, LIGHT), 0.0);
     float lighting = lambert;
     if (toon_enabled) {
+        lambert = clamp((lambert - 0.5) * toon_contrast + 0.5 + toon_light_offset, 0.0, 1.0);
         float intervals = float(max(toon_bands - 1, 1));
         float banded = 0.0;
         float width = max(toon_softness, 0.0001);

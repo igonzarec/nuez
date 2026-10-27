@@ -98,6 +98,10 @@ Cada perfil expone:
 - **Shading**: Seguir ajustes del juego / Normal / Toon. **Toon Softness**
   controla el corte sin cambiar el acabado mate. Seguir ajustes usa normal
   en el editor; elegir Toon local para verlo antes de ejecutar.
+  Durante el juego, el check general del Laboratorio de apariencia tiene
+  prioridad sobre Normal y Toon locales. Al apagarlo se recuperan esos valores;
+  Seguir ajustes utiliza el perfil Toon World si está activo. El general y
+  Toon World aportan bandas, suavidad, umbral y contraste compartidos.
 - Viento opcional, fuerza en metros, velocidad y dirección para hojas/pasto.
 
 Los cambios se actualizan en vivo; geometría y distribución se agrupan cada

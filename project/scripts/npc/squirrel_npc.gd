@@ -11,6 +11,12 @@ const PatrolPoint = preload("res://scripts/npc/patrol_point.gd")
 ## Nombre mostrado al hablar con este NPC. Cambiarlo no renombra nodos ni modifica el player. Se consulta al iniciar cada conversación.
 @export var display_name := "Ardilla"
 
+@export_group("NPC · interacción física")
+## Permite que otros actores trepen la cápsula de este NPC. Desactivado impide agarre y apoyo de trepa incluso si el player permite superficies empinadas sin etiqueta. Activarlo sirve para una ardilla gigante; requiere Player Collision Enabled en StompReaction y Climb Enabled en el player. En vivo, se consulta en cada contacto; apagarlo suelta el agarre al reevaluarlo. No cambia la capacidad del propio NPC de trepar ni genera colisión detallada del modelo.
+@export var climbable := false
+## Permite que chocar planeando contra este NPC active la reacción de choque del player (pose, retroceso y sonido). Desactivado por defecto; la colisión física, el resorte y la separación lateral siguen activos. Requiere Glide Recoil Enabled en el player. En vivo, se consulta al detectar cada contacto o anticipación; no cancela una reacción que ya empezó contra otra superficie.
+@export var player_impact_reaction_enabled := false
+
 @export_group("NPC · diálogo")
 ## Permite hablar si hay texto, un jugador cercano y línea de visión. Usa E o el botón de interacción del mando y el globo existente del juego. En vivo.
 @export var dialogue_enabled := true

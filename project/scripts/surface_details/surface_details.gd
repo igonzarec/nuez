@@ -280,11 +280,15 @@ func _random(cell: Vector2i, seed_value: int) -> float:
 	var value := hash(Vector3i(cell.x,cell.y,seed_value)) & 0x7fffffff
 	return float(value%1000003)/1000003.0
 
+## Actualiza sólo apariencia, también en pausa; no avanza huellas ni regenera geometría.
+func refresh_appearance() -> void:
+	var camera := get_viewport().get_camera_3d()
+	if camera: _update_materials(camera.global_position)
+
 func _update_materials(position: Vector3) -> void:
-	var global_toon := false
+	var rig: Node
 	if not Engine.is_editor_hint():
-		var rig := get_tree().get_first_node_in_group("surface_detail_toon_source")
-		if rig: global_toon = rig.toon_enabled
+		rig = get_tree().get_first_node_in_group("surface_detail_toon_source")
 	for material_key in _materials:
 		var layer: int = material_key
 		var profile: Resource = profiles()[layer]
@@ -294,7 +298,16 @@ func _update_materials(position: Vector3) -> void:
 			material.set_shader_parameter(parameter,profile.get(parameter))
 		material.set_shader_parameter("base_roughness",profile.roughness)
 		material.set_shader_parameter("specular_amount",profile.specular)
-		material.set_shader_parameter("toon_enabled",profile.shading == 2 or (profile.shading == 0 and global_toon))
+		var general: bool = is_instance_valid(rig) and rig.toon_enabled
+		var follow_world: bool = is_instance_valid(rig) and profile.shading == 0 and rig.toon_world.enabled
+		var shared: bool = general or follow_world
+		var look: Resource = null
+		if shared: look = rig.toon_general if general else rig.toon_world
+		material.set_shader_parameter("toon_enabled", general or profile.shading == 2 or follow_world)
+		material.set_shader_parameter("trail_toon_bands", look.bands if shared else 2)
+		material.set_shader_parameter("trail_toon_softness", look.softness if shared else profile.toon_softness)
+		material.set_shader_parameter("trail_toon_offset", look.light_offset if shared else 0.0)
+		material.set_shader_parameter("trail_toon_contrast", look.contrast if shared else 1.0)
 		material.set_shader_parameter("wind_strength",profile.wind_strength if profile.wind_enabled else 0.0)
 		material.set_shader_parameter("wind_speed",profile.wind_speed)
 		material.set_shader_parameter("wind_direction",Vector2.from_angle(deg_to_rad(profile.wind_direction)))

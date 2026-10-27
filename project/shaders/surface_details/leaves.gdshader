@@ -1,4 +1,5 @@
 shader_type spatial;
+#include "res://shaders/toon_lighting.gdshaderinc"
 render_mode blend_mix, depth_prepass_alpha, cull_disabled;
 uniform vec4 color_a : source_color;
 uniform vec4 color_b : source_color;
@@ -44,8 +45,7 @@ void light() {
 	float nl = max(dot(NORMAL,LIGHT),0.0);
 	float diffuse = nl;
 	if (toon_enabled) {
-		float width = max(0.001,toon_softness*0.5);
-		diffuse = smoothstep(0.5-width,0.5+width,nl);
+		diffuse = trail_toon_ramp(diffuse);
 	}
 	DIFFUSE_LIGHT += LIGHT_COLOR * diffuse * ATTENUATION / PI;
 	if (!toon_enabled && specular_amount > 0.0) {

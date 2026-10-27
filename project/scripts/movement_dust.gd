@@ -39,12 +39,17 @@ func setup(owner_rig: SquirrelRig, owner_actor: ExplorerPlayer) -> void:
 	particles.emitting = false
 	add_child(particles)
 
+## Detiene sólo partículas nuevas; las anteriores siguen visibles hasta agotar su vida.
+func stop_emission() -> void:
+	if particles:
+		particles.emitting = false
+
 func _process(_delta: float) -> void:
 	if actor == null or particles == null:
 		return
 	# El contacto del trampolín conserva is_on_floor durante un frame.
 	# Bloquea la generación, sin ocultar/congelar la simulación.
-	if actor.npc_bounce_in_progress:
+	if actor.is_npc_dust_blocked():
 		particles.emitting = false
 		return
 	var sliding_glide := actor.is_glide_landing
@@ -52,6 +57,9 @@ func _process(_delta: float) -> void:
 	var glide_dust := sliding_glide and actor.glide_landing_dust_enabled and actor.is_on_floor() and actor.horizontal_speed > 0.1
 	var slope_dust := actor.is_sliding and actor.slide_dust_enabled and not actor.is_climbing and not actor.is_gliding and actor.slide_velocity.length() > actor.slide_dust_min_speed
 	var active := actor.movement_dust_enabled and (running or glide_dust or slope_dust)
+	# is_on_floor también es true sobre cápsulas. Exigir terreno físico evita
+	# emisiones al rozar/llegar corriendo antes de que se acepte un rebote.
+	active = active and not actor.is_in_dialogue() and actor.has_world_ground_contact(false) and not actor.get_npc_support()
 	# Carrera conserva la fuente X/Y; al aterrizar planeando también ocupa Z.
 	var width := maxf(0.0, actor.glide_landing_dust_width if sliding_glide else actor.movement_dust_scatter_width)
 	var height := maxf(0.0, actor.glide_landing_dust_height if sliding_glide else actor.movement_dust_scatter_height)

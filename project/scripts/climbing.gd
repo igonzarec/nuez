@@ -39,7 +39,15 @@ func reset() -> void:
 	cooldown = 0.25
 
 func _ray(from: Vector3, to: Vector3) -> Dictionary:
-	return actor.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from, to, actor.collision_mask, [actor.get_rid()]))
+	var hit := actor.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from, to, actor.collision_mask, [actor.get_rid()]))
+	if not hit.is_empty():
+		var npc := hit.collider as ExplorerPlayer
+		if npc and npc.is_in_group("npc_actors") and not npc.allows_climb(hit.position):
+			# Bloqueo explícito también para apoyo de pies y asistencia de cima.
+			# No continuar el rayo detrás del NPC ni recurrir al modo sin etiqueta.
+			forbidden_contact = true
+			return {}
+	return hit
 
 func _wall_hit(direction: Vector3, sustained := false) -> Dictionary:
 	forbidden_contact = false
@@ -49,7 +57,7 @@ func _wall_hit(direction: Vector3, sustained := false) -> Dictionary:
 		return {}
 	var normal: Vector3 = hit.normal
 	var collider := hit.collider as Node
-	if collider and collider.is_in_group("climbable"):
+	if collider and (collider.is_in_group("climbable") or collider.is_in_group("npc_actors")):
 		# Las rocas procedurales mantienen sus zonas y sus límites propios. El
 		# prototipo por pendiente no debe convertir una zona Disabled en escalable.
 		if collider.has_method("allows_climb") and not collider.allows_climb(hit.position):

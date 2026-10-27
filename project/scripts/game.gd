@@ -91,8 +91,7 @@ func _build_session(data: Dictionary) -> void:
 	level.add_child(camera_rig)
 	player.camera_rig = camera_rig
 	camera_rig.sensitivity = settings.sensitivity
-	camera_rig.toon_enabled = settings.get("toon_enabled", false)
-	camera_rig.toon_softness = settings.get("toon_softness", 0.08)
+	camera_rig.apply_appearance_settings(settings)
 	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
 	# TrailAudio conserva todas las conexiones de audio del personaje y la cámara.
 	audio.bind_camera(camera_rig)
@@ -162,7 +161,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			State.DIALOGUE: _close_dialogue()
 			State.SETTINGS:
 				if ui.panel_name == "controls":
-					ui.settings(settings)
+					ui.settings(_appearance_menu_values())
 				else:
 					_settings_back()
 			State.CONFIRM: show_title()
@@ -423,10 +422,10 @@ func _on_action(command: String) -> void:
 		"settings":
 			settings_return = state
 			_set_state(State.SETTINGS)
-			ui.settings(settings)
+			ui.settings(_appearance_menu_values())
 		"settings_back": _settings_back()
 		"controls": ui.controls_menu()
-		"controls_back": ui.settings(settings)
+		"controls_back": ui.settings(_appearance_menu_values())
 		"advance": advance_dialogue()
 		"quit":
 			get_tree().quit()
@@ -445,8 +444,7 @@ func _on_setting(key: String, value: Variant) -> void:
 	_apply_settings(key in ["resolution", "fullscreen"])
 
 func _apply_settings(update_display := true) -> void:
-	camera_rig.toon_enabled = settings.get("toon_enabled", false)
-	camera_rig.toon_softness = settings.get("toon_softness", 0.08)
+	camera_rig.apply_appearance_settings(settings)
 	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
 	audio.apply(settings)
 	pixel_material.set_shader_parameter("pixel_size", settings.get("pixel_size", 2.0))
@@ -467,3 +465,8 @@ func _notification(what: int) -> void:
 		get_tree().quit()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT and state == State.PLAYING and not "--qa" in OS.get_cmdline_user_args():
 		pause_game()
+
+func _appearance_menu_values() -> Dictionary:
+	var values := settings.duplicate()
+	if is_instance_valid(camera_rig): values.merge(camera_rig.appearance_settings(), true)
+	return values

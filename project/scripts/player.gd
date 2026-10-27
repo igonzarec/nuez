@@ -710,6 +710,7 @@ func set_controls(enabled: bool) -> void:
 func respawn() -> void:
 	_npc_bounce_airborne = false
 	npc_bounce_in_progress = false
+	_npc_slip_speed = 0.0
 	_interaction_facing_left = 0.0
 	_interaction_partner = null
 	_interaction_turn_pending = false
@@ -755,10 +756,14 @@ func respawn() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not control_enabled: return
+	var npc_support := get_npc_support()
+	if npc_support:
+		_start_npc_slip(npc_support)
 	if is_in_dialogue():
 		# Bloqueo de locomoción, no de procesamiento: gravedad, Idle y rig siguen vivos.
 		velocity.x = 0.0
 		velocity.z = 0.0
+		_apply_npc_slip()
 		velocity.y = 0.0 if is_on_floor() else velocity.y - gravity * delta
 		move_and_slide()
 		horizontal_speed = 0.0
@@ -921,13 +926,17 @@ func _physics_process(delta: float) -> void:
 	var incoming_glide_velocity := Vector3(velocity.x, 0.0, velocity.z)
 	var impact_speed := maxf(0, -velocity.y)
 	var position_before_move := global_position
+	_apply_npc_slip()
 	move_and_slide()
 	_npc_bounce_airborne = false
 	if _try_npc_bounce(incoming_velocity):
 		animator.tick(delta, horizontal_speed)
 		return
-	if is_on_floor():
+	if is_on_floor() and has_world_ground_contact() and not get_npc_support():
+		if npc_bounce_in_progress:
+			_npc_dust_block_frame = Engine.get_physics_frames()
 		npc_bounce_in_progress = false
+		_npc_slip_speed = 0.0
 	if landing_from_glide and not is_on_floor() and _try_glide_recoil(incoming_velocity):
 		animator.tick(delta, horizontal_speed)
 		return
@@ -994,6 +1003,59 @@ func _physics_process(delta: float) -> void:
 
 var _npc_bounce_airborne := false
 var npc_bounce_in_progress := false
+var _npc_slip_direction := Vector3.ZERO
+var _npc_slip_speed := 0.0
+var _npc_dust_block_frame := -1
+
+func is_npc_dust_blocked() -> bool:
+	return npc_bounce_in_progress or _npc_dust_block_frame == Engine.get_physics_frames()
+
+## Permiso de la superficie corporal, independiente de Climb Enabled (capacidad del actor).
+func allows_climb(_world_point: Vector3) -> bool:
+	if not is_in_group("npc_actors"):
+		return true
+	return is_instance_valid(command_source) and command_source.get("climbable") == true
+
+## Apoyo real en escenario; la cápsula de un NPC nunca cuenta como suelo para polvo o diálogo.
+func has_world_ground_contact(walkable_only: bool = true) -> bool:
+	var reach := maxf(0.12, snap_distance + safe_margin)
+	var query := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.1, global_position - Vector3.UP * reach, 1, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	return not hit.is_empty() and hit.normal.y >= (cos(floor_max_angle) if walkable_only else 0.05)
+
+func get_npc_support() -> ExplorerPlayer:
+	if is_instance_valid(command_source) or velocity.y > 0.0:
+		return null
+	var hit := KinematicCollision3D.new()
+	if test_move(global_transform, Vector3.DOWN * (safe_margin + 0.04), hit):
+		for index in hit.get_collision_count():
+			var other := hit.get_collider(index) as ExplorerPlayer
+			if other and other.is_in_group("npc_actors") and hit.get_normal(index).y > 0.1:
+				return other
+	return null
+
+func can_start_npc_dialogue() -> bool:
+	return control_enabled and is_on_floor() and velocity.y <= 0.0 and not npc_bounce_in_progress and not is_splat and not is_climbing and not get_npc_support() and has_world_ground_contact()
+
+func _start_npc_slip(other: ExplorerPlayer) -> void:
+	if not npc_bounce_in_progress:
+		_npc_slip_direction = (global_position - other.global_position) * Vector3(1.0, 0.0, 1.0)
+		if _npc_slip_direction.is_zero_approx():
+			_npc_slip_direction = Vector3(velocity.x, 0.0, velocity.z)
+		if _npc_slip_direction.is_zero_approx():
+			_npc_slip_direction = Vector3.FORWARD.rotated(Vector3.UP, model.rotation.y)
+		_npc_slip_direction = _npc_slip_direction.normalized()
+	var spring := other.command_source.get_node_or_null("StompReaction") if is_instance_valid(other.command_source) else null
+	_npc_slip_speed = float(spring.slip_speed) if spring else 2.0
+	npc_bounce_in_progress = true
+	_npc_dust_block_frame = Engine.get_physics_frames()
+	if is_instance_valid(model.movement_dust):
+		model.movement_dust.stop_emission()
+
+func _apply_npc_slip() -> void:
+	if npc_bounce_in_progress and _npc_slip_speed > 0.0:
+		var outward_speed := velocity.dot(_npc_slip_direction)
+		velocity += _npc_slip_direction * maxf(0.0, _npc_slip_speed - outward_speed)
 
 func _try_npc_support_bounce() -> bool:
 	if is_instance_valid(command_source) or not is_on_floor() or _npc_bounce_airborne or velocity.y > 0.0:
@@ -1016,6 +1078,8 @@ func _try_npc_bounce(incoming: Vector3) -> bool:
 		var other := hit.get_collider() as ExplorerPlayer
 		if not other or not is_instance_valid(other.command_source):
 			continue
+		if hit.get_normal().y > 0.1:
+			_start_npc_slip(other)
 		var spring := other.command_source.get_node_or_null("StompReaction")
 		if spring and spring.try_stomp(self, hit, -incoming.y):
 			return true
@@ -1026,6 +1090,10 @@ func bounce_from_npc(speed: float) -> void:
 	velocity.y = speed
 	_npc_bounce_airborne = true
 	npc_bounce_in_progress = true
+	_npc_dust_block_frame = Engine.get_physics_frames()
+	if is_instance_valid(model.movement_dust):
+		model.movement_dust.stop_emission()
+	_apply_npc_slip()
 	jump_consumed = true
 	coyote_left = 0.0
 	buffer_left = 0.0
@@ -1039,6 +1107,12 @@ func bounce_from_npc(speed: float) -> void:
 	fall_peak_y = global_position.y
 	animator.jump_started()
 
+func _allows_impact_reaction(collider: Object) -> bool:
+	var npc := collider as ExplorerPlayer
+	if not npc or not npc.is_in_group("npc_actors"):
+		return true
+	return is_instance_valid(npc.command_source) and npc.command_source.get("player_impact_reaction_enabled") == true
+
 func _try_glide_recoil(incoming: Vector3) -> bool:
 	if not glide_recoil_enabled:
 		return false
@@ -1047,11 +1121,16 @@ func _try_glide_recoil(incoming: Vector3) -> bool:
 		return false
 	var normals: Array[Vector3] = []
 	for index in get_slide_collision_count():
-		normals.append(get_slide_collision(index).get_normal())
+		var contact := get_slide_collision(index)
+		for contact_index in contact.get_collision_count():
+			if _allows_impact_reaction(contact.get_collider(contact_index)):
+				normals.append(contact.get_normal(contact_index))
 	if glide_recoil_probe_distance > 0.0:
 		var probe := KinematicCollision3D.new()
 		if test_move(global_transform, planar.normalized() * glide_recoil_probe_distance, probe):
-			normals.append(probe.get_normal())
+			for contact_index in probe.get_collision_count():
+				if _allows_impact_reaction(probe.get_collider(contact_index)):
+					normals.append(probe.get_normal(contact_index))
 	for normal in normals:
 		if normal.y < -0.01 or normal.y >= cos(floor_max_angle) or normal.y > cos(deg_to_rad(glide_recoil_min_wall_slope_degrees)):
 			continue

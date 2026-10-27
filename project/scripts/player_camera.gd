@@ -1,12 +1,68 @@
 class_name TrailCamera
 extends Node3D
 
-@export_group("Vista toon experimental")
-## Activa el sombreado toon del mundo durante la ejecución; también disponible en Ajustes. En vivo, incluso en pausa. Desactivarlo restaura los materiales originales. No modifica archivos ni el cielo sin iluminación. El primer cambio puede compilar shaders.
+@export_group("Laboratorio de apariencia")
+## Override general: sustituye perfiles locales de mundo, terreno, personaje y detalles. Apagado recupera los valores particulares. En vivo durante ejecución, incluso en pausa; primer uso puede compilar shaders.
 @export var toon_enabled := false
-## Suavidad de la transición entre luz y sombra, de 0 a 1. 0 crea un corte duro; aumentar suaviza el terminador. En vivo; requiere Toon Enabled. Usa la rugosidad del modelo toon y elimina el brillo especular directo durante la vista previa.
-@export_range(0.0, 1.0, 0.01) var toon_softness := 0.08
+## Perfil general. Enabled del recurso se ignora: manda Toon Enabled. Expandir para bandas, suavidad, umbral, contraste y normales. En vivo durante ejecución.
+@export var toon_general: TrailToonLook = TrailToonLook.new()
+## Objetos y vegetación. Enabled apagado conserva materiales originales. El general activo tiene prioridad. En vivo durante ejecución.
+@export var toon_world: TrailToonLook = TrailToonLook.new()
+## Terrain3D. Enabled apagado conserva los valores de cada material, incluido grass_terrain. El general tiene prioridad. En vivo durante ejecución.
+@export var toon_terrain: TrailToonLook = TrailToonLook.new()
+## Ardillas player y NPC. Enabled apagado conserva su iluminación original. El general tiene prioridad. En vivo durante ejecución.
+@export var toon_character: TrailToonLook = TrailToonLook.new()
+@export_subgroup("Personaje · acabado mate")
+## Prueba acabado mate en las ardillas conservando texturas y colores. Independiente de toon; sin toon mantiene PBR. En vivo durante ejecución, incluso en pausa; sólo materiales en memoria.
+@export var character_matte_enabled := false
+## Rugosidad del personaje con acabado mate, 0 pulido y 1 mate. En toon no altera suavidad de bandas. En vivo.
+@export_range(0.0, 1.0, 0.01) var character_matte_roughness := 1.0
+## Especular con acabado mate, 0 sin reflejo y 1 intenso. Toon elimina especular directo. En vivo.
+@export_range(0.0, 1.0, 0.01) var character_matte_specular := 0.0
+## Metalicidad con acabado mate, 0 dieléctrico y 1 metálico. 0 conserva mejor el color del personaje. En vivo.
+@export_range(0.0, 1.0, 0.01) var character_matte_metallic := 0.0
 @export_group("")
+
+# Compatibilidad con escenas y preferencias anteriores.
+var toon_softness: float:
+	get:
+		ensure_appearance_profiles()
+		return toon_general.softness
+	set(value):
+		ensure_appearance_profiles()
+		toon_general.softness = value
+
+func ensure_appearance_profiles() -> void:
+	for category in ["general", "world", "terrain", "character"]:
+		if get("toon_" + category) == null: set("toon_" + category, TrailToonLook.new())
+
+func apply_appearance_settings(values: Dictionary) -> void:
+	ensure_appearance_profiles()
+	toon_enabled = values.get("toon_enabled", false)
+	toon_softness = values.get("toon_softness", 0.08)
+	# No sustituir autoría nueva con defaults de preferencias ausentes.
+	for key in ["toon_bands", "toon_light_offset", "toon_contrast", "toon_normal_strength"]:
+		if values.has(key): toon_general.set(key.trim_prefix("toon_"), values[key])
+	for category in ["world", "terrain", "character"]:
+		var profile: TrailToonLook = get("toon_" + category)
+		for property in ["enabled", "bands", "softness", "light_offset", "contrast", "normal_strength"]:
+			var key: String = "toon_" + category + "_" + property
+			if values.has(key): profile.set(property, values[key])
+	for key in ["character_matte_enabled", "character_matte_roughness", "character_matte_specular", "character_matte_metallic"]:
+		if values.has(key): set(key, values[key])
+
+func appearance_settings() -> Dictionary:
+	ensure_appearance_profiles()
+	var values := {"toon_enabled": toon_enabled, "toon_softness": toon_softness}
+	for property in ["bands", "light_offset", "contrast", "normal_strength"]:
+		values["toon_" + property] = toon_general.get(property)
+	for category in ["world", "terrain", "character"]:
+		var profile: TrailToonLook = get("toon_" + category)
+		for property in ["enabled", "bands", "softness", "light_offset", "contrast", "normal_strength"]:
+			values["toon_" + category + "_" + property] = profile.get(property)
+	for key in ["character_matte_enabled", "character_matte_roughness", "character_matte_specular", "character_matte_metallic"]:
+		values[key] = get(key)
+	return values
 
 var _toon_preview: Node
 
@@ -161,6 +217,12 @@ var _manual_orbit_pending := false
 var _lift_hold_left := 0.0
 
 func _ready() -> void:
+	ensure_appearance_profiles()
+	# Cada instancia de cámara conserva sus propios perfiles editables.
+	toon_general = toon_general.duplicate() as TrailToonLook
+	toon_world = toon_world.duplicate() as TrailToonLook
+	toon_terrain = toon_terrain.duplicate() as TrailToonLook
+	toon_character = toon_character.duplicate() as TrailToonLook
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_to_group("surface_detail_toon_source")
 	_toon_preview = preload("res://scripts/core/toon_preview.gd").new()

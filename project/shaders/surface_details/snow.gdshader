@@ -1,4 +1,5 @@
 shader_type spatial;
+#include "res://shaders/toon_lighting.gdshaderinc"
 render_mode blend_mix, depth_prepass_alpha, cull_back;
 
 uniform vec4 color_a : source_color = vec4(0.85,0.91,0.96,1);
@@ -86,8 +87,7 @@ void light() {
 	float nl = dot(NORMAL,LIGHT);
 	float diffuse = max((nl + snow_scatter)/(1.0+snow_scatter),0.0);
 	if (toon_enabled) {
-		float width = max(0.001,toon_softness*0.5);
-		diffuse = smoothstep(0.5-width,0.5+width,diffuse);
+		diffuse = trail_toon_ramp(diffuse);
 	}
 	DIFFUSE_LIGHT += LIGHT_COLOR * diffuse * ATTENUATION / PI;
 	if (!toon_enabled) {

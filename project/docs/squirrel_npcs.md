@@ -354,6 +354,20 @@ el rebote incluso a velocidad casi cero: el NPC no sirve como plataforma para
 quedarse parado. Se comprueba también el apoyo quieto, respetando el intervalo
 Impact Cooldown. Las colisiones laterales no disparan el resorte.
 
+**StompReaction → Slip Speed** (2 m/s) mantiene una separación horizontal hacia
+fuera al apoyarse sobre el NPC, incluido el intervalo entre rebotes. Aumentarlo
+acelera la salida; se aplica en vivo. Si se cae justo en el centro se usa la
+dirección de movimiento o la orientación del player. La salida continúa hasta
+alcanzar suelo real y evita mantenerse encima compensando con el stick.
+
+Tanto el diálogo normal como el regaño exigen apoyo caminable en el escenario:
+`is_on_floor()` por sí solo también acepta la cápsula del NPC. Se vuelve a validar
+justo al abrir el globo. Si un NPC pasa debajo durante una conversación, ésta
+se cierra para liberar al player. El polvo se detiene desde el contacto superior,
+sin borrar ni ocultar partículas anteriores, y queda bloqueado durante el rebote
+y el frame de aterrizaje. Sólo puede volver a emitirse al moverse sobre escenario;
+las comprobaciones añaden consultas físicas cortas de apoyo, sin generar mallas.
+
 Tras **2 impactos en 8 segundos**, el NPC pide que dejes de usarlo como
 trampolín. El diálogo espera a que ambos estén apoyados y el player esté dentro
 de Dialogue Reach, con línea de visión y sin otra conversación abierta. Si te
@@ -364,6 +378,31 @@ mirada gradual, los gestos, el bloqueo de locomoción y la protección del botó
 compartido de salto/interacción, sin pausar el mundo.
 
 ## Crear el siguiente NPC
+
+### Permitir trepar un NPC concreto
+
+El nodo raíz también ofrece **NPC · interacción física → Player Impact Reaction
+Enabled**, desactivado por defecto para todos los NPC de la base. Así, chocar
+planeando contra Peter no dispara la animación de choque, su retroceso ni su
+sonido. El permiso se comprueba tanto en el contacto real como en la anticipación
+del choque. Actívalo sólo en el NPC que deba provocar esa reacción; el player
+debe tener Glide Recoil Enabled activo. La colisión física y el rebote al caer
+encima conservan su funcionamiento; las paredes del escenario mantienen la
+reacción habitual. Cambiarlo se aplica a contactos nuevos en vivo.
+
+En el **nodo raíz del NPC → NPC · interacción física → Climbable** se decide
+si su cuerpo sirve como superficie de trepa. Está **desactivado por defecto**
+en la base, Peter y todos los NPC que hereden de ella. El bloqueo tiene prioridad
+sobre el prototipo del player que permite trepar superficies empinadas sin etiqueta;
+también se aplica a los apoyos y a la asistencia hacia la cima.
+
+Para la futura ardilla gigante instructora, activa **Climbable sólo en esa
+instancia** y conserva **StompReaction → Player Collision Enabled**. El player
+debe tener su propio **Climb Enabled** activo. El permiso se consulta en vivo;
+desactivarlo cancela el agarre al reevaluar el contacto. No impide que el propio
+NPC trepe el escenario. La superficie sigue siendo su cápsula escalada por
+Overall Size: no reproduce por separado brazos, cola u orejas. El rebote y la
+salida lateral de la cabeza conservan sus controles independientes.
 
 Crea una **nueva escena heredada de squirrel_npc.tscn**, asigna otro nombre
 y paleta, y diseña su Route. Así cada personaje comparte modelo/controlador y

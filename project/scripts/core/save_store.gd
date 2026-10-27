@@ -56,6 +56,26 @@ func load_settings() -> Dictionary:
 	result.toon_enabled = loaded.get("toon_enabled", false) == true
 	var toon_softness: Variant = loaded.get("toon_softness", 0.08)
 	result.toon_softness = clampf(float(toon_softness), 0.0, 1.0) if (toon_softness is float or toon_softness is int) and is_finite(float(toon_softness)) else 0.08
+	# Nuevas preferencias opcionales: conservar autoría del Inspector si aún no se guardaron.
+	for category in ["", "world_", "terrain_", "character_"]:
+		for property in ["enabled", "bands", "softness", "light_offset", "contrast", "normal_strength"]:
+			var key: String = "toon_" + category + property
+			if not loaded.has(key): continue
+			if property == "enabled": result[key] = loaded[key] == true
+			elif loaded[key] is float or loaded[key] is int:
+				var number := float(loaded[key])
+				if not is_finite(number): continue
+				match property:
+					"bands": result[key] = clampi(int(number), 2, 6)
+					"light_offset": result[key] = clampf(number, -1.0, 1.0)
+					"contrast": result[key] = clampf(number, 0.1, 3.0)
+					_: result[key] = clampf(number, 0.0, 1.0)
+	if loaded.has("character_matte_enabled"): result.character_matte_enabled = loaded.character_matte_enabled == true
+	for property in ["roughness", "specular", "metallic"]:
+		var key: String = "character_matte_" + property
+		if loaded.get(key) is float or loaded.get(key) is int:
+			var number := float(loaded[key])
+			if is_finite(number): result[key] = clampf(number, 0.0, 1.0)
 	result.fullscreen = loaded.get("fullscreen", false) == true
 	result.resolution = TrailDisplay.validated_resolution(loaded.get("resolution", TrailDisplay.DEFAULT_RESOLUTION))
 	result.pixel_size = clampf(float(loaded.get("pixel_size", 2.0)), 1, 4)
