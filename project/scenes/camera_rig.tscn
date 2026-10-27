@@ -1,18 +1,21 @@
 [gd_scene format=3 uid="uid://bq8cdc30dyhr6"]
 
 [ext_resource type="Script" uid="uid://dmsqwf0yidaui" path="res://scripts/player_camera.gd" id="1"]
-
-[ext_resource type="Script" path="res://scripts/core/toon_look.gd" id="2_look"]
+[ext_resource type="Script" uid="uid://bjfu8u0istmqs" path="res://scripts/core/toon_look.gd" id="2_look"]
 
 [sub_resource type="Resource" id="Resource_general_toon"]
 resource_local_to_scene = true
 script = ExtResource("2_look")
-softness = 1.0
+softness = 0.92
+light_offset = -0.98
+contrast = 1.6500000000000001
+normal_strength = 0.77
 
 [node name="OrbitCamera" type="Node3D" unique_id=1643455216]
 script = ExtResource("1")
 toon_enabled = true
 toon_general = SubResource("Resource_general_toon")
+character_matte_enabled = true
 distance = 20.0
 vertical_range_degrees = 30.0
 stick_speed = 2.5

@@ -13,6 +13,10 @@
   habilidades nuevas al player. Reutilizar la base configurable de NPC. Por
   ahora: correr, trepar, planear y trepar más rápido.
 
+## Escenario y exploración
+
+- [ ] Hacer trepables los troncos de los árboles de GLB 2.
+
 ## Audio
 
 - [ ] Reemplazar los efectos de sonido provisionales generados por código en
