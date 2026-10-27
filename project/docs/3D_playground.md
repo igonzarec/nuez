@@ -1,11 +1,11 @@
 # Recorrido del prototipo Terrain3D
 
 Abrir `res://scenes/3D_playground.tscn` y pulsar F6. Esta
-escena instancia `snow_terrain.tscn`, por lo que usa las regiones,
-las dos montanas y los materiales que se editaron sin modificar esa escena.
+escena instancia `grass_terrain.tscn`, por lo que usa sus regiones y materiales
+sin modificar esa escena.
 
 Incluye la ardilla, su camara orbital, iluminacion, ambiente, musica/efectos,
-pasos de nieve, huellas visuales, nevada local y el mismo StylizedSky con nubes
+pasos grabados, huellas visuales, nevada local y el mismo StylizedSky con nubes
 de terrain_snow_playground. WASD mueve, Shift corre, Espacio salta y permite
 planear; clic derecho rota la camara; C la recentra y R devuelve al inicio.
 
@@ -27,12 +27,16 @@ Inspector; Limit es el coste maximo de nodos visuales activos.
 
 En la raiz `3D_playground`, el grupo **Terreno** tiene
 **Terrain Scene**: la escena de terreno que se prueba (por defecto
-`snow_terrain.tscn`, la montana de nieve). Para probar otro mapa,
-arrastra su escena ahi, por ejemplo `grass_terrain.tscn`. Debe
+`grass_terrain.tscn`). Para probar otro mapa, arrastra su escena ahi. Debe
 contener un nodo Terrain3D. Se instancia al ejecutar (F6), por lo que no se ve
 en el editor de esta escena: edita el terreno abriendo su propia escena. Cambiar
 la escena requiere volver a ejecutar. Ajusta Spawn XZ si el nuevo terreno tiene
 otra forma o ubicacion de regiones.
+
+TrailAudio usa la muestra grabada `snow_step_06_mid.wav` para pasos y aterrizajes
+en cualquier terreno. SnowStepAudio conserva la cadencia especial de la nieve,
+pero su variante activa por defecto es el mismo archivo; al salir de la nieve
+no aparece otro timbre.
 
 El grupo Inicio del jugador contiene
 Spawn XZ, Auto Spawn Fallback y Spawn Ray Height. **Auto Spawn Fallback** evita

@@ -6,6 +6,7 @@
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
 step_volume_db = -10.0
+splat_duration = 2.0
 sprint_speed = 20.87
 walk_member_animation_speed = 2.35
 run_member_animation_speed = 2.87
@@ -65,3 +66,6 @@ glide_bank_degrees = 60.0
 glide_bank_full_turn_rate_degrees = 71.0
 handmade_glide_flutter_speed = 2.0
 handmade_glide_tremor_degrees = 8.0
+splat_recover_duration = 0.2
+splat_flat_scale = Vector3(1, 0.65, 1)
+splat_visual_height = -0.09999999999999998

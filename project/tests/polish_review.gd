@@ -92,18 +92,18 @@ func run() -> void:
 	Input.action_release("jump")
 	var rig: SquirrelRig = game.player.model
 	var tip: int = rig.bone_indices["tail_tip"]
-	var rest := rig.skeleton.get_bone_rest(tip).origin
+	var rest: Vector3 = rig.skeleton.get_bone_rest(tip).origin
 	var forearm: int = rig.bone_indices["forearm_left"]
-	var arm_rest := rig.skeleton.get_bone_rest(forearm).origin
+	var arm_rest: Vector3 = rig.skeleton.get_bone_rest(forearm).origin
 	check(rig.current_positions[forearm].y < arm_rest.y - 0.005 and rig.current_scales[forearm].y > 1.01, "Arms dip and stretch on ascent")
 	var shoulder: int = rig.bone_indices["arm_left"]
-	var rising_spread := rig.current_rotations[shoulder].get_euler().z
+	var rising_spread: float = rig.current_rotations[shoulder].get_euler().z
 	check(game.player.animator.tail_flex > 0.2 and rig.current_positions[tip].y < rest.y - 0.03, "Large tail curl dips during upward jump")
 	check(rig.current_scales[tip].z > 1.02 and rig.current_scales[tip].y < 0.99, "Rising tail stretches and squashes, not rotation alone")
 	check(absf(rig.current_scales[tip].x * rig.current_scales[tip].y * rig.current_scales[tip].z - 1.0) < 0.05, "Tail deformation approximately preserves volume")
 	await frames(29)
 	check(rig.current_positions[forearm].y > arm_rest.y + 0.005 and rig.current_scales[forearm].y > 1.01, "Arms lift and stretch on descent")
-	var falling_angle := rig.current_rotations[shoulder].get_euler().z
+	var falling_angle: float = rig.current_rotations[shoulder].get_euler().z
 	check(falling_angle < rising_spread - 0.1 and falling_angle < -PI / 2, "Left shoulder opens outward above horizontal while falling")
 	var right_shoulder: int = rig.bone_indices["arm_right"]
 	check(rig.current_rotations[right_shoulder].get_euler().z > PI / 2, "Right shoulder mirrors the raised falling pose")

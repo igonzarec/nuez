@@ -163,3 +163,7 @@ lo termina. Cruz/A sólo salta o conserva agarre al trepar: ya no inicia planeo.
 R1 deja de activar sprint. **L1 / LB** conserva carrera y, junto a R1, planeo
 rápido. Teclado conserva otra pulsación de **Espacio** en el aire y mantener;
 **Shift** acelera. Mantener el botón desde tierra no inicia planeo automáticamente.
+
+La escalada usa **F** en teclado y **Cruz/A** en mando. Mantenerla durante
+planeo pide agarre si la pared lo permite; sin agarre válido, un impacto frontal
+puede activar [recoil y caída](glide_recoil.md), con pose y física editables.

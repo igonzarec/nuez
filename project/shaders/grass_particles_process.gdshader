@@ -41,6 +41,10 @@ uniform float distance_fade_ammount : hint_range(0.0, 1.0, 0.01) = 0.5;
 // El ejemplo original tenia el valor 0 escrito a mano, lo que vaciaba el pasto
 // en cualquier terreno cuya textura 0 fuese la del suelo.
 uniform int excluded_texture_id = -1;
+uniform bool painted_mask_enabled = false;
+uniform sampler2D painted_mask : filter_nearest, repeat_disable;
+uniform vec2 painted_mask_origin = vec2(0.0);
+uniform float painted_mask_size = 128.0;
 
 group_uniforms private;
 uniform float max_dist = 1.;
@@ -215,6 +219,14 @@ void start() {
 	// via 0./0. - Particles filtered this way are still processed by the GPU.
 	// For compatibility it seems we must shift as well.
 	// Surface slope filtering
+	if (painted_mask_enabled) {
+		vec2 mask_uv = (pos.xz - painted_mask_origin) / painted_mask_size;
+		if (any(lessThan(mask_uv, vec2(0.0))) || any(greaterThanEqual(mask_uv, vec2(1.0))) ||
+			textureLod(painted_mask, mask_uv, 0.0).r < r.z) {
+			pos.y = 0. / 0.;
+			pos.xz = vec2(100000.0);
+		}
+	}
 	if (surface_slope_min > w_normal.y + (r.y - 0.5) * condition_dither_range) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);

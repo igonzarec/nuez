@@ -4,20 +4,28 @@ Una bitácora breve de decisiones y aprendizajes del proyecto. La documentación
 de referencia explica el detalle; aquí queda el contexto de cómo va creciendo
 el juego.
 
+## 2026-10-23 · Terrain3D y montañas de Blender
+
+Decidimos usar Terrain3D para el suelo y las laderas que conviene pintar y
+ajustar durante el diseño, y Blender para montañas, acantilados y paredes con
+forma definida. Las piezas se integrarán visualmente en Godot y tendrán
+colisión propia cuando sean caminables. Aprendizaje: un mapa de alturas facilita
+pendientes continuas; una malla de autor permite paredes y salientes sin forzar
+el relieve de Terrain3D.
+
 ## 2026-10-23 · La nieve deja de ser un detalle disperso
 
 La prueba de nieve generada por `SurfaceDetails` resultó pesada y no alcanzó
 el aspecto del `SnowTerrain` de prueba ni de la textura `snow_powder_v2`. Decidimos
 separar **aspecto**, **respuesta del personaje** y **clima**: el autor pinta la
-textura en Terrain3D y marca aparte zonas de nieve ligera o profunda; unas
-activarán huellas y otras podrán sumar hundimiento visual y un camino
-comprimido. Las zonas tendrán colores editables visibles sólo en el editor.
-La nevada seguirá zonas de clima colocadas por el autor, sin deducirse de cada
-parche blanco. El pasto recuperará la apariencia de `GrassParticles` original
-y las hojas mantendrán su lógica propia, aunque compartan un pincel de autoría.
-Aprendizaje: un pincel común no obliga a representar materiales tan distintos
-con la misma geometría. Esta arquitectura es la dirección acordada; aún falta
-implementarla y comprobar su coste y aspecto en juego.
+textura en Terrain3D y marca aparte zonas de nieve ligera o profunda. Ambas
+pueden dejar huellas y la profunda suma hundimiento visual y respuesta de
+movimiento. La malla densa de nieve se retiró del render de `SurfaceDetails`;
+las zonas tienen colores editables sólo en el editor. `Snowfall` admite zonas
+de clima independientes y el pasto pintado usa `GrassParticles` original. Las
+hojas mantienen su propia lógica. Aprendizaje: un pincel común no obliga a
+representar materiales distintos con la misma geometría. La escena arranca en
+Godot 4.6; falta valorar el resultado visual jugando en el editor.
 
 ## 2026-10-04 · Copos y huellas ocultos por el blur
 

@@ -15,9 +15,10 @@ hoja sobre el relieve, en la GPU, cada fotograma.
 
 Consecuencias practicas:
 
-- **No hay nada que pintar ni que guardar.** El pasto aparece solo sobre todo el
-  terreno dentro del alcance. Tampoco se puede decidir mata a mata donde va: para
-  eso estan los otros dos sistemas.
+- En el demo original `Painted Only` está apagado y el pasto aparece en todo el
+  terreno cercano. En `grass_terrain.tscn`, `Painted Only` está activo: el canal
+  Pasto de `SurfaceDetails` decide dónde aparecen esas mismas hojas. La pintura
+  se guarda en el recurso de `SurfaceDetails`, no como partículas individuales.
 - **Se adapta solo** al esculpir o pintar: los mapas se releen cada fotograma.
 - **Sigue a la camara**, asi que el alcance es un radio movil, no un area fija.
 
@@ -27,6 +28,7 @@ Selecciona `Terrain3D/GrassParticles`. Todos se aplican en vivo.
 
 | Grupo | Que controla |
 | --- | --- |
+| Cobertura pintada | `Painted Only` limita el sistema al pasto marcado con `Pincel de detalles`; `Coverage Source` apunta a `SurfaceDetails`. Si se apaga, recupera el comportamiento procedural del demo original. |
 | Terreno | Nodo Terrain3D (se asigna solo si es hijo suyo) y Enabled para apagarlo todo. |
 | Vista previa en el editor | Editor Preview dibuja el pasto dentro del editor y lo actualiza al tocar cualquier control, siguiendo la camara del viewport. Desactivalo si el editor va lento: el pasto sigue apareciendo al ejecutar. Los emisores se crean sin owner, asi que nunca se guardan en la escena. |
 | Densidad y alcance | Density en matas/m2, Draw Distance en metros, Grid Width (celdas por lado, impar), Max Particles como tope de seguridad y Particle Count informativo. |

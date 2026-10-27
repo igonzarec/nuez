@@ -58,11 +58,11 @@ extends Resource
 ## Dirección horizontal del viento, en grados. 0 hacia +X, 90 hacia +Z. En vivo.
 @export_range(-180.0, 180.0, 1.0, "suffix:°") var wind_direction := 25.0
 
-@export_group("Nieve: superficie")
+@export_group("Nieve: comportamiento")
 ## Multiplicador de reflectancia de la nieve. Menor conserva detalle bajo un sol intenso; mayor aclara. No altera los colores guardados ni la exposición global. En vivo.
 @export_range(0.2, 1.0, 0.01) var snow_albedo_gain := 0.75
-## Espesor visual en metros sobre el terreno, además de Ground Offset. Mayor separa la capa del suelo; no cambia colisión. En vivo, reconstrucción agrupada.
-@export_range(0.005, 0.25, 0.005, "suffix:m") var snow_depth := 0.08
+## Profundidad virtual de nieve, metros, usada para hundimiento y umbral de huellas. La apariencia viene de la textura Terrain3D; no cambia colisión. En vivo.
+@export_range(0.005, 1.0, 0.005, "suffix:m") var snow_depth := 0.08
 ## Altura de ondulaciones suaves en metros. 0 da una capa lisa; subirla crea acumulaciones bajas. En vivo, reconstrucción agrupada; no cambia colisión.
 @export_range(0.0, 0.2, 0.005, "suffix:m") var snow_relief := 0.06
 ## Tamaño horizontal de las ondulaciones en metros. Mayor produce acumulaciones amplias. En vivo, reconstrucción agrupada.
@@ -109,11 +109,13 @@ extends Resource
 @export_range(0.1, 0.7, 0.01, "suffix:m") var snow_footprint_length := 0.34
 ## Separación lateral de cada pie respecto al centro del player, metros. Alterna izquierda/derecha. Nuevos pasos.
 @export_range(0.0, 0.3, 0.01, "suffix:m") var snow_footprint_separation := 0.12
-## Profundidad máxima visual de la huella, metros. Limitada por el hundimiento del perfil y espesor. No modifica colisión; nuevos pasos.
+## Ajuste legado de relieve de huella, conservado para recursos anteriores. Las marcas actuales usan una malla plana ligera.
 @export_range(0.005, 0.15, 0.005, "suffix:m") var snow_footprint_depth := 0.06
+## Color de la nieve compactada en cada huella. Alfa controla visibilidad. En vivo para nuevos pasos.
+@export var snow_footprint_color := Color(0.49,0.64,0.72,0.8)
 ## Duración de las huellas, segundos. Se desvanecen en el último tercio. Sólo viven durante la partida; en vivo.
 @export_range(5.0, 600.0, 5.0, "suffix:s") var snow_footprint_lifetime := 120.0
-## Máximo de bloques de 16 m que conservan huellas. 512² RGBAF usa unos 4 MB de CPU y 4 MB de GPU por bloque. Al superar el límite desaparece el más antiguo. En vivo.
+## Presupuesto de huellas: cada unidad permite 12 marcas ligeras. Al llegar al límite se recicla la más antigua. En vivo.
 @export_range(1, 32, 1) var snow_footprint_tiles := 8
 ## Diferencia vertical máxima entre base del player y terreno para permitir nieve. Evita huellas bajo puentes y objetos elevados; metros, en vivo.
 @export_range(0.03, 0.5, 0.01, "suffix:m") var snow_contact_tolerance := 0.15
@@ -127,6 +129,8 @@ func _validate_property(property: Dictionary) -> void:
 	if property.name.begins_with("snow_"): hidden = kind != 0
 	if property.name == "leaf_clearance": hidden = kind != 1
 	if property.name == "realism": hidden = true
+	if kind == 0 and property.name in ["snow_albedo_gain","snow_relief","snow_relief_scale","snow_mesh_spacing","snow_grain_size","snow_scatter","snow_sparkle","snow_stylized","snow_surface_scale","snow_surface_strength","snow_surface_contrast","snow_footprint_depth","grain_strength"]:
+		hidden = true
 	if kind == 0 and property.name in ["density", "size_min", "size_max", "thickness", "align_to_ground", "wind_enabled", "wind_strength", "wind_speed", "wind_direction"]:
 		hidden = true
 	if hidden: property.usage &= ~PROPERTY_USAGE_EDITOR
@@ -136,7 +140,7 @@ func geometry_signature() -> int:
 	# Color, toon y brillo sólo actualizan uniforms: no reemplazan instancias.
 	var fields := ["enabled", "kind", "maximum_slope", "ground_offset", "random_seed"]
 	if kind == 0:
-		fields.append_array(["snow_depth", "snow_relief", "snow_relief_scale", "snow_mesh_spacing"])
+		fields.append("snow_depth")
 	else:
 		fields.append_array(["density", "size_min", "size_max", "thickness", "align_to_ground"])
 		if kind == 1: fields.append_array(["leaf_clearance", "wind_enabled", "wind_strength"])

@@ -1,0 +1,26 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+ERROR: Cannot open file 'C:/Users/USER/AppData/Roaming/WTablet/Wacom_Tablet.dat'.
+   at: open (core/io/xml_parser.cpp:497)
+OpenGL API 3.3.0 NVIDIA 581.80 - Compatibility - Using Device: NVIDIA - NVIDIA GeForce RTX 4060
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+WARNING: The Compatibility renderer does not support particle trails.
+   at: particles_set_trail_bind_poses (drivers/gles3/storage/particles_storage.cpp:309)
+   GDScript backtrace (most recent call first):
+       [0] _create_grid (res://scripts/grass/grass_particles.gd:652)
+       [1] _rebuild (res://scripts/grass/grass_particles.gd:481)
+       [2] @terrain_setter (res://scripts/grass/grass_particles.gd:43)
+       [3] capture (res://../tmp/capture_tree_textures.gd:5)
+ERROR: Condition "f.is_null()" is true.
+   at: _save_to_cache (drivers/gles3/shader_gles3.cpp:645)
+ERROR: Condition "f.is_null()" is true.
+   at: _save_to_cache (drivers/gles3/shader_gles3.cpp:645)
+ERROR: Condition "f.is_null()" is true.
+   at: _save_to_cache (drivers/gles3/shader_gles3.cpp:645)
+PineTree_1 textured: Preview bark/Preview foliage
+PineTree_2 textured: Preview bark/Preview foliage
+PineTree_3 textured: Preview bark/Preview foliage
+PineTree_4 textured: Preview bark/Preview foliage
+PineTree_5 textured: Preview bark/Preview foliage
+Restored: Wood

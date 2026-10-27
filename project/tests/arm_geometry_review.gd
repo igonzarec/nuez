@@ -5,7 +5,7 @@ func _initialize() -> void:
 
 func bone_transform(rig: SquirrelRig, bone: int) -> Transform3D:
 	var local := Transform3D(Basis(rig.current_rotations[bone]).scaled(rig.current_scales[bone]), rig.current_positions[bone])
-	var parent := rig.skeleton.get_bone_parent(bone)
+	var parent: int = rig.skeleton.get_bone_parent(bone)
 	return bone_transform(rig, parent) * local if parent >= 0 else local
 
 func run() -> void:

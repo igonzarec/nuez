@@ -57,6 +57,8 @@ height_end = 120.0
 low_intensity = 0.7
 high_intensity = 0.9
 
+[node name="SnowClimateZones" type="Node3D" parent="."]
+
 [node name="SnowStepAudio" type="Node" parent="." unique_id=1609227902]
 script = ExtResource("6_steps")
 volume_db = -20.5

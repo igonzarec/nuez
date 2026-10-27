@@ -3,7 +3,10 @@ extends Node
 
 var voices: Array[AudioStreamPlayer] = []
 var sounds: Dictionary = {}
-var next_voice := 0
+var voice_priority: Dictionary = {}
+var voice_started: Dictionary = {}
+var voice_cue: Dictionary = {}
+var cue_last_played: Dictionary = {}
 var music: AudioStreamPlayer
 var wind: AudioStreamPlayer
 var ambience_started := false
@@ -14,7 +17,10 @@ var _step_actor: ExplorerPlayer
 @export_range(-60.0, 6.0, 0.5, "suffix:dB") var step_volume_db := -14.0
 ## Ganancia adicional en dB de los pasos genéricos mientras se mantiene Sprint. Mayor valor destaca la carrera; 0 conserva el volumen de caminar. Se actualiza en vivo; no afecta Climb ni aterrizajes. Los pasos de nieve tienen su propio Run Gain Db.
 @export_range(0.0, 12.0, 0.5, "suffix:dB") var running_step_gain_db := 3.0
-var jump_handler: Callable
+## Muestra común de pisada y aterrizaje para todas las escenas. Se asigna al crear TrailAudio; sustituir el archivo requiere iniciar de nuevo la escena.
+@export var step_sample: AudioStream = preload("res://audio/snow_steps/snow_step_06_mid.wav")
+## Ajuste de mezcla de la muestra común, en dB, sumado a Step Volume Db del jugador. -6,5 iguala el volumen inicial de SnowStepAudio (-20,5 dB); se aplica en vivo al próximo contacto.
+@export_range(-24.0, 12.0, 0.5, "suffix:dB") var step_sample_gain_db := -6.5
 var land_handler: Callable
 var deploy: AudioStreamPlayer
 var gliding: AudioStreamPlayer
@@ -59,8 +65,10 @@ func _ready() -> void:
 		voice.bus = "SFX"
 		add_child(voice)
 		voices.append(voice)
-	for kind: String in ["jump", "land", "step", "climb", "collect", "ignite", "ui", "back", "deny", "complete"]:
+	for kind: String in ["climb", "collect", "ignite", "ui", "back", "deny", "complete"]:
 		sounds[kind] = _tone(kind)
+	sounds["step"] = step_sample
+	sounds["land"] = step_sample
 	# Sonido dedicado para R2/C; no reutiliza el clic genérico de los menús.
 	sounds["camera_recenter"] = preload("res://audio/camera_recenter.wav")
 	sounds["climb"] = preload("res://audio/Gentle Stone Drop.wav")
@@ -201,7 +209,13 @@ func _loop(bus: String, stream: AudioStreamWAV, gain: float) -> AudioStreamPlaye
 	return voice
 
 func play(kind: String) -> void:
-	if kind == "jump" and jump_handler.is_valid() and jump_handler.call():
+	if kind in ["jump", "wall_recoil", "splat"]:
+		var cue: TrailSoundCue
+		if is_instance_valid(_step_actor):
+			cue = _step_actor.jump_sound if kind == "jump" else _step_actor.hurt_sound
+		else:
+			cue = preload("res://resources/audio/player_jump.tres") if kind == "jump" else preload("res://resources/audio/player_hurt.tres")
+		play_cue(cue)
 		return
 	if kind == "land" and land_handler.is_valid() and land_handler.call():
 		return
@@ -209,10 +223,13 @@ func play(kind: String) -> void:
 		return
 	if not sounds.has(kind):
 		return
-	var voice := voices[next_voice]
-	next_voice = (next_voice + 1) % voices.size()
+	var voice := _take_voice(0)
+	if not voice:
+		return
+	voice_cue.erase(voice)
+	voice.pitch_scale = 1.0
 	voice.stream = sounds[kind]
-	voice.volume_db = get_step_volume_db() if kind == "step" else -5
+	voice.volume_db = get_step_volume_db() + step_sample_gain_db if kind in ["step", "land"] else -5
 	if kind == "step" and Input.is_action_pressed("sprint"):
 		voice.volume_db += _step_actor.running_step_gain_db if is_instance_valid(_step_actor) else running_step_gain_db
 	# El swish de recentrado debe distinguirse del ambiente y de la interfaz.
@@ -220,6 +237,54 @@ func play(kind: String) -> void:
 		voice.volume_db = -2
 	if kind == "climb":
 		voice.volume_db = climb_volume_db
+	if DisplayServer.get_name() != "headless":
+		voice.play()
+
+
+func _take_voice(priority: int) -> AudioStreamPlayer:
+	var selected: AudioStreamPlayer
+	for voice in voices:
+		if not voice.playing:
+			selected = voice
+			break
+		var current_priority := int(voice_priority.get(voice, 0))
+		if current_priority > priority:
+			continue
+		if not selected or current_priority < int(voice_priority.get(selected, 0)) or (current_priority == int(voice_priority.get(selected, 0)) and float(voice_started.get(voice, 0.0)) < float(voice_started.get(selected, 0.0))):
+			selected = voice
+	if selected:
+		selected.stop()
+		voice_priority[selected] = priority
+		voice_started[selected] = Time.get_ticks_msec() * 0.001
+	return selected
+
+
+func play_cue(cue: TrailSoundCue) -> void:
+	if not cue or not cue.enabled or not cue.stream:
+		return
+	var now := Time.get_ticks_msec() * 0.001
+	var key := cue.get_instance_id()
+	if now - float(cue_last_played.get(key, -INF)) < cue.cooldown:
+		return
+	var count := 0
+	var oldest: AudioStreamPlayer
+	for voice in voices:
+		if voice.playing and voice_cue.get(voice) == cue:
+			count += 1
+			if not oldest or float(voice_started.get(voice, 0.0)) < float(voice_started.get(oldest, 0.0)):
+				oldest = voice
+	if count >= cue.max_instances:
+		if not cue.restart_oldest:
+			return
+		oldest.stop()
+	var voice := _take_voice(cue.priority)
+	if not voice:
+		return
+	voice_cue[voice] = cue
+	voice.stream = cue.stream
+	voice.volume_db = cue.volume_db
+	voice.pitch_scale = cue.pitch_scale * randf_range(1.0 - cue.pitch_variation, 1.0 + cue.pitch_variation)
+	cue_last_played[key] = now
 	if DisplayServer.get_name() != "headless":
 		voice.play()
 
@@ -255,8 +320,6 @@ func _wav(samples: PackedByteArray, looping := false) -> AudioStreamWAV:
 
 func _tone(kind: String) -> AudioStreamWAV:
 	var duration := 0.22
-	if kind == "step": duration = 0.10
-	if kind == "land": duration = 0.16
 	if kind == "climb": duration = 0.19
 	if kind in ["ignite", "complete"]:
 		duration = 1.4
@@ -272,16 +335,11 @@ func _tone(kind: String) -> AudioStreamWAV:
 		var u := t / duration
 		var frequency := 660.0
 		match kind:
-			"jump": frequency = lerpf(260, 530, u)
-			"land", "step": frequency = 110
 			"collect": frequency = 880.0 if u < 0.42 else 1320.0
 			"ignite", "complete": frequency = [261.63, 329.63, 392.0, 523.25][mini(3, int(u * 4))]
 			"back", "deny": frequency = lerpf(390, 220, u)
 		phase += TAU * frequency / 22050
 		var value := sin(phase) * 0.45 + sin(phase * 2) * 0.1
-		if kind in ["land", "step"]:
-			soft_noise = lerpf(soft_noise, rng.randf_range(-1, 1), 0.28)
-			value = soft_noise * 0.65
 		if kind == "climb":
 			# Raspado granular con dos pequeños contactos, distinto del paso sordo.
 			var noise := rng.randf_range(-1.0, 1.0)

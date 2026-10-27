@@ -17,8 +17,8 @@ variar dimensiones; no hay unión booleana automática con la montaña.
 Mueve ese marcador para probar otra entrada. Vacía la propiedad para regresar
 al **PlayerStart** original. El inicio se proyecta verticalmente sobre el suelo.
 
-Acércate mirando a la roca, mantén **Espacio** y usa **W/S** para subir/bajar,
-**A/D** para moverte lateralmente. Soltar Espacio suelta el agarre. Al superar
+Acércate mirando a la roca, mantén **F** (Cruz/A en mando) y usa **W/S** para subir/bajar,
+**A/D** para moverte lateralmente. Soltar F suelta el agarre. Al superar
 un borde, el controlador existente intenta subir a él si hay espacio para la
 cápsula. No atraviesa una plataforma desde abajo: rodéala por el lateral y
 acércate a su frente para alcanzar su techo. Las plataformas son descansos de

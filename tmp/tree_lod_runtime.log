@@ -1,0 +1,19 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+WARNING: instance_reset_physics_interpolation() is deprecated.
+   at: _instance_reset_physics_interpolation_bind_compat_104269 (servers/rendering/rendering_server.compat.inc:58)
+   GDScript backtrace (most recent call first):
+       [0] inspect (res://../tmp/inspect_tree_lod_runtime.gd:12)
+WARNING: Terrain3D#5517:_notification:869: free_editor_textures requires `Assets` be saved to a file. Do so, or disable the former to turn off this warning
+   at: push_warning (core/variant/variant_utility.cpp:1034)
+   GDScript backtrace (most recent call first):
+       [0] inspect (res://../tmp/inspect_tree_lod_runtime.gd:12)
+LOD actual regions=64 batches=64
+PineTree_1 triangles 1920 -> 688
+PineTree_2 triangles 1692 -> 604
+PineTree_3 triangles 2392 -> 842
+PineTree_4 triangles 1704 -> 604
+PineTree_5 triangles 1576 -> 568
+disabled batches=0 material=Wood

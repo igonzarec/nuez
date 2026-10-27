@@ -1,0 +1,19 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+PineTree_1 PineTree_1_Cylinder_018 ():<ArrayMesh#-9223371975097841602> path=
+0 Wood
+1 Green
+PineTree_2 PineTree_2_Cylinder_024 ():<ArrayMesh#-9223371975030732734> path=
+0 Wood
+1 Green
+PineTree_3 PineTree_3_Cylinder_025 ():<ArrayMesh#-9223371974963623866> path=
+0 Wood
+1 Green
+PineTree_4 PineTree_4_Cylinder_027 ():<ArrayMesh#-9223371974896514998> path=
+0 Wood
+1 Green
+PineTree_5 PineTree_5_Cylinder_028 ():<ArrayMesh#-9223371974829406130> path=
+0 Wood
+1 Green

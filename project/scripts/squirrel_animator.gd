@@ -134,6 +134,76 @@ extends Node
 ## Frecuencia de esa vibración. Cero la deja quieta.
 @export_range(0.0, 30.0, 0.1) var handmade_glide_tremor_speed := 12.0
 
+@export_group("Recoil de planeo")
+## Activa la pose de contracción; desactivar conserva el estado físico y caída. Se consulta en vivo.
+@export var recoil_pose_enabled := true
+## Segundos hasta máxima contracción, limitados a la duración física del estado. Mayor encoge más lentamente. En vivo.
+@export_range(0.01, 0.4, 0.01, "suffix:s") var recoil_compress_duration := 0.08
+## Segundos finales dedicados a abrir la pose hacia caída. Mayor suaviza y anticipa recuperación; se limita al tiempo tras compresión. En vivo.
+@export_range(0.01, 0.8, 0.01, "suffix:s") var recoil_recover_duration := 0.16
+## Contracción máxima de escala vertical del modelo, como fracción. Mayor encoge más; 0 conserva escala. No altera cápsula. En vivo.
+@export_range(0.0, 0.5, 0.01) var recoil_squash := 0.2
+## Inclinación hacia atrás del cuerpo en grados. Mayor comunica un golpe más fuerte; negativa inclina hacia delante. En vivo.
+@export_range(-60.0, 60.0, 0.5, "suffix:°") var recoil_body_pitch_degrees := 22.0
+## Descenso del torso en metros. Mayor recoge el cuerpo hacia las piernas; valores altos pueden cruzar piezas. En vivo.
+@export_range(0.0, 0.3, 0.005, "suffix:m") var recoil_body_drop := 0.12
+## Retracción de cabeza hacia el torso en metros. Mayor encoge más el cuello; valores altos pueden cruzar mallas. En vivo.
+@export_range(0.0, 0.15, 0.005, "suffix:m") var recoil_head_retract := 0.05
+## Giro de cabeza hacia el pecho, en grados. Mayor marca más la contracción. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var recoil_head_pitch_degrees := 20.0
+## Elevación lateral de brazos, en grados. Mayor abre más los brazos; 0 los recoge a los lados. En vivo.
+@export_range(0.0, 120.0, 0.5, "suffix:°") var recoil_arm_lift_degrees := 25.0
+## Giro de ambos brazos hacia delante, en grados. Mayor los lleva hacia el pecho. En vivo.
+@export_range(0.0, 120.0, 0.5, "suffix:°") var recoil_arm_tuck_degrees := 55.0
+## Giro de ambas piernas hacia delante, en grados. Mayor recoge las patas hacia la panza. En vivo.
+@export_range(0.0, 110.0, 0.5, "suffix:°") var recoil_leg_tuck_degrees := 45.0
+## Rapidez de mezcla de huesos y cuerpo, en s⁻¹. Mayor responde antes al impacto; menor conserva más la pose de llegada. En vivo.
+@export_range(1.0, 60.0, 0.5) var recoil_pose_response := 28.0
+
+@export_group("Splat por caída")
+## Activa la pose de pansazo; desactivar conserva el bloqueo físico y el sonido. En vivo.
+@export var splat_pose_enabled := true
+## Segundos para pasar de la pose de llegada al pansazo. Mayor suaviza el golpe; se limita a la duración del estado. En vivo.
+@export_range(0.01, 0.5, 0.01, "suffix:s") var splat_compress_duration := 0.10
+## Segundos finales para levantarse antes de recuperar control. Mayor alarga la incorporación y reduce el tiempo inmóvil; se limita al estado. En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:s") var splat_recover_duration := 0.45
+## Inclinación hacia el suelo, en grados. 90 deja el cuerpo horizontal de panza; menor conserva más altura. No gira la cápsula. En vivo.
+@export_range(0.0, 100.0, 0.5, "suffix:°") var splat_body_pitch_degrees := 90.0
+## Escala visual en máxima compresión: X anchura, Y grosor vertical, Z longitud. Y menor aplasta más; X/Z mayores ensanchan la silueta. No afecta colisión. En vivo.
+@export var splat_flat_scale := Vector3(1.12, 0.65, 1.12)
+## Altura visual relativa al jugador, en metros, en máxima compresión. Más negativa acerca la panza al suelo; Clearance puede elevarla si cruza torso o cabeza. En vivo.
+@export_range(-1.0, 0.5, 0.01, "suffix:m") var splat_visual_height := -0.50
+## Apertura de brazos en grados. 90 los extiende a los lados; menor los acerca al cuerpo. En vivo.
+@export_range(0.0, 140.0, 0.5, "suffix:°") var splat_arm_spread_degrees := 90.0
+## Apertura de piernas en grados. Mayor abre más las patas; valores altos pueden separar visualmente las caderas. En vivo.
+@export_range(0.0, 80.0, 0.5, "suffix:°") var splat_leg_spread_degrees := 32.0
+## Giro de cabeza respecto al torso, en grados. 0 conserva reposo; ajusta para levantar o bajar el hocico. Clearance protege sus límites. En vivo.
+@export_range(-45.0, 45.0, 0.5, "suffix:°") var splat_head_pitch_degrees := 0.0
+## Rapidez de mezcla de huesos y cuerpo, en s⁻¹. Mayor marca el impacto; menor suaviza y retrasa la pose. En vivo.
+@export_range(1.0, 60.0, 0.5) var splat_pose_response := 30.0
+## Adapta la postura al plano de apoyo. Evita un pansazo horizontal atravesando pendientes. Sólo visual; en vivo.
+@export var splat_surface_follow_enabled := true
+## Eleva el modelo si torso o cabeza cruzan el plano del suelo. Usa sus cajas de malla, no colisión por vértice. Coste constante de 16 esquinas por frame durante splat. En vivo.
+@export var splat_clearance_enabled := true
+## Separación mínima respecto al plano de apoyo, en metros. Mayor evita penetración pero puede dejar la panza flotando. Requiere Clearance Enabled. En vivo.
+@export_range(0.0, 0.2, 0.005, "suffix:m") var splat_clearance_margin := 0.015
+## Elevación visual máxima para corregir cruces, en metros. Mayor protege poses más extremas; al llegar al límite aún puede haber penetración. Requiere Clearance Enabled. En vivo.
+@export_range(0.0, 1.0, 0.01, "suffix:m") var splat_clearance_max_lift := 0.6
+
+@export_group("Splat · movimiento antes de levantarse")
+## Activa el pataleo rápido justo antes de la incorporación, mientras conserva el cuerpo aplastado. Requiere Splat Pose Enabled. No añade tiempo al bloqueo ni cambia la física. En vivo.
+@export var splat_wiggle_enabled := true
+## Segundos de movimiento inmediatamente anteriores a Recover Duration. Mayor permite más sacudidas; se recorta si no cabe entre la compresión y la incorporación. 0 lo desactiva. En vivo.
+@export_range(0.0, 1.5, 0.01, "suffix:s") var splat_wiggle_duration := 0.35
+## Ciclos de movimiento por segundo, con lados alternados. Mayor produce un pataleo más rápido; 0 lo deja quieto. Frecuencias altas pueden perder amplitud con Pose Response bajo. En vivo.
+@export_range(0.0, 15.0, 0.25, "suffix:Hz") var splat_wiggle_frequency := 7.0
+## Giro adicional máximo de brazos hacia delante y atrás, en grados. Mayor agita más los brazos; 0 elimina sólo su movimiento. Mantiene la apertura de Splat Arm Spread. Valores altos pueden cruzar el suelo. En vivo.
+@export_range(0.0, 50.0, 0.5, "suffix:°") var splat_wiggle_arm_degrees := 14.0
+## Giro adicional máximo de piernas alternadas, en grados. Mayor refuerza el pataleo; 0 deja las patas quietas. Mantiene Splat Leg Spread. Valores altos pueden cruzar el suelo. En vivo.
+@export_range(0.0, 50.0, 0.5, "suffix:°") var splat_wiggle_leg_degrees := 20.0
+## Rapidez de respuesta de huesos durante el pataleo, en s⁻¹. Mayor conserva mejor movimientos rápidos; menor los amortigua. Sólo afecta este intervalo; la incorporación conserva Splat Pose Response. En vivo.
+@export_range(1.0, 90.0, 0.5) var splat_wiggle_pose_response := 50.0
+
 var actor: ExplorerPlayer
 var glide_blend := 0.0
 var clock := 0.0
@@ -159,6 +229,26 @@ var air_stride_launch_weight := 0.0
 var air_stride_capture_pending := true
 var air_was_airborne := false
 var air_stride_fall_elapsed := 0.0
+
+func splat_started() -> void:
+	recoil_started()
+	air_was_airborne = false
+	air_elapsed = 0.0
+
+
+func recoil_started() -> void:
+	jump_start = 0.0
+	landing_elapsed = -1.0
+	glide_blend = 0.0
+	run_blend = 0.0
+	air_stride_weight = 0.0
+	air_stride_launch_weight = 0.0
+	air_stride_capture_pending = false
+	air_was_airborne = true
+	air_stride_fall_weight = 1.0
+	air_stride_fall_elapsed = air_stride_fall_delay
+	actor.model.update_handmade_glide(0.0, handmade_glide_flutter_speed)
+
 
 func landed() -> void:
 	landing_elapsed = 0.0
@@ -200,6 +290,12 @@ func reset() -> void:
 
 func tick(delta: float, speed: float) -> void:
 	clock += delta
+	if actor.is_splat:
+		_tick_splat(delta)
+		return
+	if actor.is_glide_recoiling:
+		_tick_recoil(delta)
+		return
 	if actor.is_glide_landing:
 		# El aterrizaje usa el ángulo normal de Glide, sin intención ni Sprint.
 		locomotion_state = "glide_land"
@@ -286,6 +382,66 @@ func tick(delta: float, speed: float) -> void:
 	actor.model.glide_amount = glide_blend
 	actor.model.update_handmade_glide(glide_blend, handmade_glide_flutter_speed, handmade_glide_start_speed, handmade_glide_tremor_degrees, handmade_glide_tremor_speed)
 	_tick_air_pose(delta, grounded)
+
+
+func _tick_splat(delta: float) -> void:
+	locomotion_state = "splat"
+	actor.animation_state = locomotion_state
+	was_glide_landing = false
+	var duration := actor.splat_state_duration
+	var compress_time := minf(splat_compress_duration, duration)
+	var recover_time := minf(splat_recover_duration, maxf(0.001, duration - compress_time))
+	var elapsed := actor.splat_elapsed
+	var weight := smoothstep(0.0, compress_time, elapsed) * (1.0 - smoothstep(duration - recover_time, duration, elapsed))
+	if not splat_pose_enabled:
+		weight = 0.0
+	var blend := 1.0 - exp(-splat_pose_response * delta)
+	body_pitch = lerp_angle(body_pitch, -deg_to_rad(splat_body_pitch_degrees) * weight, blend)
+	body_roll = lerp_angle(body_roll, 0.0, blend)
+	body_bank = lerp_angle(body_bank, 0.0, blend)
+	actor.model.set_body_tilt(body_pitch, body_roll, body_bank)
+	if splat_surface_follow_enabled:
+		var normal := (actor.model.global_basis.orthonormalized().inverse() * actor.splat_floor_normal).normalized()
+		actor.model.body_pivot.quaternion = Quaternion.IDENTITY.slerp(Quaternion(Vector3.UP, normal), weight) * actor.model.body_pivot.quaternion
+	actor.model.scale = actor.model.scale.lerp(Vector3.ONE.lerp(splat_flat_scale.clamp(Vector3.ONE * 0.05, Vector3.ONE * 3.0), weight), blend)
+	actor.model.position = actor.model.position.lerp(Vector3.UP * splat_visual_height * weight, blend)
+	# Reserva el tramo final de la pausa: no adelanta ni prolonga la incorporación.
+	var recover_start := duration - recover_time
+	var wiggle_start := maxf(compress_time, recover_start - splat_wiggle_duration)
+	var arm_pitches := Vector2.ZERO
+	var leg_pitches := Vector2.ZERO
+	var pose_response := splat_pose_response
+	if splat_wiggle_enabled and splat_pose_enabled and splat_wiggle_frequency > 0.0 and elapsed > wiggle_start and elapsed < recover_start:
+		var progress := clampf((elapsed - wiggle_start) / maxf(0.001, recover_start - wiggle_start), 0.0, 1.0)
+		# Envolvente suave: empieza y termina en reposo antes de levantarse.
+		var envelope := pow(sin(PI * progress), 2.0)
+		var wave := sin((elapsed - wiggle_start) * TAU * splat_wiggle_frequency) * envelope
+		arm_pitches = Vector2(wave, -wave) * splat_wiggle_arm_degrees
+		leg_pitches = Vector2(-wave, wave) * splat_wiggle_leg_degrees
+		pose_response = splat_wiggle_pose_response
+	actor.model.update_splat_pose(weight, splat_arm_spread_degrees, splat_leg_spread_degrees, splat_head_pitch_degrees, pose_response, arm_pitches, leg_pitches)
+
+
+func _tick_recoil(delta: float) -> void:
+	locomotion_state = "glide_recoil"
+	actor.animation_state = locomotion_state
+	was_glide_landing = false
+	var duration := actor.glide_recoil_state_duration
+	var compress_time := minf(recoil_compress_duration, duration)
+	var recover_time := minf(recoil_recover_duration, maxf(0.001, duration - compress_time))
+	var elapsed := actor.glide_recoil_elapsed
+	var weight := smoothstep(0.0, compress_time, elapsed) * (1.0 - smoothstep(duration - recover_time, duration, elapsed))
+	if not recoil_pose_enabled:
+		weight = 0.0
+	var blend := 1.0 - exp(-recoil_pose_response * delta)
+	body_pitch = lerp_angle(body_pitch, deg_to_rad(recoil_body_pitch_degrees) * weight, blend)
+	body_roll = lerp_angle(body_roll, 0.0, blend)
+	body_bank = lerp_angle(body_bank, 0.0, blend)
+	actor.model.set_body_tilt(body_pitch, body_roll, body_bank)
+	actor.model.position = actor.model.position.lerp(Vector3.ZERO, blend)
+	var squash := recoil_squash * weight
+	actor.model.scale = actor.model.scale.lerp(Vector3(1.0 + squash * 0.4, 1.0 - squash, 1.0 + squash * 0.4), blend)
+	actor.model.update_recoil_pose(weight, recoil_arm_lift_degrees, recoil_arm_tuck_degrees, recoil_leg_tuck_degrees, recoil_body_drop, recoil_head_retract, recoil_head_pitch_degrees, recoil_pose_response)
 
 
 func _tick_air_pose(delta: float, grounded: bool) -> void:

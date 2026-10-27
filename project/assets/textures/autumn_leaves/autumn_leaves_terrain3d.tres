@@ -1,12 +1,12 @@
-[gd_resource type="Terrain3DTextureAsset" load_steps=3 format=3]
-[ext_resource type="Texture2D" path="res://assets/textures/autumn_leaves/leaves_albedo_height.png" id="1"]
-[ext_resource type="Texture2D" path="res://assets/textures/autumn_leaves/leaves_normal_roughness.png" id="2"]
+[gd_resource type="Terrain3DTextureAsset" format=3 uid="uid://bqrtvhq6jqrk5"]
+
+[ext_resource type="Texture2D" uid="uid://dgfmf71lnnu4p" path="res://assets/textures/autumn_leaves/leaves_albedo_height.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://ka6xnwyve4o1" path="res://assets/textures/autumn_leaves/leaves_normal_roughness.png" id="2"]
+
 [resource]
 name = "Autumn Leaf Litter"
 id = 11
 albedo_texture = ExtResource("1")
 normal_texture = ExtResource("2")
-normal_depth = 0.5
-roughness = 0.0
 ao_strength = 0.0
 uv_scale = 0.5

@@ -13,7 +13,7 @@ ejecutar esta escena. **F8** la detiene; **F5** abre el juego principal.
 WASD mueve, Shift corre, Espacio salta y permite planear con una nueva pulsación
 en el aire. Mantén clic derecho para mover la cámara; C recentra; R devuelve al
 inicio. También se conservan los controles de mando del jugador existente.
-La escalada está activada en el nuevo **ClimbableCliff**: mantén Espacio frente
+La escalada está activada en el nuevo **ClimbableCliff**: mantén F (Cruz/A en mando) frente
 a la roca y usa WASD para subir o desplazarte lateralmente. El test inicia
 frente a esa pared mediante **CliffTestStart**. Para volver al inicio anterior,
 vacía **Spawn Marker** en la raíz. Consulta [Acantilado escalable](climbable_cliff.md)
@@ -184,8 +184,9 @@ Las huellas se reutilizan hasta el límite configurado, se desvanecen y no se
 guardan al cerrar. La superficie no se deforma persistentemente al empujarla;
 esa interacción requerirá una máscara dinámica y otra iteración del sistema.
 Los sonidos actuales del personaje y el recentrado de cámara se conservan con
-TrailAudio. En nieve, SnowStepAudio sustituye el paso habitual por seis
-pasos de nieve ya separados.
+TrailAudio. La muestra habitual de pasos es `snow_step_06_mid.wav` en todo el
+juego; SnowStepAudio permite ajustar la cadencia y la mezcla en nieve y escoger
+otras variantes si se desea.
 
 ## Sonido de pasos
 

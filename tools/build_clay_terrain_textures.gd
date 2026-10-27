@@ -7,10 +7,14 @@ const MATERIALS := {
 	"grass_clean": {"roughness": 0.9},
 	"cliff_winter": {"roughness": 0.88},
 	"cliff_sculpted": {"roughness": 0.88},
+	"dirt_sandy": {"roughness": 0.9},
 }
 
 func _initialize() -> void:
+	var selected := OS.get_cmdline_user_args()
 	for name: String in MATERIALS:
+		if not selected.is_empty() and not selected.has(name):
+			continue
 		if not _build(name, MATERIALS[name].roughness):
 			quit(1)
 			return

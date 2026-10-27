@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="TrailSoundCue" format=3 uid="uid://b6hhfh3wnb4x1"]
+
+[ext_resource type="Script" path="res://scripts/core/sound_cue.gd" id="1"]
+[ext_resource type="AudioStream" uid="uid://dre87u6wh1fpd" path="res://audio/character/jump.wav" id="2"]
+
+[resource]
+script = ExtResource("1")
+stream = ExtResource("2")
+volume_db = -24.0
+pitch_scale = 1.28

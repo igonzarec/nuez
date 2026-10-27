@@ -1,0 +1,9 @@
+[gd_resource type="Resource" format=3 uid="uid://ddcxcadr1tfpd"]
+
+[ext_resource type="Script" uid="uid://321tugn6loou" path="res://scripts/surface_details/detail_style.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+snow_depth = 0.45
+snow_sink_max = 0.28
+snow_footprint_min_depth = 0.08

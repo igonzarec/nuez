@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/soft_surface/grass_path_dust_green/albedo.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/textures/soft_surface/grass_path_dust_green/normal.png" id="2"]
+
+[resource]
+resource_name = "Soft Surface Grass Path Dust Green"
+albedo_texture = ExtResource("1")
+roughness = 0.9
+normal_enabled = true
+normal_scale = 0.6
+normal_texture = ExtResource("2")
+texture_filter = 5

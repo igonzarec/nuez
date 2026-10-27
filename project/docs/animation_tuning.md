@@ -1,5 +1,12 @@
 # Ajustar la animación de la ardilla
 
+El choque contra paredes durante planeo y sus controles están descritos en
+[`glide_recoil.md`](glide_recoil.md).
+
+El pansazo tras caídas fuertes y su recuperación se ajustan según
+[`fall_splat.md`](fall_splat.md). Las vocalizaciones de salto y dolor se
+configuran mediante [definiciones de audio](character_audio.md).
+
 El salto, la caída y el aterrizaje del rig artesanal actual están descritos en
 [`air_animation.md`](air_animation.md), con los controles vigentes. Las
 secciones antiguas de este documento sobre codos y deformaciones pertenecen

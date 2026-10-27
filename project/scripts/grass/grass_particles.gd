@@ -18,6 +18,21 @@ extends Node3D
 
 const PROCESS_SHADER := preload("res://shaders/grass_particles_process.gdshader")
 const BLADE_SHADER := preload("res://shaders/grass_particles_blade.gdshader")
+const PAINT_SIDE := 256
+const PAINT_WORLD_SIZE := 128.0
+
+@export_group("Cobertura pintada")
+## Limita el GrassParticles original al canal Pasto de SurfaceDetails. Sin marcar, conserva su dispersión procedural anterior. En vivo; pintar actualiza la máscara cercana.
+@export var painted_only := false:
+	set(value):
+		painted_only = value
+		_paint_dirty = true
+		_apply_painted_mask()
+## Nodo SurfaceDetails hermano que guarda la pintura. Vacío usa ../SurfaceDetails. En vivo.
+@export var coverage_source: NodePath = NodePath("../SurfaceDetails"):
+	set(value):
+		coverage_source = value
+		_paint_dirty = true
 
 @export_group("Terreno")
 ## Nodo Terrain3D del que se leen altura, pendiente y color. Si se deja vacio y
@@ -377,6 +392,9 @@ var _amount := 1
 var _cell_width := 24.0
 var _instance_spacing := 0.25
 var _last_pos := Vector3.ZERO
+var _paint_texture: ImageTexture
+var _paint_origin := Vector2(INF,INF)
+var _paint_dirty := true
 
 
 func _ready() -> void:
@@ -385,6 +403,13 @@ func _ready() -> void:
 		if parent is Terrain3D:
 			terrain = parent
 	_rebuild()
+	var details := get_node_or_null(coverage_source)
+	if details and details.get("paint_data"):
+		var data: Resource = details.get("paint_data")
+		if not data.changed.is_connected(_mark_paint_dirty): data.changed.connect(_mark_paint_dirty)
+
+func _mark_paint_dirty() -> void:
+	_paint_dirty = true
 
 
 func _notification(what: int) -> void:
@@ -402,6 +427,40 @@ func _physics_process(_delta: float) -> void:
 		RenderingServer.material_set_param(_process_material.get_rid(), "camera_position", pos)
 		_last_pos = camera.global_position
 	_push_terrain_maps()
+	if camera: _update_painted_mask(camera.global_position)
+
+func _apply_painted_mask() -> void:
+	if _process_material:
+		_process_material.set_shader_parameter("painted_mask_enabled",painted_only)
+		if _paint_texture: _process_material.set_shader_parameter("painted_mask",_paint_texture)
+
+func _update_painted_mask(camera_position: Vector3) -> void:
+	if not painted_only or _process_material == null: return
+	var details := get_node_or_null(coverage_source)
+	if details == null or details.get("paint_data") == null: return
+	var origin := Vector2(floorf((camera_position.x-PAINT_WORLD_SIZE*0.5)/16.0)*16.0,
+		floorf((camera_position.z-PAINT_WORLD_SIZE*0.5)/16.0)*16.0)
+	if not _paint_dirty and origin == _paint_origin: return
+	_paint_origin = origin
+	_paint_dirty = false
+	var data: Resource = details.get("paint_data")
+	var image := Image.create(PAINT_SIDE,PAINT_SIDE,false,Image.FORMAT_R8)
+	for ty in 8:
+		for tx in 8:
+			var key := Vector2i(int(origin.x/16.0)+tx,int(origin.y/16.0)+ty)
+			var tile: Image = data.get_tile(key)
+			if tile == null: continue
+			for py in 32:
+				for px in 32:
+					image.set_pixel(tx*32+px,ty*32+py,Color(tile.get_pixel(px,py).a,0,0))
+	if _paint_texture == null:
+		_paint_texture = ImageTexture.create_from_image(image)
+	else:
+		_paint_texture.update(image)
+	_process_material.set_shader_parameter("painted_mask",_paint_texture)
+	_process_material.set_shader_parameter("painted_mask_origin",origin)
+	_process_material.set_shader_parameter("painted_mask_size",PAINT_WORLD_SIZE)
+	_process_material.set_shader_parameter("painted_mask_enabled",true)
 
 
 ## Reconstruye materiales, malla y rejilla. Lo llaman los setters que cambian la
@@ -416,6 +475,8 @@ func _rebuild() -> void:
 		set_physics_process(false)
 		return
 	_ensure_resources()
+	_paint_dirty = true
+	_apply_painted_mask()
 	_recalculate_grid()
 	_create_grid()
 	set_physics_process(true)

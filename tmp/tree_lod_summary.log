@@ -1,0 +1,17 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+PineTree_1 surface=0 base triangles=56 lod triangles=[28]
+PineTree_1 surface=1 base triangles=1864 lod triangles=[932, 298]
+PineTree_2 surface=0 base triangles=68 lod triangles=[36]
+PineTree_2 surface=1 base triangles=1624 lod triangles=[812, 382]
+PineTree_3 surface=0 base triangles=80 lod triangles=[54]
+PineTree_3 surface=1 base triangles=2312 lod triangles=[1156, 542, 266, 100]
+PineTree_4 surface=0 base triangles=80 lod triangles=[54]
+PineTree_4 surface=1 base triangles=1624 lod triangles=[812, 294]
+PineTree_5 surface=0 base triangles=56 lod triangles=[]
+PineTree_5 surface=1 base triangles=1520 lod triangles=[760, 232]
+Terrain3DData signals=[{ "name": "maps_changed", "args": [], "default_args": [], "flags": 1, "id": 0, "return": { "name": "", "class_name": &"", "type": 0, "hint": 0, "hint_string": "", "usage": 6 } }, { "name": "region_map_changed", "args": [], "default_args": [], "flags": 1, "id": 0, "return": { "name": "", "class_name": &"", "type": 0, "hint": 0, "hint_string": "", "usage": 6 } }, { "name": "height_maps_changed", "args": [], "default_args": [], "flags": 1, "id": 0, "return": { "name": "", "class_name": &"", "type": 0, "hint": 0, "hint_string": "", "usage": 6 } }, { "name": "control_maps_changed", "args": [], "default_args": [], "flags": 1, "id": 0, "return": { "name": "", "class_name": &"", "type": 0, "hint": 0, "hint_string": "", "usage": 6 } }, { "name": "color_maps_changed", "args": [], "default_args": [], "flags": 1, "id": 0, "return": { "name": "", "class_name": &"", "type": 0, "hint": 0, "hint_string": "", "usage": 6 } }, { "name": "maps_edited", "args": [{ "name": "edited_area", "class_name": &"", "type": 16, "hint": 0, "hint_string": "", "usage": 6 }], "default_args": [], "flags": 1, "id": 0, "return": { "name": "", "class_name": &"", "type": 0, "hint": 0, "hint_string": "", "usage": 6 } }]
+Terrain3DInstancer signals=[]
+Terrain3DAssets signals=[{ "name": "meshes_changed", "args": [], "default_args": [], "flags": 1, "id": 0, "return": { "name": "", "class_name": &"", "type": 0, "hint": 0, "hint_string": "", "usage": 6 } }, { "name": "textures_changed", "args": [], "default_args": [], "flags": 1, "id": 0, "return": { "name": "", "class_name": &"", "type": 0, "hint": 0, "hint_string": "", "usage": 6 } }]

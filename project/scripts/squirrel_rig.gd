@@ -263,6 +263,7 @@ func _process(delta: float) -> void:
 		playertest2_animation.advance(0.0)
 	if air_active or landing_pose_active or air_pose_releasing:
 		_apply_air_pose(delta)
+		_update_splat_clearance()
 		if air_active or landing_pose_active or not glide_active:
 			return
 	if idle_active:
@@ -445,7 +446,8 @@ func _update_landing_clearance(delta: float) -> void:
 		for surface in get_tree().get_nodes_in_group("snow_surface_receivers"):
 			var contact: Dictionary = surface.snow_contact(actor.global_position)
 			if not contact.is_empty():
-				snow_target = maxf(snow_target,contact.visual_height)
+				# La textura es la superficie visible; el modelo baja dentro de nieve profunda.
+				snow_target = minf(snow_target,contact.visual_height)
 				snow_response = contact.response
 	snow_visual_height = lerpf(snow_visual_height,snow_target,1.0-exp(-snow_response*delta))
 	if not actor.is_glide_landing:
@@ -517,6 +519,46 @@ func update_air_pose(airborne: bool, enabled: bool, lift: float, spread: float, 
 	_set_air_rotation("spine", Vector3.RIGHT, deg_to_rad(torso_lean))
 	_set_air_position("spine", Vector3.DOWN * body_drop * compression)
 	_set_air_position("head", Vector3.DOWN * head_retract * compression + Vector3.BACK * head_forward)
+
+
+func update_splat_pose(weight: float, arm_spread: float, leg_spread: float, head_pitch: float, response: float, arm_pitches: Vector2 = Vector2.ZERO, leg_pitches: Vector2 = Vector2.ZERO) -> void:
+	glide_amount = 0.0
+	update_air_pose(true, true, arm_spread * weight, leg_spread * weight, 0.0, 0.0, weight, 0.0, 0.0, head_pitch, response, 0.0, Vector2.ZERO, Vector2.ZERO, 0.0, 0.0, response, arm_pitches * weight)
+	if not playertest2_skeleton:
+		return
+	for side_name in ["left", "right"]:
+		var side := -1.0 if side_name == "left" else 1.0
+		var pitch := leg_pitches.x if side_name == "left" else leg_pitches.y
+		_set_air_rotation("leg_" + side_name, Vector3.BACK, deg_to_rad(leg_spread * side * weight), deg_to_rad(pitch * weight))
+
+
+func _update_splat_clearance() -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor or not actor.is_splat or not actor.animator.splat_clearance_enabled:
+		return
+	var normal := actor.splat_floor_normal.normalized()
+	var lift_axis := global_basis * Vector3.UP
+	var projection := maxf(0.1, normal.dot(lift_axis))
+	var required := 0.0
+	for mesh_instance in landing_clearance_meshes:
+		if not is_instance_valid(mesh_instance):
+			continue
+		var bounds := mesh_instance.get_aabb()
+		for corner in 8:
+			var point := mesh_instance.global_transform * bounds.get_endpoint(corner) - lift_axis * body_pivot.position.y
+			var distance := normal.dot(point - actor.splat_floor_point)
+			required = maxf(required, (actor.animator.splat_clearance_margin - distance) / projection)
+	body_pivot.position.y = minf(required, actor.animator.splat_clearance_max_lift)
+
+
+func update_recoil_pose(weight: float, arm_lift: float, arm_tuck: float, leg_tuck: float, body_drop: float, head_retract: float, head_pitch: float, response: float) -> void:
+	# Reutiliza la mezcla por huesos; membranas ocultas mediante visible.
+	glide_amount = 0.0
+	update_air_pose(true, true, arm_lift * weight, 0.0, 0.0, 0.0, weight, body_drop, head_retract, head_pitch, response, 0.0, Vector2.ZERO, Vector2.ZERO, 0.0, 0.0, response, Vector2.ONE * -arm_tuck * weight)
+	if not playertest2_skeleton:
+		return
+	for side_name in ["left", "right"]:
+		_set_air_rotation("leg_" + side_name, Vector3.RIGHT, deg_to_rad(-leg_tuck * weight))
 
 
 func _set_air_rotation(bone_name: String, axis: Vector3, angle: float, pitch: float = 0.0) -> void:

@@ -12,6 +12,30 @@ var _snow_step_side := -1.0
 @export_range(-60.0, 6.0, 0.5, "suffix:dB") var step_volume_db := -14.0
 ## Ganancia adicional en dB al correr con pasos genéricos. 3 conserva el refuerzo actual; 0 iguala caminar y correr. La nieve usa SnowStepAudio > Mezcla > Run Gain Db. Se guarda con la escena y responde en vivo; se suma a Step Volume Db y a SFX/Master.
 @export_range(0.0, 12.0, 0.5, "suffix:dB") var running_step_gain_db := 3.0
+@export_group("Audio de reacciones")
+## Definición del salto: muestra, volumen en dB, tono, prioridad y límite de voces. Editar el recurso afecta nuevos saltos en vivo. Hacer único para personalizar sólo esta escena; SFX/Master siguen aplicándose.
+@export var jump_sound: TrailSoundCue = preload("res://resources/audio/player_jump.tres")
+## Definición compartida por choque de pared y splat. Editar el recurso afecta nuevos impactos en vivo; desactivar Enabled silencia ambas reacciones. Hacer único para separar ajustes por escena.
+@export var hurt_sound: TrailSoundCue = preload("res://resources/audio/player_hurt.tres")
+@export_group("Splat por caída")
+## Activa pansazo y bloqueo temporal de movimiento al aterrizar fuerte. Desactivar durante el estado permite recuperarse inmediatamente. En vivo.
+@export var splat_enabled := true
+## Desnivel mínimo desde el punto más alto en el aire hasta el apoyo, en metros. Mayor reserva splat para caídas más altas. Requiere también Min Impact Speed; planeo lento no produce splat. En vivo.
+@export_range(0.5, 50.0, 0.5, "suffix:m") var splat_min_fall_height := 6.0
+## Velocidad vertical descendente mínima antes del impacto, en m/s. Mayor exige un golpe más fuerte; debe superar la velocidad de un salto normal. Requiere Min Fall Height. En vivo.
+@export_range(1.0, 60.0, 0.5, "suffix:m/s") var splat_min_impact_speed := 18.0
+## Segundos totales mínimos de pansazo y recuperación; con Height Duration Enabled apagado es la duración fija. Mayor prolonga el aturdimiento. Conserva los ajustes existentes. Se captura al aterrizar; la pose limita sus transiciones al tiempo calculado.
+@export_range(0.2, 4.0, 0.05, "suffix:s") var splat_duration := 1.25
+## Aumenta linealmente la duración con el desnivel de caída: Duration al alcanzar Min Fall Height y Max Duration en Full Duration Height. Apagar recupera duración fija. Se consulta en cada nuevo impacto, sin alterar un splat en curso.
+@export var splat_height_duration_enabled := true
+## Segundos máximos totales para caídas altas. Mayor prolonga la pausa máxima; nunca se usa menos que Duration aunque se configure un valor inferior. Requiere Height Duration Enabled. Se captura al impactar.
+@export_range(0.2, 10.0, 0.05, "suffix:s") var splat_max_duration := 4.0
+## Desnivel en metros que alcanza Max Duration; caídas mayores conservan ese límite. Mayor reparte el aumento entre más metros. Debe superar Min Fall Height; se limita internamente a ese mínimo más 0,01 m. Requiere Height Duration Enabled. Se captura al impactar.
+@export_range(0.5, 150.0, 0.5, "or_greater", "suffix:m") var splat_full_duration_height := 20.0
+## Fracción de velocidad horizontal conservada al impactar. 0 se detiene; mayor desliza brevemente durante el pansazo sin permitir dirigirlo. Se captura al aterrizar.
+@export_range(0.0, 1.0, 0.01) var splat_speed_retention := 0.0
+## Frenado del deslizamiento residual, en m/s². Mayor detiene antes; sin efecto con Speed Retention 0. En vivo.
+@export_range(0.0, 80.0, 0.5, "suffix:m/s²") var splat_braking := 20.0
 @export_group("Ground movement")
 ## Velocidad normal máxima sobre el suelo, en unidades por segundo; no cambia el ritmo visual por sí sola.
 ## Ejemplo: 4 permite explorar despacio; 6 recorre más terreno. Sprint Speed debe ser mayor para notar la carrera rápida.
@@ -83,6 +107,27 @@ var _snow_step_side := -1.0
 ## Permite desplegar membranas al pulsar Brincar una vez que la ardilla ya está en el aire.
 ## Mantener Brincar desde el salto no activa el planeo; al soltarlo, las membranas se recogen inmediatamente.
 @export var glide_enabled := true
+@export_group("Choque de planeo")
+## Activa recoil al contactar paredes planeando. Desactivar conserva la colisión física normal. Se consulta en vivo.
+@export var glide_recoil_enabled := true
+## Ángulo máximo entre avance horizontal y dirección hacia la pared, en grados. 0 sólo frontal; 65 incluye impactos oblicuos; 90 incluye roces. En vivo.
+@export_range(0.0, 90.0, 0.5, "suffix:°") var glide_recoil_max_angle_degrees := 65.0
+## Inclinación mínima desde suelo horizontal, en grados. Mayor reserva recoil para paredes más verticales; siempre excluye suelo caminable. En vivo.
+@export_range(45.0, 90.0, 0.5, "suffix:°") var glide_recoil_min_wall_slope_degrees := 65.0
+## Velocidad horizontal mínima previa al contacto, en m/s. Mayor ignora golpes lentos. En vivo.
+@export_range(0.0, 20.0, 0.1, "suffix:m/s") var glide_recoil_min_speed := 1.5
+## Anticipación de la cápsula hacia el avance, en metros. 0 exige contacto real; mayor cierra antes la pose para evitar intersección visual. Una consulta física extra al planear; no mide cada vértice. En vivo.
+@export_range(0.0, 0.8, 0.01, "suffix:m") var glide_recoil_probe_distance := 0.18
+## Segundos de contracción antes de caer. Mayor prolonga reacción y bloqueo de planeo/escalada. Se captura al chocar.
+@export_range(0.08, 1.5, 0.01, "suffix:s") var glide_recoil_duration := 0.38
+## Retroceso horizontal alejándose de la pared, en m/s. Mayor separa más; 0 cae junto a ella. Se captura al chocar.
+@export_range(0.0, 10.0, 0.1, "suffix:m/s") var glide_recoil_push_speed := 2.5
+## Fracción de inercia lateral conservada. Mayor desliza más por la pared; 0 sólo conserva retroceso. Se captura al chocar.
+@export_range(0.0, 1.0, 0.01) var glide_recoil_tangent_retention := 0.2
+## Multiplicador de gravedad durante recoil. 0 suspende brevemente; 1 usa gravedad normal. Al terminar recupera gravedad normal. En vivo.
+@export_range(0.0, 2.0, 0.05) var glide_recoil_gravity_scale := 0.0
+## Frenado horizontal durante recoil, en m/s². Mayor acorta retroceso. Sin dirección hasta terminar el estado. En vivo.
+@export_range(0.0, 40.0, 0.5, "suffix:m/s²") var glide_recoil_braking := 4.0
 @export_group("Aterrizaje de planeo")
 ## Conserva brevemente la postura Glide al tocar suelo caminable y desliza con la inercia de llegada. Se actualiza en vivo; desactivarlo termina el deslizamiento actual.
 @export var glide_landing_enabled := true
@@ -467,6 +512,16 @@ var animation_state := "idle"
 var reaction_kind := ""
 var reaction_time := 0.0
 var landing_time := 0.0
+var is_glide_recoiling := false
+var is_splat := false
+var splat_elapsed := 0.0
+var splat_state_duration := 1.25
+var splat_floor_normal := Vector3.UP
+var splat_floor_point := Vector3.ZERO
+var fall_peak_y := 0.0
+var glide_recoil_elapsed := 0.0
+var glide_recoil_state_duration := 0.38
+var glide_recoil_requires_release := false
 var is_glide_landing := false
 var glide_landing_left := 0.0
 var glide_landing_elapsed := 0.0
@@ -532,6 +587,7 @@ func _steep_support() -> Vector3:
 
 func _ready() -> void:
 	spawn_position = global_position
+	fall_peak_y = global_position.y
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	collision_layer = 2
 	collision_mask = 1
@@ -577,6 +633,11 @@ func set_controls(enabled: bool) -> void:
 	angular_velocity = 0
 
 func respawn() -> void:
+	is_splat = false
+	splat_elapsed = 0.0
+	is_glide_recoiling = false
+	glide_recoil_elapsed = 0.0
+	glide_recoil_requires_release = false
 	is_glide_landing = false
 	glide_landing_left = 0.0
 	glide_landing_elapsed = 0.0
@@ -586,6 +647,7 @@ func respawn() -> void:
 		climbing.reset()
 	model.end_climb()
 	global_position = spawn_position + Vector3.UP * 0.12
+	fall_peak_y = global_position.y
 	velocity = Vector3.ZERO
 	previous_motion = Vector3.ZERO
 	horizontal_speed = 0
@@ -617,13 +679,23 @@ func _physics_process(delta: float) -> void:
 		if not Input.is_action_pressed("jump"):
 			interaction_press_consumed = false
 	input_grace = maxf(0, input_grace - delta)
+	if not Input.is_action_pressed("glide"):
+		glide_recoil_requires_release = false
+	if is_splat and _tick_splat(delta):
+		return
+	fall_peak_y = global_position.y if is_on_floor() else maxf(fall_peak_y, global_position.y)
+	if is_glide_recoiling and _tick_glide_recoil(delta):
+		return
 	if is_glide_landing and _tick_glide_landing(delta):
 		return
 	if not interaction_press_consumed and climbing.tick(delta):
+		fall_peak_y = global_position.y
 		return
 	var grounded := is_on_floor()
 	var steep_normal := _steep_support()
 	is_sliding = steep_normal != Vector3.ZERO
+	if is_sliding:
+		fall_peak_y = global_position.y
 	slide_surface_normal = steep_normal if is_sliding else Vector3.UP
 	if grounded or is_sliding:
 		is_gliding = false
@@ -636,7 +708,7 @@ func _physics_process(delta: float) -> void:
 	var jump_pressed_this_frame := Input.is_action_just_pressed("jump") and not interaction_press_consumed
 	# Planeo tiene acción independiente: R1 en mando, otra pulsación de
 	# Espacio en teclado. Mantener salto desde tierra no activa el planeo.
-	if Input.is_action_just_pressed("glide") and not interaction_press_consumed and not grounded and not is_sliding:
+	if Input.is_action_just_pressed("glide") and not interaction_press_consumed and not grounded and not is_sliding and not glide_recoil_requires_release:
 		glide_button_pressed_in_air = true
 	if not Input.is_action_pressed("glide"):
 		glide_button_pressed_in_air = false
@@ -749,10 +821,14 @@ func _physics_process(delta: float) -> void:
 	else:
 		slide_velocity = Vector3.ZERO
 	var landing_from_glide := is_gliding
+	var incoming_velocity := velocity
 	var incoming_glide_velocity := Vector3(velocity.x, 0.0, velocity.z)
 	var impact_speed := maxf(0, -velocity.y)
 	var position_before_move := global_position
 	move_and_slide()
+	if landing_from_glide and not is_on_floor() and _try_glide_recoil(incoming_velocity):
+		animator.tick(delta, horizontal_speed)
+		return
 	if is_on_floor(): is_gliding = false
 	if grounded and not jump_consumed and not is_sliding:
 		# Tangential uphill velocity is positive Y. Explicit snapping keeps contact
@@ -780,6 +856,9 @@ func _physics_process(delta: float) -> void:
 		angular_velocity = angle_step / delta
 	if not grounded and is_on_floor():
 		last_landing_speed = impact_speed
+		if _try_start_splat(impact_speed):
+			animator.tick(delta, 0.0)
+			return
 		if landing_from_glide and glide_landing_enabled and glide_landing_duration > 0.0 and not is_sliding:
 			is_glide_landing = true
 			glide_landing_left = glide_landing_duration
@@ -809,6 +888,143 @@ func _physics_process(delta: float) -> void:
 	animator.tick(delta, horizontal_speed)
 	if not is_gliding and not is_glide_landing:
 		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, Input.is_action_pressed("sprint"))
+
+
+func _try_glide_recoil(incoming: Vector3) -> bool:
+	if not glide_recoil_enabled:
+		return false
+	var planar := Vector3(incoming.x, 0.0, incoming.z)
+	if planar.length() < maxf(0.001, glide_recoil_min_speed):
+		return false
+	var normals: Array[Vector3] = []
+	for index in get_slide_collision_count():
+		normals.append(get_slide_collision(index).get_normal())
+	if glide_recoil_probe_distance > 0.0:
+		var probe := KinematicCollision3D.new()
+		if test_move(global_transform, planar.normalized() * glide_recoil_probe_distance, probe):
+			normals.append(probe.get_normal())
+	for normal in normals:
+		if normal.y < -0.01 or normal.y >= cos(floor_max_angle) or normal.y > cos(deg_to_rad(glide_recoil_min_wall_slope_degrees)):
+			continue
+		var outward := Vector3(normal.x, 0.0, normal.z).normalized()
+		if planar.normalized().dot(-outward) + 0.00001 < cos(deg_to_rad(glide_recoil_max_angle_degrees)):
+			continue
+		is_glide_recoiling = true
+		glide_recoil_elapsed = 0.0
+		glide_recoil_state_duration = glide_recoil_duration
+		glide_recoil_requires_release = true
+		is_gliding = false
+		is_glide_sprinting = false
+		glide_button_pressed_in_air = false
+		glide_movement_intent = 0.0
+		glide_facing_direction = Vector3.ZERO
+		glide_motion_heading = Vector3.ZERO
+		glide_signed_turn_angle = 0.0
+		glide_turn_intent = 0.0
+		buffer_left = 0.0
+		coyote_left = 0.0
+		landing_time = 0.0
+		velocity = planar.slide(outward) * glide_recoil_tangent_retention + outward * glide_recoil_push_speed
+		horizontal_speed = Vector2(velocity.x, velocity.z).length()
+		previous_motion = Vector3(velocity.x, 0.0, velocity.z)
+		motion_acceleration = Vector3.ZERO
+		angular_velocity = 0.0
+		animator.recoil_started()
+		feedback.emit("wall_recoil")
+		return true
+	return false
+
+
+func _tick_glide_recoil(delta: float) -> bool:
+	if not glide_recoil_enabled or glide_recoil_elapsed >= glide_recoil_state_duration or is_on_floor():
+		is_glide_recoiling = false
+		return false
+	glide_recoil_elapsed += delta
+	var planar := Vector3(velocity.x, 0.0, velocity.z).move_toward(Vector3.ZERO, glide_recoil_braking * delta)
+	velocity = planar + Vector3.UP * (velocity.y - gravity * glide_recoil_gravity_scale * delta)
+	var impact_speed := maxf(0.0, -velocity.y)
+	var before := global_position
+	move_and_slide()
+	previous_motion = (global_position - before) / maxf(delta, 0.001)
+	horizontal_speed = Vector2(previous_motion.x, previous_motion.z).length()
+	if is_on_floor():
+		is_glide_recoiling = false
+		last_landing_speed = impact_speed
+		if _try_start_splat(impact_speed):
+			animator.tick(delta, 0.0)
+			return true
+		if impact_speed >= landing_threshold:
+			landing_strength = lerpf(0.25, 1.0, clampf((impact_speed - landing_threshold) / maxf(0.1, hard_landing_speed - landing_threshold), 0.0, 1.0))
+			landing_time = animator.landing_duration
+			animator.landed()
+			feedback.emit("land")
+	if global_position.y < -12.0:
+		respawn()
+		return true
+	animator.tick(delta, horizontal_speed)
+	if not is_glide_recoiling:
+		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, Input.is_action_pressed("sprint"))
+	return true
+
+
+func _try_start_splat(impact_speed: float) -> bool:
+	var fall_height := maxf(0.0, fall_peak_y - global_position.y)
+	if not splat_enabled or impact_speed < splat_min_impact_speed or fall_height < splat_min_fall_height:
+		return false
+	is_splat = true
+	splat_elapsed = 0.0
+	splat_state_duration = splat_duration
+	if splat_height_duration_enabled:
+		var full_height := maxf(splat_min_fall_height + 0.01, splat_full_duration_height)
+		var height_weight := clampf((fall_height - splat_min_fall_height) / (full_height - splat_min_fall_height), 0.0, 1.0)
+		splat_state_duration = lerpf(splat_duration, maxf(splat_duration, splat_max_duration), height_weight)
+	splat_floor_normal = get_floor_normal()
+	splat_floor_point = global_position
+	is_glide_recoiling = false
+	is_glide_landing = false
+	is_gliding = false
+	is_glide_sprinting = false
+	is_sliding = false
+	glide_button_pressed_in_air = false
+	glide_movement_intent = 0.0
+	glide_facing_direction = Vector3.ZERO
+	glide_motion_heading = Vector3.ZERO
+	glide_signed_turn_angle = 0.0
+	glide_turn_intent = 0.0
+	velocity = Vector3(velocity.x, 0.0, velocity.z) * splat_speed_retention
+	horizontal_speed = 0.0
+	previous_motion = Vector3.ZERO
+	motion_acceleration = Vector3.ZERO
+	angular_velocity = 0.0
+	buffer_left = 0.0
+	coyote_left = 0.0
+	landing_time = 0.0
+	step_time = 0.0
+	animator.splat_started()
+	feedback.emit("splat")
+	return true
+
+
+func _tick_splat(delta: float) -> bool:
+	if not splat_enabled or splat_elapsed >= splat_state_duration or not is_on_floor():
+		is_splat = false
+		buffer_left = 0.0
+		return false
+	splat_elapsed = minf(splat_elapsed + delta, splat_state_duration)
+	var planar := Vector3(velocity.x, 0.0, velocity.z).move_toward(Vector3.ZERO, splat_braking * delta)
+	velocity = planar.slide(get_floor_normal()) - Vector3.UP * gravity * delta
+	move_and_slide()
+	apply_floor_snap()
+	if is_on_floor():
+		splat_floor_normal = get_floor_normal()
+		splat_floor_point = global_position
+	else:
+		# Un apoyo que desaparece devuelve la caída sin congelar al personaje.
+		is_splat = false
+	horizontal_speed = Vector2(velocity.x, velocity.z).length()
+	previous_motion = Vector3(velocity.x, 0.0, velocity.z)
+	animator.tick(delta, horizontal_speed)
+	return true
 
 
 func _tick_glide_landing(delta: float) -> bool:

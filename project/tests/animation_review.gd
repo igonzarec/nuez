@@ -52,7 +52,7 @@ func run() -> void:
 	Input.action_release("sprint")
 	for i in 50: await physics_frame
 	var animator := actor.animator
-	var configured_arm_spread := animator.arm_spread_degrees
+	var configured_arm_spread: float = animator.arm_spread_degrees
 	assert(animator.run_blend < 0.01)
 	assert(actor.model.skeleton.get_bone_count() == 15)
 	# Inspector controls should independently suppress arm swing at runtime.

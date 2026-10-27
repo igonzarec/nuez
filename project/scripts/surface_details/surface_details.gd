@@ -3,25 +3,26 @@ extends Node3D
 ## Pincel de detalle independiente de las texturas de Terrain3D.
 const PaintData = preload("res://scripts/surface_details/paint_data.gd")
 const Meshes = preload("res://scripts/surface_details/detail_meshes.gd")
-const SnowSurface = preload("res://scripts/surface_details/snow_surface.gd")
-const Footprints = preload("res://scripts/surface_details/snow_footprints.gd")
 const ScatterRenderer = preload("res://scripts/surface_details/scatter_renderer.gd")
-const SNOW = preload("res://shaders/surface_details/snow.gdshader")
 const LEAVES = preload("res://shaders/surface_details/leaves.gdshader")
 const SURFACE = preload("res://shaders/surface_details/surface.gdshader")
+const FOOTPRINT_SHADER = preload("res://shaders/snow_footprint.gdshader")
+const EDITOR_ZONE_SHADER = preload("res://shaders/surface_details/editor_zone.gdshader")
 
 @export_group("Terreno y pintura")
 ## Terrain3D que recibe el detalle. Vacío usa el padre. Cambiarlo requiere reabrir/reiniciar la escena; la cobertura usa coordenadas mundiales X/Z.
 @export var terrain_path: NodePath = NodePath("..")
 ## Cobertura independiente de texturas. Guardar escena también guarda este recurso. Hacer único antes de compartir con otro mapa. No editar sus tiles a mano.
 @export var paint_data: Resource = preload("res://resources/surface_details/grass_paint.res")
-## Activa todo el detalle sin borrar cobertura. En vivo.
+## Pintura independiente de nieve profunda. Su canal rojo conserva la cobertura; guardar la escena también guarda el recurso. En vivo.
+@export var deep_snow_data: Resource = preload("res://resources/surface_details/deep_snow_paint.tres")
+## Activa nieve, hojas y tierra sin borrar cobertura. El pasto original tiene su propio Enabled. En vivo.
 @export var enabled := true
-## Muestra el resultado en el editor. Apagar ahorra GPU mientras esculpes; no afecta al juego. En vivo.
+## Muestra hojas, tierra y zonas de nieve en el editor. Pasto usa su propio Editor Preview. Apagar ahorra GPU sin afectar al juego. En vivo.
 @export var editor_preview := true
 @export_group("Pincel de detalles")
 ## Capa que pinta la herramienta Pincel de superficies. Cambiarla no altera cobertura existente.
-@export_enum("Nieve", "Hojas", "Tierra", "Pasto") var paint_layer := 0
+@export_enum("Nieve", "Hojas", "Tierra", "Pasto", "Nieve profunda") var paint_layer := 0
 ## Radio del pincel en metros. Mayor cubre más y aumenta trabajo por pincelada. Próxima pincelada.
 @export_range(0.25, 32.0, 0.25, "suffix:m") var brush_radius := 3.0
 ## Intensidad por pasada de 0 a 1. Más alto llena/borra antes. Próxima pincelada.
@@ -29,22 +30,34 @@ const SURFACE = preload("res://shaders/surface_details/surface.gdshader")
 ## Dureza del pincel. 0 borde amplio suave, 1 disco duro. Próxima pincelada.
 @export_range(0.0, 1.0, 0.01) var brush_hardness := 0.3
 @export_group("Perfiles editables")
-## Capa continua de nieve. Expandir Nieve: superficie para espesor, ondulaciones, micrograno y dispersión de luz. Reconstrucción agrupada; no cambia colisión.
+## Comportamiento de nieve ligera sobre la textura Terrain3D que pintes. Huellas y contacto en vivo; no genera malla.
 @export var snow: Resource = preload("res://resources/surface_details/snow.tres")
+## Comportamiento de nieve profunda. Se pinta aparte y prevalece sobre nieve ligera. Editar en vivo; no genera malla.
+@export var deep_snow: Resource = preload("res://resources/surface_details/deep_snow.tres")
 ## Hojas caídas curvas en tonos otoñales. Expandir para apariencia, textura, viento y toon. En vivo.
 @export var leaves: Resource = preload("res://resources/surface_details/leaves.tres")
 ## Piedritas y terrones del camino. Expandir para apariencia, textura y toon. En vivo.
 @export var dirt: Resource = preload("res://resources/surface_details/dirt.tres")
-## Pasto pintable independiente del sistema antiguo. Expandir para altura, ancho, textura, viento y toon. En vivo.
-@export var grass: Resource = preload("res://resources/surface_details/grass.tres")
+## Perfil anterior de pasto, conservado para cargar escenas existentes. La apariencia pintada usa GrassParticles original.
+@export_storage var grass: Resource = preload("res://resources/surface_details/grass.tres")
+@export_group("Vista de autoría")
+## Color de la zona de nieve ligera en el editor. Alfa controla opacidad; nunca se muestra durante el juego. En vivo.
+@export var snow_editor_color := Color(0.32, 0.72, 1.0, 0.42)
+## Color de la zona de nieve profunda en el editor. Alfa controla opacidad; nunca se muestra durante el juego. En vivo.
+@export var deep_snow_editor_color := Color(0.08, 0.24, 1.0, 0.55)
+## Muestra los colores de zonas pintadas al editar. Apagar no borra pintura y reduce trabajo del editor. En vivo.
+@export var show_snow_zones := true
+@export_group("Pasto original")
+## Nodo GrassParticles original cuyos controles abre Editar apariencia al seleccionar Pasto. Vacío desactiva ese acceso directo; en vivo.
+@export var grass_particles_path: NodePath = NodePath("../GrassParticles")
 @export_group("Alcance y rendimiento")
-## Radio de detalle alrededor de cámara en metros. Mayor añade tiles y GPU. Fuera se conserva la textura del suelo. En vivo.
+## Radio de hojas y tierra alrededor de la cámara, metros. El azul de nieve se muestra en todo el mapa y el pasto tiene su propio alcance. En vivo.
 @export_range(8.0, 150.0, 1.0, "suffix:m") var draw_distance := 40.0
-## Fracción exterior del radio donde se desvanece nieve/hojas y se encogen tierra/pasto. Mayor suaviza la desaparición. En vivo.
+## Fracción exterior del radio donde se desvanecen hojas y tierra. Mayor suaviza la desaparición. En vivo.
 @export_range(0.01, 0.8, 0.01) var distance_fade := 0.25
-## Máximo de instancias dispersas cercanas (hojas, tierra y pasto). La nieve usa su propia malla. Reparto conservador estable al mover cámara; mayor cuesta CPU/GPU. En vivo.
+## Máximo de instancias dispersas cercanas de hojas y tierra. Pasto y nieve tienen sus propios presupuestos. Mayor cuesta CPU/GPU. En vivo.
 @export_range(1000, 200000, 1000) var max_particles := 60000
-## Permite sombras de los elementos. Costoso para nieve y hierba densas. En vivo; por defecto apagado.
+## Permite sombras de hojas y tierra. El pasto tiene su propio control. En vivo; por defecto apagado.
 @export var cast_shadows := false
 ## Contador de instancias dispersas cercanas; no cuenta vértices de la nieve. Nombre conservado por compatibilidad. Sólo lectura.
 @export var active_particles: int:
@@ -56,13 +69,10 @@ const SURFACE = preload("res://shaders/surface_details/surface.gdshader")
 	set(_value):
 		pass
 
-## Cantidad de bloques de nieve cargados cerca de la cámara. Cada bloque mide 16 m de lado; el coste depende de Snow Mesh Spacing y cobertura. Sólo lectura, en vivo.
+## Cantidad de bloques de color de nieve mostrados en el editor. Sólo lectura; cero durante el juego.
 @export var active_snow_tiles: int:
 	get:
-		var total := 0
-		for instance in _emitters.values():
-			if is_instance_valid(instance) and instance is MeshInstance3D: total += 1
-		return total
+		return _editor_zones.size()
 	set(_value):
 		pass
 
@@ -85,8 +95,12 @@ var _stroke_active := false
 var _stroke_layer := 0
 var _changed_regions: Dictionary = {}
 var _quota := 1
-var _footprints = Footprints.new()
-var _snow_noise: FastNoiseLite
+var _prints: Array[MeshInstance3D] = []
+var _print_ages: Array[float] = []
+var _next_print := 0
+var _editor_zones: Dictionary = {}
+var _zone_dirty := true
+var _zone_style_signature := 0
 var _editor_brush_focus := Vector3.ZERO
 var _editor_brush_focus_active := false
 
@@ -95,17 +109,19 @@ func set_editor_brush_focus(point: Vector3, active: bool) -> void:
 	_editor_brush_focus_active = active
 
 func profiles() -> Array:
-	return [snow, leaves, dirt, grass]
+	return [snow, leaves, dirt, grass, deep_snow]
 
 func _ready() -> void:
 	add_to_group("snow_surface_receivers")
-	if not is_instance_valid(_footprints):
-		_footprints = Footprints.new()
 	terrain = get_node_or_null(terrain_path) as Terrain3D
 	if paint_data == null:
 		paint_data = PaintData.new()
 	if not paint_data.changed.is_connected(_invalidate):
 		paint_data.changed.connect(_invalidate)
+	if deep_snow_data == null:
+		deep_snow_data = preload("res://scripts/surface_details/paint_data.gd").new()
+	if not deep_snow_data.changed.is_connected(_invalidate):
+		deep_snow_data.changed.connect(_invalidate)
 	if terrain and terrain.data and not terrain.data.maps_edited.is_connected(_maps_edited):
 		terrain.data.maps_edited.connect(_maps_edited)
 	set_process(true)
@@ -115,20 +131,17 @@ func _maps_edited(_area: AABB) -> void:
 
 func _invalidate() -> void:
 	_dirty = true
+	_zone_dirty = true
 
 func _process(delta: float) -> void:
-	if snow:
-		snow.repair_missing_values()
-	# Las huellas sólo avanzan durante el juego. En el editor, una recarga del
-	# script @tool puede dejar este objeto sin inicializar durante varios frames.
-	if not Engine.is_editor_hint() and snow:
-		if not is_instance_valid(_footprints):
-			_footprints = Footprints.new()
-		_footprints.advance(delta,snow.snow_footprint_lifetime,snow.snow_footprint_tiles)
+	if snow: snow.repair_missing_values()
+	if deep_snow: deep_snow.repair_missing_values()
+	if not Engine.is_editor_hint(): _advance_footprints(delta)
 	if terrain == null or terrain.data == null:
 		return
 	if not enabled or (Engine.is_editor_hint() and not editor_preview):
 		_clear_emitters()
+		if Engine.is_editor_hint(): _clear_editor_zones()
 		return
 	var camera := terrain.get_camera()
 	if camera == null:
@@ -145,9 +158,9 @@ func _process(delta: float) -> void:
 		if signature != _last_signature:
 			_last_signature = signature
 			_meshes.clear()
-			if snow: _snow_noise = SnowSurface.create_noise(snow)
 			_dirty = true
 		_sync_visible(preview_position)
+		if Engine.is_editor_hint(): _sync_editor_zones()
 	_update_materials(preview_position)
 	if not _jobs.is_empty():
 		var job: Vector3i = _jobs.pop_front()
@@ -162,7 +175,7 @@ func _sync_visible(position: Vector3) -> void:
 		if center.distance_to(Vector2(position.x,position.z)) > draw_distance + PaintData.TILE_SIZE*0.71:
 			continue
 		var bytes: PackedByteArray = paint_data.tiles[key].get_data()
-		for layer in 4:
+		for layer in [1, 2]:
 			var profile: Resource = profiles()[layer]
 			if profile == null or not profile.enabled: continue
 			var occupied := false
@@ -172,18 +185,11 @@ func _sync_visible(position: Vector3) -> void:
 					break
 			if occupied:
 				needed[Vector3i(key.x,key.y,layer)] = true
-				# La interpolación de máscara continúa medio texel en tiles vecinos.
-				if profile.kind == 0:
-					for dz in range(-1,2):
-						for dx in range(-1,2):
-							var neighbor := key+Vector2i(dx,dz)
-							var neighbor_center := (Vector2(neighbor)+Vector2(0.5,0.5))*PaintData.TILE_SIZE
-							if neighbor_center.distance_to(Vector2(position.x,position.z)) <= draw_distance+PaintData.TILE_SIZE*0.71:
-								needed[Vector3i(neighbor.x,neighbor.y,layer)] = true
 	# Reserva por cuadrado visible máximo: no cambia al cruzar límites de tiles.
 	var scatter_layers := 0
-	for profile in profiles():
-		if profile and profile.enabled and profile.kind != 0: scatter_layers += 1
+	for layer in [1, 2]:
+		var profile: Resource = profiles()[layer]
+		if profile and profile.enabled: scatter_layers += 1
 	var tile_span := ceili(2.0 * (draw_distance + PaintData.TILE_SIZE * 0.71) / PaintData.TILE_SIZE) + 1
 	var quota := maxi(1, max_particles / maxi(1,tile_span * tile_span * scatter_layers))
 	if quota != _quota:
@@ -205,14 +211,6 @@ func _sync_visible(position: Vector3) -> void:
 func _build_emitter(key: Vector3i) -> void:
 	var profile: Resource = profiles()[key.z]
 	var origin := Vector2(key.x,key.y)*PaintData.TILE_SIZE
-	if profile.kind == 0:
-		var mesh := SnowSurface.build(terrain,paint_data,Vector2i(key.x,key.y),profile,key.z)
-		var surface: MeshInstance3D
-		if mesh:
-			surface = MeshInstance3D.new()
-			surface.mesh = mesh
-		_replace_render_node(key,surface,origin,0)
-		return
 	var side := maxi(1,int(sqrt(profile.density)*PaintData.TILE_SIZE))
 	var spacing := PaintData.TILE_SIZE/side
 	var positions: Array[Color] = []
@@ -264,11 +262,11 @@ func _replace_render_node(key: Vector3i, instance: GeometryInstance3D, origin: V
 	_completed[key] = true
 	if instance == null: return
 	var profile: Resource = profiles()[key.z]
-	var material_key: Variant = key if profile.kind == 0 else key.z
+	var material_key: Variant = key.z
 	if not _materials.has(material_key):
 		var material := ShaderMaterial.new()
 		_materials[material_key] = material
-	_materials[material_key].shader = SNOW if profile.kind == 0 else (LEAVES if profile.kind == 1 else SURFACE)
+	_materials[material_key].shader = LEAVES if profile.kind == 1 else SURFACE
 	instance.set_meta("surface_detail_layer",key.z)
 	instance.set_meta("detail_count",count)
 	instance.name = "Detail_%d_%d_%d" % [key.x,key.y,key.z]
@@ -283,18 +281,12 @@ func _random(cell: Vector2i, seed_value: int) -> float:
 	return float(value%1000003)/1000003.0
 
 func _update_materials(position: Vector3) -> void:
-	if not is_instance_valid(_footprints):
-		_footprints = Footprints.new()
 	var global_toon := false
 	if not Engine.is_editor_hint():
 		var rig := get_tree().get_first_node_in_group("surface_detail_toon_source")
 		if rig: global_toon = rig.toon_enabled
-	# Tras recargar el script @tool pueden quedar materiales de nieve con clave de capa (int); se reconstruyen.
-	if snow and snow.kind == 0 and _materials.has(0):
-		_clear_emitters()
-		return
 	for material_key in _materials:
-		var layer: int = material_key.z if material_key is Vector3i else material_key
+		var layer: int = material_key
 		var profile: Resource = profiles()[layer]
 		if profile == null: continue
 		var material: ShaderMaterial = _materials[material_key]
@@ -302,24 +294,12 @@ func _update_materials(position: Vector3) -> void:
 			material.set_shader_parameter(parameter,profile.get(parameter))
 		material.set_shader_parameter("base_roughness",profile.roughness)
 		material.set_shader_parameter("specular_amount",profile.specular)
-		if profile.kind == 0:
-			for parameter in ["snow_grain_size","snow_scatter","snow_sparkle","snow_albedo_gain","snow_stylized","snow_surface_scale","snow_surface_strength","snow_surface_contrast"]:
-				material.set_shader_parameter(parameter,profile.get(parameter))
-			var tile := Vector2i(material_key.x,material_key.y)
-			material.set_shader_parameter("footprint_mask",_footprints.texture_for(tile) if profile.snow_footprints_enabled else _footprints.empty)
-			material.set_shader_parameter("tile_origin",Vector2(tile)*PaintData.TILE_SIZE)
-			material.set_shader_parameter("footprint_clock",_footprints.clock)
-			material.set_shader_parameter("footprint_lifetime",profile.snow_footprint_lifetime)
 		material.set_shader_parameter("toon_enabled",profile.shading == 2 or (profile.shading == 0 and global_toon))
 		material.set_shader_parameter("wind_strength",profile.wind_strength if profile.wind_enabled else 0.0)
 		material.set_shader_parameter("wind_speed",profile.wind_speed)
 		material.set_shader_parameter("wind_direction",Vector2.from_angle(deg_to_rad(profile.wind_direction)))
 		material.set_shader_parameter("camera_position",position)
-		# Evitar que la capa de nieve alcance el geomorph de los LOD lejanos.
-		var surface_distance := draw_distance
-		if profile.kind == 0:
-			surface_distance = minf(draw_distance,terrain.vertex_spacing*(terrain.mesh_size+4.0+0.55*(terrain.mesh_size-2.0))*0.8)
-		material.set_shader_parameter("draw_distance",surface_distance)
+		material.set_shader_parameter("draw_distance",draw_distance)
 		material.set_shader_parameter("fade_fraction",distance_fade)
 
 func _clear_emitters() -> void:
@@ -332,38 +312,160 @@ func _clear_emitters() -> void:
 	_completed.clear()
 	_dirty = true
 
+func _sync_editor_zones() -> void:
+	if not show_snow_zones:
+		_clear_editor_zones()
+		return
+	var signature := hash([snow_editor_color,deep_snow_editor_color])
+	if signature != _zone_style_signature:
+		_zone_style_signature = signature
+		_zone_dirty = true
+	var wanted := {}
+	for data in [paint_data,deep_snow_data]:
+		if data == null: continue
+		for key: Vector2i in data.tiles:
+			if wanted.has(key): continue
+			var image: Image = data.get_tile(key)
+			if image == null: continue
+			var bytes := image.get_data()
+			for offset in range(0,bytes.size(),4):
+				if bytes[offset] >= 10:
+					wanted[key] = true
+					break
+	for key in _editor_zones.keys():
+		if not wanted.has(key) or _zone_dirty:
+			if is_instance_valid(_editor_zones[key]): _editor_zones[key].queue_free()
+			_editor_zones.erase(key)
+	for key: Vector2i in wanted:
+		if _editor_zones.has(key): continue
+		var mesh := _build_zone_mesh(key)
+		if mesh == null: continue
+		var node := MeshInstance3D.new()
+		node.name = "EditorSnowZone_%d_%d" % [key.x,key.y]
+		node.mesh = mesh
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var material := ShaderMaterial.new()
+		material.shader = EDITOR_ZONE_SHADER
+		node.material_override = material
+		add_child(node)
+		_editor_zones[key] = node
+	_zone_dirty = false
+
+func _clear_editor_zones() -> void:
+	for node in _editor_zones.values():
+		if is_instance_valid(node): node.queue_free()
+	_editor_zones.clear()
+
+func _build_zone_mesh(key: Vector2i) -> ArrayMesh:
+	var vertices := PackedVector3Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	var origin: Vector2 = Vector2(key)*PaintData.TILE_SIZE
+	for z in range(0,PaintData.SIDE,2):
+		for x in range(0,PaintData.SIDE,2):
+			var center := origin+(Vector2(x,z)+Vector2.ONE)*PaintData.PIXEL_SIZE
+			var light: float = paint_data.coverage(center,0) if paint_data else 0.0
+			var deep: float = deep_snow_data.coverage(center,0) if deep_snow_data else 0.0
+			if maxf(light,deep) < 0.04: continue
+			var center_height: float = terrain.data.get_height(Vector3(center.x,0,center.y))
+			if not is_finite(center_height): continue
+			var tint := deep_snow_editor_color if deep > 0.01 else snow_editor_color
+			tint.a *= smoothstep(0.0,0.5,maxf(light,deep))
+			var base := vertices.size()
+			for corner in [Vector2(0,0),Vector2(1,0),Vector2(1,1),Vector2(0,1)]:
+				var xz: Vector2 = origin+Vector2(x,z)*PaintData.PIXEL_SIZE+corner*PaintData.PIXEL_SIZE*2.0
+				var world := Vector3(xz.x,0,xz.y)
+				var height: float = terrain.data.get_height(world)
+				if not is_finite(height): height = center_height
+				vertices.append(Vector3(xz.x,height+0.035,xz.y))
+				colors.append(tint)
+			indices.append_array(PackedInt32Array([base,base+1,base+2,base,base+2,base+3]))
+	if vertices.is_empty(): return null
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+	return mesh
+
 func snow_contact(point: Vector3) -> Dictionary:
-	if not enabled or snow == null or not snow.enabled or snow.kind != 0 or terrain == null or terrain.data == null: return {}
+	if not enabled or terrain == null or terrain.data == null: return {}
 	if not terrain.data.has_regionp(point) or terrain.data.get_control_hole(point): return {}
 	var height := terrain.data.get_height(point)
-	if not is_finite(height) or absf(point.y-height) > snow.snow_contact_tolerance: return {}
-	var normal := terrain.data.get_normal(point)
-	if not normal.is_finite() or normal.y < cos(deg_to_rad(snow.maximum_slope)): return {}
+	if not is_finite(height): return {}
 	var xz := Vector2(point.x,point.z)
-	var coverage: float = paint_data.coverage(xz,0)
-	var cosine := cos(deg_to_rad(snow.maximum_slope))
+	var deep_coverage: float = deep_snow_data.coverage(xz,0) if deep_snow_data else 0.0
+	var light_coverage: float = paint_data.coverage(xz,0) if paint_data else 0.0
+	var profile: Resource = deep_snow if deep_coverage > 0.01 and deep_snow and deep_snow.enabled else snow
+	if profile == null or not profile.enabled or profile.kind != 0: return {}
+	if absf(point.y-height) > profile.snow_contact_tolerance: return {}
+	var normal := terrain.data.get_normal(point)
+	if not normal.is_finite() or normal.y < cos(deg_to_rad(profile.maximum_slope)): return {}
+	var coverage: float = deep_coverage if profile == deep_snow else light_coverage
+	var cosine := cos(deg_to_rad(profile.maximum_slope))
 	coverage *= smoothstep(cosine,minf(1.0,cosine+0.06),normal.y) if cosine < 0.9999 else float(normal.y >= 0.9999)
 	if coverage <= 0.01: return {}
-	if _snow_noise == null: _snow_noise = SnowSurface.create_noise(snow)
 	var fullness := smoothstep(0.0,0.65,coverage)
-	var depth := SnowSurface.depth_at(xz,snow,_snow_noise)*fullness
-	var sink := minf(snow.snow_sink_max,depth*snow.snow_sink_ratio*(1.0-snow.snow_compaction))
-	var visual_sink := sink if snow.snow_sink_enabled else 0.0
-	return {"depth":depth,"sink":sink,"visual_height":maxf(0.0,snow.ground_offset*fullness+depth-visual_sink),"response":snow.snow_sink_response}
+	var depth: float = profile.snow_depth * fullness
+	var sink: float = minf(profile.snow_sink_max,depth*profile.snow_sink_ratio*(1.0-profile.snow_compaction))
+	return {"depth":depth,"sink":sink,"visual_height":-sink if profile.snow_sink_enabled else 0.0,
+		"response":profile.snow_sink_response,"coverage":coverage,"profile":profile}
 
 func record_snow_step(actor: CharacterBody3D, side: float) -> void:
-	if not actor.is_on_floor() or snow == null or not snow.snow_footprints_enabled: return
-	if _footprints == null: _footprints = Footprints.new()
-	if snow_contact(actor.global_position).is_empty(): return
+	if not actor.is_on_floor(): return
+	var main_contact := snow_contact(actor.global_position)
+	if main_contact.is_empty(): return
 	var direction := Vector2(actor.velocity.x,actor.velocity.z).normalized()
 	if direction.length_squared() < 0.5: return
 	var point := actor.global_position
-	var right: Vector2 = Vector2(direction.y,-direction.x)*snow.snow_footprint_separation*side
+	var profile: Resource = main_contact.profile
+	if not profile.snow_footprints_enabled: return
+	var right: Vector2 = Vector2(direction.y,-direction.x)*profile.snow_footprint_separation*side
 	point += Vector3(right.x,0,right.y)
 	point.y = terrain.data.get_height(point)
 	var contact := snow_contact(point)
-	if contact.is_empty() or contact.depth < snow.snow_footprint_min_depth: return
-	_footprints.stamp(Vector2(point.x,point.z),direction,minf(snow.snow_footprint_depth,contact.sink),snow)
+	if contact.is_empty() or contact.depth < profile.snow_footprint_min_depth: return
+	_add_footprint(point, direction, profile)
+
+func _add_footprint(point: Vector3, direction: Vector2, profile: Resource) -> void:
+	var limit := maxi(1,profile.snow_footprint_tiles * 12)
+	var mark: MeshInstance3D
+	if _prints.size() < limit:
+		mark = MeshInstance3D.new()
+		var material := ShaderMaterial.new()
+		material.shader = FOOTPRINT_SHADER
+		mark.material_override = material
+		mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mark)
+		_prints.append(mark)
+		_print_ages.append(0.0)
+		_next_print = _prints.size() - 1
+	else:
+		mark = _prints[_next_print]
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(profile.snow_footprint_width,profile.snow_footprint_length)
+	mark.mesh = plane
+	mark.material_override.set_shader_parameter("print_color",profile.snow_footprint_color)
+	mark.material_override.set_shader_parameter("fade",1.0)
+	var normal := terrain.data.get_normal(point)
+	var forward := Vector3(direction.x,0,direction.y).slide(normal).normalized()
+	var tangent := normal.cross(forward).normalized()
+	mark.global_transform = Transform3D(Basis(tangent,normal,forward),point+normal*0.015)
+	mark.visible = true
+	mark.set_meta("lifetime",profile.snow_footprint_lifetime)
+	_print_ages[_next_print] = 0.0
+	_next_print = (_next_print + 1) % _prints.size()
+
+func _advance_footprints(delta: float) -> void:
+	for index in _prints.size():
+		if not is_instance_valid(_prints[index]): continue
+		_print_ages[index] += delta
+		var lifetime: float = _prints[index].get_meta("lifetime",120.0)
+		_prints[index].visible = _print_ages[index] < lifetime
+		if _prints[index].visible:
+			_prints[index].material_override.set_shader_parameter("fade",1.0-smoothstep(lifetime*0.6,lifetime,_print_ages[index]))
 
 func begin_stroke(_erase: bool) -> void:
 	_before_tiles.clear()
@@ -372,6 +474,8 @@ func begin_stroke(_erase: bool) -> void:
 
 func dab(center: Vector3, erase: bool) -> void:
 	if not _stroke_active or terrain == null: return
+	var target_data: Resource = deep_snow_data if _stroke_layer == 4 else paint_data
+	var channel := 0 if _stroke_layer == 4 else _stroke_layer
 	var min_cell := Vector2i(((Vector2(center.x,center.z)-Vector2.ONE*brush_radius)/PaintData.PIXEL_SIZE).floor())
 	var max_cell := Vector2i(((Vector2(center.x,center.z)+Vector2.ONE*brush_radius)/PaintData.PIXEL_SIZE).ceil())
 	for y in range(min_cell.y,max_cell.y+1):
@@ -382,14 +486,15 @@ func dab(center: Vector3, erase: bool) -> void:
 			var world := Vector3(point.x,center.y,point.y)
 			if not terrain.data.has_regionp(world) or terrain.data.get_control_hole(world): continue
 			var key := Vector2i(floori(float(x)/PaintData.SIDE),floori(float(y)/PaintData.SIDE))
-			if not _before_tiles.has(key): _before_tiles[key] = paint_data.snapshot(key)
-			var image: Image = paint_data.ensure_tile(key)
+			if erase and target_data.get_tile(key) == null: continue
+			if not _before_tiles.has(key): _before_tiles[key] = target_data.snapshot(key)
+			var image: Image = target_data.ensure_tile(key)
 			var pixel := Vector2i(posmod(x,PaintData.SIDE),posmod(y,PaintData.SIDE))
 			var color := image.get_pixelv(pixel)
 			var weight := brush_strength*_falloff(distance)
-			color[_stroke_layer] = lerpf(color[_stroke_layer],0.0 if erase else 1.0,weight)
+			color[channel] = maxf(0.0,color[channel]-weight) if erase else lerpf(color[channel],1.0,weight)
 			image.set_pixelv(pixel,color)
-	paint_data.emit_changed()
+	target_data.emit_changed()
 
 func _falloff(distance: float) -> float:
 	return 1.0 - smoothstep(minf(brush_hardness,0.999),1.0,distance)
@@ -404,11 +509,13 @@ func _flush_controls() -> void:
 func end_stroke() -> Dictionary:
 	_stroke_active = false
 	var after_tiles := {}
-	for key in _before_tiles: after_tiles[key] = paint_data.snapshot(key)
-	return {"before_tiles":_before_tiles.duplicate(),"after_tiles":after_tiles}
+	var target_data: Resource = deep_snow_data if _stroke_layer == 4 else paint_data
+	for key in _before_tiles: after_tiles[key] = target_data.snapshot(key)
+	return {"before_tiles":_before_tiles.duplicate(),"after_tiles":after_tiles,"layer":_stroke_layer}
 
-func apply_snapshot(tiles: Dictionary, controls: Dictionary = {}) -> void:
-	paint_data.restore(tiles)
+func apply_snapshot(tiles: Dictionary, controls: Dictionary = {}, layer: int = 0) -> void:
+	var target_data: Resource = deep_snow_data if layer == 4 else paint_data
+	target_data.restore(tiles)
 	# Compatibilidad con acciones de deshacer creadas antes de separar el pincel.
 	for cell: Vector2i in controls:
 		var point := Vector3(cell.x*terrain.vertex_spacing,0,cell.y*terrain.vertex_spacing)
@@ -423,6 +530,8 @@ func apply_snapshot(tiles: Dictionary, controls: Dictionary = {}) -> void:
 func save_paint() -> Error:
 	if paint_data == null: return ERR_INVALID_DATA
 	# Una copia hecha única puede ser subrecurso: la guarda la propia escena.
-	if paint_data.resource_path.is_empty() or paint_data.resource_path.contains("::"): return OK
-	# Un archivo binario comprimido evita crecer como texto.
-	return ResourceSaver.save(paint_data,paint_data.resource_path,ResourceSaver.FLAG_COMPRESS)
+	for data in [paint_data,deep_snow_data]:
+		if data == null or data.resource_path.is_empty() or data.resource_path.contains("::"): continue
+		var result := ResourceSaver.save(data,data.resource_path,ResourceSaver.FLAG_COMPRESS)
+		if result != OK: return result
+	return OK

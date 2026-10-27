@@ -16,3 +16,4 @@ glide_camera_speed = 1.9
 recenter_timed_duration = 0.6900000000000001
 recenter_timed_ease_power = 5.0
 blur_start = 35.0
+blur_strength = 4.0

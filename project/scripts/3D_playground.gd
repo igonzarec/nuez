@@ -17,6 +17,13 @@ extends Node3D
 @export_group("Nevada")
 ## Activa los copos que siguen al personaje. Cambia en vivo durante F6.
 @export var snowfall_enabled := true
+@export_group("Nieve profunda")
+## Reduce velocidad sólo en zonas pintadas de nieve profunda. La colisión sigue siendo Terrain3D. En vivo.
+@export var deep_snow_slowdown := true
+## Multiplicador de velocidad con nieve profunda completa. Menor exige más esfuerzo al caminar; en vivo.
+@export_range(0.2,1.0,0.05) var deep_snow_speed_multiplier := 0.7
+## Cobertura mínima para comenzar a ralentizar, de 0 a 1. Mayor exige una zona mejor pintada; en vivo.
+@export_range(0.0,0.9,0.05) var deep_snow_speed_threshold := 0.2
 
 var terrain: Terrain3D
 var terrain_instance: Node
@@ -25,6 +32,9 @@ var terrain_instance: Node
 @onready var snowfall = $Snowfall
 @onready var snow_steps = $SnowStepAudio
 var preview_audio: TrailAudio
+var _base_walk_speed := 0.0
+var _base_sprint_speed := 0.0
+var _surface_details: Node3D
 
 func _ready() -> void:
 	if not _load_terrain():
@@ -42,7 +52,10 @@ func _ready() -> void:
 	preview_audio.bind_player(player)
 	preview_audio.bind_camera(camera_rig)
 	snow_steps.bind(player, preview_audio)
-	snow_steps.set_surface(1.0)
+	snow_steps.set_surface(0.0)
+	_surface_details = terrain.get_node_or_null("SurfaceDetails")
+	_base_walk_speed = player.walk_speed
+	_base_sprint_speed = player.sprint_speed
 	camera_rig.target = player
 	camera_rig.enabled = true
 	player.camera_rig = camera_rig
@@ -58,21 +71,39 @@ func _ready() -> void:
 	await get_tree().physics_frame
 	player.set_controls(true)
 
+func _physics_process(_delta: float) -> void:
+	if not is_instance_valid(_surface_details) or not is_instance_valid(player): return
+	var contact: Dictionary = _surface_details.snow_contact(player.global_position) if player.is_on_floor() else {}
+	snow_steps.set_surface(contact.get("coverage",0.0))
+	var factor := 1.0
+	if deep_snow_slowdown and not contact.is_empty() and contact.profile == _surface_details.deep_snow:
+		factor = lerpf(1.0,deep_snow_speed_multiplier,
+			smoothstep(deep_snow_speed_threshold,1.0,contact.coverage))
+	player.walk_speed = _base_walk_speed*factor
+	player.sprint_speed = _base_sprint_speed*factor
+
 func _load_terrain() -> bool:
 	if terrain_scene == null:
 		push_error("Asigna una escena en Terrain Scene (grupo Terreno) del nodo raiz.")
 		return false
 	terrain_instance = terrain_scene.instantiate()
 	terrain_instance.name = "TerrainInstance"
-	add_child(terrain_instance)
-	move_child(terrain_instance, 0)
 	var found := terrain_instance.find_children("*", "Terrain3D", true, false)
 	if terrain_instance is Terrain3D:
 		found.append(terrain_instance)
 	if found.is_empty():
 		push_error("La escena de Terrain Scene no contiene ningun nodo Terrain3D.")
+		terrain_instance.queue_free()
 		return false
 	terrain = found[0]
+	# El primer pino del terreno antiguo no trae LOD1. Corregirlo antes de
+	# entrar al árbol evita que Terrain3D intente crear su Multimesh inexistente.
+	var first_mesh: Terrain3DMeshAsset = terrain.assets.get_mesh_asset(0) if terrain.assets else null
+	if first_mesh and first_mesh.name == "PineTree_1" and (first_mesh.last_lod > 0 or first_mesh.last_shadow_lod > 0):
+		first_mesh.last_lod = 0
+		first_mesh.last_shadow_lod = 0
+	add_child(terrain_instance)
+	move_child(terrain_instance, 0)
 	return true
 
 ## Devuelve el punto de aparicion sobre el relieve. Si Spawn XZ queda fuera de

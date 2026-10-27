@@ -1,0 +1,12 @@
+[gd_resource type="Terrain3DTextureAsset" load_steps=3 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/soft_surface/grass_semi_realistic/albedo_height.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/textures/soft_surface/grass_semi_realistic/normal_roughness.png" id="2"]
+
+[resource]
+name = "Soft Surface Grass Semi Realistic"
+albedo_texture = ExtResource("1")
+normal_texture = ExtResource("2")
+normal_depth = 0.6
+ao_strength = 0.0
+uv_scale = 0.5

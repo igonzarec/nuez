@@ -2,7 +2,7 @@
 extends EditorPlugin
 const DETAILS = preload("res://scripts/surface_details/surface_details.gd")
 const STYLE = preload("res://scripts/surface_details/detail_style.gd")
-const NAMES := ["Nieve", "Hojas", "Tierra", "Pasto"]
+const NAMES := ["Nieve", "Hojas", "Tierra", "Pasto", "Nieve profunda"]
 var _component: Node3D
 var _known: Array[Node] = []
 var _panel: VBoxContainer
@@ -54,7 +54,12 @@ func _enter_tree() -> void:
 	var inspect := Button.new()
 	inspect.text = "Editar apariencia"
 	inspect.pressed.connect(func() -> void:
-		if _component: EditorInterface.inspect_object(_component.profiles()[_component.paint_layer]))
+		if not _component: return
+		if _component.paint_layer == 3:
+			var grass_node := _component.get_node_or_null(_component.grass_particles_path)
+			if grass_node: EditorInterface.inspect_object(grass_node)
+		else:
+			EditorInterface.inspect_object(_component.profiles()[_component.paint_layer]))
 	row.add_child(inspect)
 	var brush := HBoxContainer.new()
 	_panel.add_child(brush)
@@ -192,8 +197,8 @@ func _finish_stroke() -> void:
 	if snapshot.before_tiles.is_empty(): return
 	var undo := get_undo_redo()
 	undo.create_action("Pintar detalle: " + NAMES[_component.paint_layer],UndoRedo.MERGE_DISABLE,_component)
-	undo.add_do_method(_component,"apply_snapshot",snapshot.after_tiles)
-	undo.add_undo_method(_component,"apply_snapshot",snapshot.before_tiles)
+	undo.add_do_method(_component,"apply_snapshot",snapshot.after_tiles,{},snapshot.layer)
+	undo.add_undo_method(_component,"apply_snapshot",snapshot.before_tiles,{},snapshot.layer)
 	undo.commit_action(false)
 
 func _forward_3d_draw_over_viewport(overlay: Control) -> void:

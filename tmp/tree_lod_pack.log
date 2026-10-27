@@ -1,0 +1,9 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2570)
+PineTree_1_Far bounds=[P: (-0.930636, -0.012997, -0.824214), S: (1.946083, 2.700509, 1.804675)] materials=Wood/Green
+PineTree_2_Far bounds=[P: (-0.974709, -0.016417, -1.011694), S: (1.786776, 3.563591, 1.947353)] materials=Wood/Green
+PineTree_3_Far bounds=[P: (-1.06271, 0.000837, -0.936808), S: (2.154453, 3.304538, 1.939684)] materials=Wood/Green
+PineTree_4_Far bounds=[P: (-0.720513, 0.001638, -0.951438), S: (1.241401, 3.341852, 1.388181)] materials=Wood/Green
+PineTree_5_Far bounds=[P: (-0.680358, -0.007846, -0.698661), S: (1.459905, 2.695204, 1.328793)] materials=Wood/Green

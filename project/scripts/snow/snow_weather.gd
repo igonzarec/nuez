@@ -55,6 +55,14 @@ extends Node3D
 @export var preview_enabled := true
 ## Centro local de la vista previa, en metros.
 @export var preview_center := Vector3.ZERO
+@export_group("Zonas de clima")
+## Si está activo, Snowfall sólo emite dentro de SnowClimateZone bajo Climate Zones Root. Independiente de la pintura de nieve. En vivo.
+@export var climate_zones_enabled := false
+## Nodo padre de las zonas de clima. Vacío busca ../SnowClimateZones. En vivo.
+@export var climate_zones_root: NodePath = NodePath("../SnowClimateZones")
+## Rapidez de entrada y salida de los copos al cruzar una zona; mayor responde antes. En vivo.
+@export_range(0.1,10.0,0.1) var climate_response := 2.0
+var _climate_weight := 0.0
 var _signature := 0
 var target: Node3D
 var particles: GPUParticles3D
@@ -222,6 +230,15 @@ func _process(delta: float) -> void:
 		particles.global_position = center + Vector3.UP * ceiling * 0.25 + _emitter_lead()
 	var altitude := smoothstep(height_start, maxf(height_start + 0.01, height_end), target.global_position.y)
 	var flying: bool = target is ExplorerPlayer and target.is_gliding
-	particles.amount_ratio = lerpf(low_intensity, high_intensity, altitude) * (flight_intensity if flying else 1.0) / maxf(1.0, flight_intensity)
+	var climate_target := 1.0
+	if climate_zones_enabled:
+		climate_target = 0.0
+		var zone_root := get_node_or_null(climate_zones_root)
+		if zone_root:
+			for zone in zone_root.get_children():
+				if zone.has_method("weight_at"):
+					climate_target = maxf(climate_target,zone.weight_at(target.global_position))
+	_climate_weight = lerpf(_climate_weight,climate_target,1.0-exp(-climate_response*delta))
+	particles.amount_ratio = lerpf(low_intensity, high_intensity, altitude) * (flight_intensity if flying else 1.0) / maxf(1.0, flight_intensity) * _climate_weight
 	_apply_dynamic()
-	particles.emitting = enabled and flakes > 0
+	particles.emitting = enabled and flakes > 0 and _climate_weight > 0.01
