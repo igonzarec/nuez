@@ -529,6 +529,3 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				_overview.make_current()
 				$Terrain3D.set_camera(_overview)
 				_player.set_controls(false)
-
-
-

@@ -2,6 +2,9 @@
 
 Una expedición 3D breve para **Godot 4.6**, con una ardilla sin ropa ni accesorios, una montaña que se puede rodear y una cima accesible. Recoge semillas de luz, restaura tres faroles y regresa con Mara al refugio.
 
+## Lógica de terreno en progreso
+https://chatgpt.com/s/cx_6ae1ace6c8908191961a3fc9c0f48e36
+
 ## Ejecutar
 
 1. Abre Godot 4.6 (Standard o Mono).

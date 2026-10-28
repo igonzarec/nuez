@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://ba5iek1mo24lm"]
 
 [ext_resource type="Script" uid="uid://lfd7bqd21myh" path="res://scripts/3D_playground.gd" id="1_script"]
-[ext_resource type="PackedScene" uid="uid://c0lte327lonpb" path="res://scenes/cliff_playground.tscn" id="2_tksx7"]
+[ext_resource type="PackedScene" uid="uid://cxue8l5j1rr0p" path="res://scenes/automatic_cliff_playground.tscn" id="2_tksx7"]
 [ext_resource type="PackedScene" uid="uid://c7dhmu1ixjqkr" path="res://scenes/player.tscn" id="3_player"]
 [ext_resource type="PackedScene" uid="uid://bq8cdc30dyhr6" path="res://scenes/camera_rig.tscn" id="4_camera"]
 [ext_resource type="Script" uid="uid://bjfu8u0istmqs" path="res://scripts/core/toon_look.gd" id="5_045tv"]
@@ -44,7 +44,7 @@ fog_density = 0.0
 [node name="3D_playground" type="Node3D" unique_id=696017819]
 script = ExtResource("1_script")
 terrain_scene = ExtResource("2_tksx7")
-spawn_xz = Vector2(64, 47)
+spawn_xz = Vector2(64, 64)
 preserve_terrain_collision = true
 snowfall_enabled = false
 
