@@ -1,0 +1,9 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+WARNING: instance_reset_physics_interpolation() is deprecated.
+   at: _instance_reset_physics_interpolation_bind_compat_104269 (servers/rendering/rendering_server.compat.inc:58)
+WARNING: Terrain3D#1854:_notification:869: free_editor_textures requires `Assets` be saved to a file. Do so, or disable the former to turn off this warning
+   at: push_warning (core/variant/variant_utility.cpp:1034)
+Cliff playground: regenerado. A: desplazamiento Y; B: desplazamiento normal. Semilla 27
+ERROR: Terrain3D#1854:_grab_camera:155: Cannot find the active camera. Set it manually with Terrain3D.set_camera(). Stopping _physics_process()
+   at: push_error (core/variant/variant_utility.cpp:1024)

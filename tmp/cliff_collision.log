@@ -1,0 +1,13 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+
+WARNING: instance_reset_physics_interpolation() is deprecated.
+   at: _instance_reset_physics_interpolation_bind_compat_104269 (servers/rendering/rendering_server.compat.inc:58)
+WARNING: Terrain3D#4527:_notification:869: free_editor_textures requires `Assets` be saved to a file. Do so, or disable the former to turn off this warning
+   at: push_warning (core/variant/variant_utility.cpp:1034)
+Cliff playground: regenerado. A: desplazamiento Y; B: desplazamiento normal. Semilla 27
+CLIFF INSPECTION x=60.0 wall=(60.0, 6.0, 40.92622) top=<null>
+CLIFF INSPECTION x=62.0 wall=(62.0, 6.0, 41.04266) top=<null>
+CLIFF INSPECTION x=63.0 wall=(63.0, 6.0, 41.07063) top=<null>
+CLIFF INSPECTION x=65.0 wall=(65.0, 6.0, 41.07898) top=<null>
+CLIFF INSPECTION x=66.0 wall=(66.0, 6.0, 40.95627) top=<null>
+CLIFF INSPECTION x=68.0 wall=(68.0, 6.0, 41.00893) top=<null>

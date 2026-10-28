@@ -13,10 +13,9 @@ normal_strength = 0.77
 
 [node name="OrbitCamera" type="Node3D" unique_id=1643455216]
 script = ExtResource("1")
-toon_enabled = true
 toon_general = SubResource("Resource_general_toon")
 character_matte_enabled = true
-distance = 20.0
+distance = 30.0
 vertical_range_degrees = 30.0
 stick_speed = 2.5
 glide_horizontal_range_degrees = 180.0

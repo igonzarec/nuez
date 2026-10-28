@@ -12,6 +12,8 @@ extends Node3D
 ## Altura desde la que se busca el terreno, en metros. Aumenta este valor solo si el relieve llega por encima del punto de inicio.
 @export_range(10.0, 500.0, 1.0, "suffix:m") var spawn_ray_height := 120.0
 @export_group("Colision de Terrain3D")
+## Conserva el modo de colision definido por la escena de terreno, util para cliffs con colision propia. Desactivado usa colision dinamica nativa. Requiere reiniciar la escena.
+@export var preserve_terrain_collision := false
 ## Radio alrededor de la camara que conserva colision dinamica. Mayor valor permite explorar mas lejos antes de regenerarla y usa mas memoria.
 @export_range(16, 256, 1, "suffix:m") var collision_radius := 96
 @export_group("Nevada")
@@ -43,7 +45,8 @@ func _ready() -> void:
 	player.set_controls(false)
 	# DYNAMIC_GAME crea colision cerca de la camara durante el juego. La capa 4
 	# tambien deja que la camara orbital detecte el relieve como obstaculo.
-	terrain.collision_mode = Terrain3DCollision.DYNAMIC_GAME
+	if not preserve_terrain_collision:
+		terrain.collision_mode = Terrain3DCollision.DYNAMIC_GAME
 	terrain.collision_layer = 1 | 4
 	terrain.collision_radius = collision_radius
 	preview_audio = TrailAudio.new()
@@ -64,6 +67,7 @@ func _ready() -> void:
 	player.respawn()
 	camera_rig.snap()
 	camera_rig.camera.make_current()
+	terrain.set_camera(camera_rig.camera)
 	snowfall.enabled = snowfall_enabled
 	snowfall.target = player
 	# Deja que Terrain3D construya la colision alrededor de la camara activa.

@@ -1,0 +1,11 @@
+Godot Engine v4.6.stable.mono.official.89cea1439 - https://godotengine.org
+OpenGL API 3.3.0 NVIDIA 581.80 - Compatibility - Using Device: NVIDIA - NVIDIA GeForce RTX 4060
+
+WARNING: instance_reset_physics_interpolation() is deprecated.
+   at: _instance_reset_physics_interpolation_bind_compat_104269 (servers/rendering/rendering_server.compat.inc:58)
+WARNING: Terrain3D#8737:_notification:869: free_editor_textures requires `Assets` be saved to a file. Do so, or disable the former to turn off this warning
+   at: push_warning (core/variant/variant_utility.cpp:1034)
+Cliff playground: regenerado. A: desplazamiento Y; B: desplazamiento normal. Semilla 27
+CLIFF INSPECTION x=24.1 wall=(24.1, 6.0, 41.0) top=(24.1, 12.0, 35.0)
+CLIFF INSPECTION x=64.1 wall=(64.1, 6.0, 41.07188) top=(64.1, 12.0, 35.0)
+CLIFF INSPECTION x=104.1 wall=(104.1, 6.0, 41.65743) top=(104.1, 12.0, 35.0)

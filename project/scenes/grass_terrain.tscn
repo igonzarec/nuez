@@ -86,7 +86,7 @@ _shader_parameters = {
 &"depth_blur": 0.0,
 &"enable_macro_variation": false,
 &"enable_projection": true,
-&"flat_terrain_normals": true,
+&"flat_terrain_normals": false,
 &"macro_variation1": null,
 &"macro_variation2": null,
 &"macro_variation_slope": null,
@@ -96,7 +96,7 @@ _shader_parameters = {
 &"noise1_scale": 0.04,
 &"noise2_scale": null,
 &"noise_texture": SubResource("NoiseTexture2D_836qw"),
-&"projection_threshold": 0.8,
+&"projection_threshold": 0.98999997787152,
 &"toon": null,
 &"toon_bands": 3,
 &"toon_enabled": true,
@@ -281,9 +281,11 @@ uv_scale = 2.0
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_weell"]
 name = "albedo_height"
 id = 17
-albedo_color = Color(0.73125, 0.73125, 0.73125, 1)
+albedo_color = Color(0.7294118, 0.7105483, 0.57987124, 1)
 albedo_texture = ExtResource("39_4sw8m")
 normal_texture = ExtResource("40_uun2w")
+normal_depth = 2.0
+uv_scale = 0.022
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_7315d"]
 name = "albedo_height"
@@ -353,3 +355,5 @@ fade_end = 200.0
 
 [node name="Peter" parent="." unique_id=538982279 instance=ExtResource("56_s3x6e")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 138.70961, 120.59238, 127.49542)
+climbable = null
+player_impact_reaction_enabled = null
