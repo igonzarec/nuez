@@ -72,6 +72,12 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 
 // Private uniforms
 uniform vec3 _camera_pos = vec3(0.f);
+// CliffFolds: terrain override
+uniform float rock_angle_start = 58.0;
+uniform float rock_angle_full = 66.0;
+uniform float rock_height_reduction = 0.0;
+uniform float cliff_far_push = 3.0;
+uniform float cliff_far_reach = 2.5;
 uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
 uniform uint _mouse_layer = 0x80000000u; // Layer 32
@@ -98,9 +104,6 @@ uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_
 
 // Public uniforms
 #define AUTO_SHADER
-uniform float rock_angle_start = 58.0;
-uniform float rock_angle_full = 66.0;
-uniform float rock_height_reduction = 0.0;
 uniform float auto_slope : hint_range(0, 10) = 1.0;
 uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
 uniform int auto_base_texture : hint_range(0, 31) = 0;
@@ -224,6 +227,25 @@ void vertex() {
 
 	// Convert model space to view space w/ skip_vertex_transform render mode
 	VERTEX = (VIEW_MATRIX * vec4(v_vertex, 1.0)).xyz;
+	// CliffFolds: far spike fix
+	float cliff_far_offset = 0.0;
+	float cliff_far_step = scale * (1.0 + vertex_lerp);
+	if (cliff_far_step > _vertex_spacing + 1e-6 && !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && PROJECTION_MATRIX[3][3] == 0.0) {
+		// A hole, or a rise steeper than 60 degrees (a vertical wall's hole band can fall between two samples).
+		for (int k = 0; k < 24; k++) {
+			float angle = float(k) * 0.785398;
+			float radius = cliff_far_step * cliff_far_reach * float(k / 8 + 1) / 3.0;
+			ivec3 probe = get_index_coord(start_pos + vec2(cos(angle), sin(angle)) * radius * _vertex_density, 1);
+			if (probe.z >= 0 && (bool(floatBitsToUint(texelFetch(_control_maps, probe, 0)).r >> 2u & 0x1u)
+					|| abs(texelFetch(_height_maps, probe, 0).r - v_vertex.y) > radius * 1.732)) {
+				cliff_far_offset = cliff_far_push * cliff_far_step;
+				break;
+			}
+		}
+	}
+	// Only the rasterized depth moves: VERTEX (lighting, shadows) stays on the real surface.
+	POSITION = PROJECTION_MATRIX * vec4(VERTEX * (1.0 + cliff_far_offset / max(length(VERTEX), 1.0)), 1.0);
+
 	NORMAL = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	BINORMAL = normalize((MODELVIEW_MATRIX * vec4(BINORMAL, 0.0)).xyz);
 	TANGENT = normalize((MODELVIEW_MATRIX * vec4(TANGENT, 0.0)).xyz);
@@ -606,6 +628,8 @@ _shader_parameters = {
 &"auto_slope": 1.0,
 &"bias_distance": null,
 &"blend_sharpness": 0.0,
+&"cliff_far_push": 3.0,
+&"cliff_far_reach": 2.5,
 &"depth_blur": null,
 &"enable_macro_variation": false,
 &"enable_projection": true,
@@ -649,6 +673,7 @@ lod0_range = 128.0
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_grass"]
 name = "soft-grass"
+albedo_color = Color(0.72156864, 0.7372549, 1, 1)
 albedo_texture = ExtResource("1_grass")
 normal_texture = ExtResource("2_grass_n")
 normal_depth = 0.0
@@ -658,6 +683,7 @@ roughness = 1.0
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_cliff"]
 name = "soft-cliff"
 id = 1
+albedo_color = Color(0.7294118, 0.70980394, 0.5803922, 1)
 albedo_texture = ExtResource("3_cliff")
 normal_texture = ExtResource("4_cliff_n")
 normal_depth = 0.0
@@ -685,7 +711,6 @@ metadata/_edit_lock_ = true
 [node name="CliffFolds" type="Node3D" parent="." unique_id=843526811 node_paths=PackedStringArray("terrain")]
 script = ExtResource("5_folds")
 terrain = NodePath("../Terrain3D")
-rebuild_stale_bake = null
 live_preview = true
 baked_scene = ExtResource("6_baked")
 vertical_stretch = 2.7

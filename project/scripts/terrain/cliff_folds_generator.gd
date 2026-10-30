@@ -114,6 +114,14 @@ extends Node3D
 ## Banda en metros, despues del collar, donde la malla se funde con Terrain3D mediante un tramado (pase opaco, compatible con el
 ## desenfoque de camara). 0 deja un borde duro (usa entonces Skirt Depth). Coste: una superficie pequena por chunk con discard, sin colision. Regenerar.
 @export_range(0.0, 4.0, 0.05, "suffix:m") var seam_fade_width := 1.0
+## Distancia a la camara en metros desde la que la banda de fundido empieza a volverse opaca (opaca del todo al doble).
+## De lejos Terrain3D usa triangulos gruesos junto a los agujeros, sombreados con la normal de la pared: a traves del tramado se ven
+## como rayas oscuras al pie y la cima de los cliffs. Opaca, la banda los tapa; de lejos su borde no se distingue porque copia el
+## sombreado del terreno. 0 = siempre tramada. En vivo; hornea para el juego. Coste nulo.
+@export_range(0.0, 200.0, 1.0, "suffix:m") var seam_fade_far_distance := 24.0:
+	set(value):
+		seam_fade_far_distance = value
+		_update_rock_angles()
 ## Elevacion de la cubierta en metros para evitar parpadeo donde coincide con Terrain3D. Mayor puede crear un escalon visible.
 ## Se suma a Seam Depth Offset. Coste nulo; regenerar.
 @export_range(0.0, 0.1, 0.005, "suffix:m") var seam_lift := 0.02
@@ -145,6 +153,14 @@ extends Node3D
 ## 0-1: cuanto usa la roca de los pliegues proyeccion triplanar en lugar de la proyeccion de Terrain3D. Solo con Match Terrain Shading.
 ## 1 evita estiramientos en pliegues profundos; 0 copia exactamente la textura del terreno. Fuera de los pliegues siempre copia al terreno.
 @export_range(0.0, 1.0, 0.05) var fold_triplanar := 1.0
+## 0-1: borde limpio entre hierba y roca sobre la malla (solo Match Terrain Shading). En el pie y la cima la escultura cruza los
+## angulos de roca a lo largo de casi un metro y la mezcla por altura dibuja dientes de hierba que suben por la roca. Con 1 la
+## transicion se estrecha a pocos cm y los pliegues son siempre roca. La banda de fundido conserva la regla exacta del terreno, asi
+## la union no cambia. 0 copia exactamente la regla del terreno en toda la malla. En vivo; hornea para el juego.
+@export_range(0.0, 1.0, 0.05) var clean_rock_edge := 1.0:
+	set(value):
+		clean_rock_edge = value
+		_update_rock_angles()
 ## Fraccion de la distancia a la camara que la malla se adelanta en profundidad (sin moverse en pantalla) para ganar a Terrain3D
 ## donde coinciden. 0.002 = 2 mm por metro. Mayor evita parpadeos con LOD lejanos; demasiado puede dibujar la malla por delante de
 ## objetos muy cercanos a la pared. Coste nulo; regenerar para aplicarlo al material.
@@ -189,6 +205,40 @@ extends Node3D
 ## Coste alto: construir y consultar trimesh por chunk. Apagado: los agujeros dejan caer al personaje a traves de las paredes.
 @export var collision_enabled := true
 
+@export_group("Distancia (LOD)")
+## Terrain3D simplifica el terreno lejano en anillos cada vez mas gruesos y solo oculta un vertice si cae justo sobre un agujero:
+## de lejos sobreviven triangulos grandes que cruzan la pared y asoman como picos verdes delante del cliff. Esto empuja hacia atras
+## en profundidad (mismo pixel en pantalla) los vertices lejanos que tienen un agujero cerca, para que la malla del cliff les gane.
+## Va en el shader override de Terrain3D (junto a Rock By Angle). Activar/desactivar se aplica al regenerar u hornear.
+## Coste: hasta 24 lecturas de textura por vertice, solo en los anillos lejanos (pocos vertices); nada en el LOD cercano.
+@export var far_spike_fix := true
+## Empuje en profundidad, en multiplos del paso del anillo lejano (3 = 6 m para un anillo de 2 m). Solo cambia quien tapa a quien:
+## la iluminacion sigue en la superficie real. Mayor elimina picos mas grandes; demasiado deja ver a traves del terreno cercano a un
+## cliff lo que este justo detras (la base del cliff tras la cima de una colina, objetos enterrados). En vivo; hornea para el juego.
+@export_range(0.0, 8.0, 0.25) var far_spike_push := 3.0:
+	set(value):
+		far_spike_push = value
+		_update_rock_angles()
+## Radio de busqueda alrededor de cada vertice lejano, en multiplos del paso del anillo: busca agujeros o un desnivel de mas de 60 grados.
+## Debe cubrir todos los vertices de los triangulos que cruzan la pared: por debajo de ~2 quedan munones verdes al pie de pilares
+## estrechos. Mayor empuja tambien terreno algo mas alejado del cliff. En vivo; hornea para el juego.
+@export_range(0.5, 4.0, 0.25) var far_spike_reach := 2.5:
+	set(value):
+		far_spike_reach = value
+		_update_rock_angles()
+## Genera versiones simplificadas de cada chunk de la malla al regenerar/hornear; Godot elige una segun el tamano en pantalla.
+## Reduce vertices dibujados a distancia. No afecta a la colision. Coste: generacion algo mas lenta y bake mas grande.
+@export var mesh_lod := true
+## Angulo en grados por debajo del cual la simplificacion puede fusionar normales. Mayor simplifica mas (pliegues mas blandos
+## a distancia); menor conserva aristas marcadas. Regenerar/hornear.
+@export_range(0.0, 180.0, 1.0, "suffix:degrees") var mesh_lod_merge_angle := 25.0
+## Sesgo de LOD de cada chunk (GeometryInstance3D.lod_bias). Mayor que 1 mantiene detalle hasta mas lejos; menor simplifica antes.
+## El umbral global esta en Project Settings > Rendering > Mesh LOD > LOD Change > Threshold Pixels. En vivo; hornea para el juego.
+@export_range(0.1, 8.0, 0.05) var mesh_lod_bias := 1.0:
+	set(value):
+		mesh_lod_bias = value
+		_update_rock_angles()
+
 ## Celdas (x, z en pixeles globales de Terrain3D) cuyos agujeros abrio este nodo. Se guarda con la escena para poder restaurarlos.
 @export_storage var owned_holes := PackedInt32Array()
 
@@ -198,6 +248,8 @@ const STALE_SAMPLES := 4096
 const STALE_TOLERANCE := 0.02
 var _bake_stale := false
 var _uncovered_holes := 0
+var _texture_signature: Array = []
+var _texture_check_wait := 0.0
 var _noise := FastNoiseLite.new()
 var _generated: Node3D
 var _building := false
@@ -227,7 +279,9 @@ func _preview_parameters() -> Array:
 		chunk_size, skirt_depth, visibility_range, grass_texture_id,
 		cliff_texture_id, match_terrain_shading, fold_triplanar, seam_depth_offset,
 		rock_start_angle, rock_blend_angle, terrain_auto_shader, terrain_auto_slope,
-		rock_by_angle, rock_angle_start, rock_angle_full, rock_height_reduction, collision_enabled]
+		rock_by_angle, rock_angle_start, rock_angle_full, rock_height_reduction, collision_enabled,
+		far_spike_fix, far_spike_push, far_spike_reach, mesh_lod, mesh_lod_merge_angle, mesh_lod_bias,
+		seam_fade_far_distance, clean_rock_edge]
 
 func _ready() -> void:
 	_observed_parameters = _preview_parameters()
@@ -242,10 +296,13 @@ func _ready() -> void:
 		push_error("CliffFolds: falta el bake. Abre la escena y pulsa Hornear y guardar B.")
 	if not Engine.is_editor_hint():
 		set_process(false)
-		# A scene saved before its first bake with the angle rule still gets it in game.
-		if rock_by_angle and is_instance_valid(terrain) and terrain.material != null \
-				and not (terrain.material.shader_override != null and terrain.material.shader_override.code.contains(ROCK_MARK)):
-			_apply_rock_rule(terrain.material)
+		# A scene saved before its last bake with the override (or an older one) still gets it in game.
+		if (rock_by_angle or far_spike_fix) and is_instance_valid(terrain) and terrain.material != null \
+				and not _override_up_to_date(terrain.material):
+			_apply_terrain_override(terrain.material)
+		# Terrain3D texture settings and the live controls changed after the bake still reach the mesh.
+		_update_texture_params()
+		_update_rock_angles()
 
 ## The scene was saved without its bake reference (bake after the last Ctrl+S): use the file at Bake Path
 ## if the terrain was saved with that bake's holes, so the walls do not vanish in game.
@@ -320,6 +377,12 @@ func _rebuild_when_ready() -> void:
 	push_warning("CliffFoldsGenerator: asigna un Terrain3D con datos para generar cliffs.")
 
 func _process(delta: float) -> void:
+	# Terrain3D texture settings (color, scale, files) follow live in the editor, checked a few times per second.
+	_texture_check_wait -= delta
+	if not _building and _texture_check_wait <= 0.0:
+		_texture_check_wait = 0.25
+		if _texture_settings().values() != _texture_signature:
+			_update_texture_params()
 	if _building or not live_preview:
 		_preview_wait = -1.0
 		return
@@ -546,16 +609,51 @@ func _apply_terrain_material() -> void:
 	material.set_shader_param("auto_base_texture", cliff_texture_id)
 	material.set_shader_param("auto_overlay_texture", grass_texture_id)
 	material.set_shader_param("auto_slope", terrain_auto_slope)
-	_apply_rock_rule(material)
+	_apply_terrain_override(material)
 
+const OVERRIDE_MARK := "// CliffFolds: terrain override"
 const ROCK_MARK := "// CliffFolds: rock by angle"
+const VERTEX_ANCHOR := "VERTEX = (VIEW_MATRIX * vec4(v_vertex, 1.0)).xyz;"
+# Far LODs: a coarse vertex near a hole is pushed back along the view ray (same pixel, farther depth), so the
+# coarse triangles Terrain3D stretches across a wall lose against the cliff mesh instead of showing as spikes.
+# The step includes the morph toward the next ring: the finest ring also morphs (about 25-32 m with mesh_size 64).
+const FAR_SPIKE_CODE := """
+	// CliffFolds: far spike fix
+	float cliff_far_offset = 0.0;
+	float cliff_far_step = scale * (1.0 + vertex_lerp);
+	if (cliff_far_step > _vertex_spacing + 1e-6 && !(CAMERA_VISIBLE_LAYERS == _mouse_layer) && PROJECTION_MATRIX[3][3] == 0.0) {
+		// A hole, or a rise steeper than 60 degrees (a vertical wall's hole band can fall between two samples).
+		for (int k = 0; k < 24; k++) {
+			float angle = float(k) * 0.785398;
+			float radius = cliff_far_step * cliff_far_reach * float(k / 8 + 1) / 3.0;
+			ivec3 probe = get_index_coord(start_pos + vec2(cos(angle), sin(angle)) * radius * _vertex_density, 1);
+			if (probe.z >= 0 && (bool(floatBitsToUint(texelFetch(_control_maps, probe, 0)).r >> 2u & 0x1u)
+					|| abs(texelFetch(_height_maps, probe, 0).r - v_vertex.y) > radius * 1.732)) {
+				cliff_far_offset = cliff_far_push * cliff_far_step;
+				break;
+			}
+		}
+	}
+	// Only the rasterized depth moves: VERTEX (lighting, shadows) stays on the real surface.
+	POSITION = PROJECTION_MATRIX * vec4(VERTEX * (1.0 + cliff_far_offset / max(length(VERTEX), 1.0)), 1.0);
+"""
 
-## Installs (or removes) the angle rule in Terrain3D: a shader override built from Terrain3D's own generated
-## shader where only the auto blend line changes. A user override without our mark is patched as a copy.
-func _apply_rock_rule(material: Terrain3DMaterial) -> void:
-	var ours := material.shader_override_enabled and material.shader_override != null \
-		and material.shader_override.code.contains(ROCK_MARK)
-	if not rock_by_angle:
+func _is_our_override(material: Terrain3DMaterial) -> bool:
+	return material != null and material.shader_override_enabled and material.shader_override != null \
+		and (material.shader_override.code.contains(OVERRIDE_MARK) or material.shader_override.code.contains(ROCK_MARK))
+
+func _override_up_to_date(material: Terrain3DMaterial) -> bool:
+	if not _is_our_override(material):
+		return false
+	var code: String = material.shader_override.code
+	return (not rock_by_angle or code.contains(ROCK_MARK)) and (not far_spike_fix or code.contains(FAR_SPIKE_CODE))
+
+## Installs (or removes) CliffFolds' Terrain3D shader override, built from Terrain3D's own generated shader:
+## the angle rule replaces the auto blend line (Rock By Angle) and the far spike fix is added to vertex()
+## (Far Spike Fix). A user override without our mark is patched as a copy.
+func _apply_terrain_override(material: Terrain3DMaterial) -> void:
+	var ours := _is_our_override(material)
+	if not rock_by_angle and not far_spike_fix:
 		if ours:
 			material.shader_override_enabled = false
 			material.shader_override = null
@@ -573,44 +671,67 @@ func _apply_rock_rule(material: Terrain3DMaterial) -> void:
 		code = material.shader_override.code if material.shader_override != null else ""
 		material.shader_override_enabled = false
 		material.shader_override = null
-	if code.contains("_editor_"):
-		push_warning("CliffFolds: el shader de Terrain3D incluye codigo del editor; Rock By Angle solo se aplica a la malla.")
+	if code.contains("_editor_") or not code.contains("uniform float _mesh_size"):
+		push_warning("CliffFolds: no reconozco el shader de Terrain3D; Rock By Angle y Far Spike Fix solo se aplican a la malla.")
 		return
-	var blend := RegEx.create_from_string("float\\s+auto_blend\\s*=\\s*clamp\\([\\s\\S]*?,\\s*0\\.0\\s*,\\s*1\\.0\\s*\\)\\s*;")
-	var found := blend.search(code)
-	if code.is_empty() or found == null or not code.contains("uniform float auto_slope") \
-			or not code.contains("w_normal") or not code.contains("v_vertex"):
-		push_warning("CliffFolds: no reconozco el shader de Terrain3D; Rock By Angle solo se aplica a la malla.")
+	var uniforms := OVERRIDE_MARK + "\n"
+	var patched := false
+	if rock_by_angle:
+		var blend := RegEx.create_from_string("float\\s+auto_blend\\s*=\\s*clamp\\([\\s\\S]*?,\\s*0\\.0\\s*,\\s*1\\.0\\s*\\)\\s*;")
+		var found := blend.search(code)
+		if found == null or not code.contains("w_normal") or not code.contains("v_vertex"):
+			push_warning("CliffFolds: el shader de Terrain3D no tiene Auto Shader; Rock By Angle solo se aplica a la malla.")
+		else:
+			code = code.substr(0, found.get_start()) + ROCK_MARK + "\n\tfloat auto_blend = clamp(1.0 - smoothstep(rock_angle_start, rock_angle_full, " \
+				+ "degrees(acos(clamp(w_normal.y, -1.0, 1.0)))) - rock_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);" \
+				+ code.substr(found.get_end())
+			uniforms += "uniform float rock_angle_start = 58.0;\nuniform float rock_angle_full = 66.0;\nuniform float rock_height_reduction = 0.0;\n"
+			patched = true
+	if far_spike_fix:
+		if not code.contains(VERTEX_ANCHOR) or not code.contains("start_pos") or not code.contains("float scale"):
+			push_warning("CliffFolds: no reconozco el vertex() de Terrain3D; Far Spike Fix no se aplica.")
+		else:
+			code = code.replace(VERTEX_ANCHOR, VERTEX_ANCHOR + FAR_SPIKE_CODE)
+			uniforms += "uniform float cliff_far_push = 3.0;\nuniform float cliff_far_reach = 2.5;\n"
+			patched = true
+	if not patched:
+		if ours:
+			material.shader_override_enabled = false
+			material.shader_override = null
 		return
-	code = code.substr(0, found.get_start()) + ROCK_MARK + "\n\tfloat auto_blend = clamp(1.0 - smoothstep(rock_angle_start, rock_angle_full, " \
-		+ "degrees(acos(clamp(w_normal.y, -1.0, 1.0)))) - rock_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);" \
-		+ code.substr(found.get_end())
-	code = code.replace("uniform float auto_slope", "uniform float rock_angle_start = 58.0;\nuniform float rock_angle_full = 66.0;\n" \
-		+ "uniform float rock_height_reduction = 0.0;\nuniform float auto_slope")
+	code = code.replace("uniform float _mesh_size", uniforms + "uniform float _mesh_size")
 	var shader := Shader.new()
 	shader.code = code
 	material.shader_override = shader
 	material.shader_override_enabled = true
 	_update_rock_angles()
 
-## Pushes the rock angles to Terrain3D and to the generated mesh materials without rebuilding.
+## Pushes the rock angles, far spike fix and LOD bias to Terrain3D and the generated chunks without rebuilding.
 func _update_rock_angles() -> void:
 	if not is_inside_tree():
 		return
 	var full := maxf(rock_angle_full, rock_angle_start + 0.5)
-	if is_instance_valid(terrain) and terrain.material != null and terrain.material.shader_override != null \
-			and terrain.material.shader_override.code.contains(ROCK_MARK):
-		terrain.material.set_shader_param("rock_angle_start", rock_angle_start)
-		terrain.material.set_shader_param("rock_angle_full", full)
-		terrain.material.set_shader_param("rock_height_reduction", rock_height_reduction)
+	if is_instance_valid(terrain) and _is_our_override(terrain.material):
+		var code: String = terrain.material.shader_override.code
+		if code.contains(ROCK_MARK):
+			terrain.material.set_shader_param("rock_angle_start", rock_angle_start)
+			terrain.material.set_shader_param("rock_angle_full", full)
+			terrain.material.set_shader_param("rock_height_reduction", rock_height_reduction)
+		if code.contains("cliff_far_push"):
+			terrain.material.set_shader_param("cliff_far_push", far_spike_push)
+			terrain.material.set_shader_param("cliff_far_reach", far_spike_reach)
 	if not is_instance_valid(_generated):
 		return
 	for chunk in _generated.get_children():
+		if chunk is GeometryInstance3D:
+			chunk.lod_bias = mesh_lod_bias
 		if chunk is MeshInstance3D and chunk.mesh != null:
 			for surface in chunk.mesh.get_surface_count():
 				var material := chunk.mesh.surface_get_material(surface) as ShaderMaterial
 				if material != null:
 					material.set_shader_parameter("rock_by_angle", rock_by_angle)
+					material.set_shader_parameter("clean_rock_edge", clean_rock_edge)
+					material.set_shader_parameter("fade_far_distance", seam_fade_far_distance)
 					material.set_shader_parameter("rock_angle_start", rock_angle_start)
 					material.set_shader_parameter("rock_angle_full", full)
 					material.set_shader_parameter("rock_height_reduction", rock_height_reduction)
@@ -788,18 +909,27 @@ func _add_chunk(chunk_key: Vector2i, data: Array, opaque: PackedInt32Array, fade
 	arrays[Mesh.ARRAY_TEX_UV] = data[2]
 	arrays[Mesh.ARRAY_TEX_UV2] = data[3]
 	var mesh := ArrayMesh.new()
+	var importer := ImporterMesh.new()
 	var solid := opaque.duplicate()
 	solid.append_array(skirt)
 	for part in [[solid, materials[0]], [faded, materials[1]]]:
 		var part_indices: PackedInt32Array = part[0]
 		if part_indices.is_empty():
 			continue
-		arrays[Mesh.ARRAY_INDEX] = part_indices
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-		mesh.surface_set_material(mesh.get_surface_count() - 1, part[1])
+		var surface := arrays.duplicate()
+		surface[Mesh.ARRAY_INDEX] = part_indices
+		if mesh_lod:
+			importer.add_surface(Mesh.PRIMITIVE_TRIANGLES, surface, [], {}, part[1])
+		else:
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface)
+			mesh.surface_set_material(mesh.get_surface_count() - 1, part[1])
+	if mesh_lod and importer.get_surface_count() > 0:
+		importer.generate_lods(mesh_lod_merge_angle, 60.0, [])
+		mesh = importer.get_mesh()
 	var visual := MeshInstance3D.new()
 	visual.name = "CliffChunk_%d_%d" % [chunk_key.x, chunk_key.y]
 	visual.mesh = mesh
+	visual.lod_bias = mesh_lod_bias
 	# Terrain holes persist: culling their replacement by distance would expose the void.
 	visual.visibility_range_end = 0.0
 	_generated.add_child(visual)
@@ -837,12 +967,7 @@ func _surface_material(faded: bool) -> Material:
 		return flat
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://shaders/cliff_slope_fade.gdshader") if faded else preload("res://shaders/cliff_slope_surface.gdshader")
-	material.set_shader_parameter("grass_texture", grass.albedo_texture)
-	material.set_shader_parameter("cliff_texture", cliff.albedo_texture)
-	material.set_shader_parameter("grass_tint", grass.albedo_color)
-	material.set_shader_parameter("cliff_tint", cliff.albedo_color)
-	material.set_shader_parameter("grass_scale", grass.uv_scale)
-	material.set_shader_parameter("cliff_scale", cliff.uv_scale)
+	_apply_texture_params(material, _texture_settings())
 	material.set_shader_parameter("slope_start", rock_start_angle)
 	material.set_shader_parameter("slope_width", rock_blend_angle)
 	material.set_shader_parameter("match_terrain", match_terrain_shading)
@@ -851,11 +976,46 @@ func _surface_material(faded: bool) -> Material:
 	material.set_shader_parameter("rock_angle_start", rock_angle_start)
 	material.set_shader_parameter("rock_angle_full", maxf(rock_angle_full, rock_angle_start + 0.5))
 	material.set_shader_parameter("rock_height_reduction", rock_height_reduction)
-	material.set_shader_parameter("auto_height_reduction", _terrain_parameter("auto_height_reduction", 0.1))
-	material.set_shader_parameter("blend_sharpness", _terrain_parameter("blend_sharpness", 0.5))
-	material.set_shader_parameter("enable_projection", _terrain_parameter("enable_projection", true))
-	material.set_shader_parameter("projection_threshold", _terrain_parameter("projection_threshold", 0.8))
 	material.set_shader_parameter("vertex_spacing", _spacing)
 	material.set_shader_parameter("fold_triplanar", fold_triplanar)
+	material.set_shader_parameter("clean_rock_edge", clean_rock_edge)
+	material.set_shader_parameter("fade_far_distance", seam_fade_far_distance)
 	material.set_shader_parameter("depth_offset", seam_depth_offset)
 	return material
+
+## Terrain3D settings the mesh copies: both texture assets (files, color, UV scale) and the auto shader blend
+## parameters of the Terrain3D material. Empty if the textures are missing.
+func _texture_settings() -> Dictionary:
+	if not is_instance_valid(terrain) or terrain.assets == null:
+		return {}
+	var grass: Terrain3DTextureAsset = terrain.assets.get_texture(grass_texture_id)
+	var cliff: Terrain3DTextureAsset = terrain.assets.get_texture(cliff_texture_id)
+	if grass == null or cliff == null:
+		return {}
+	return {
+		"grass_texture": grass.albedo_texture, "cliff_texture": cliff.albedo_texture,
+		"grass_tint": grass.albedo_color, "cliff_tint": cliff.albedo_color,
+		"grass_scale": grass.uv_scale, "cliff_scale": cliff.uv_scale,
+		"auto_height_reduction": _terrain_parameter("auto_height_reduction", 0.1),
+		"blend_sharpness": _terrain_parameter("blend_sharpness", 0.5),
+		"enable_projection": _terrain_parameter("enable_projection", true),
+		"projection_threshold": _terrain_parameter("projection_threshold", 0.8),
+	}
+
+func _apply_texture_params(material: ShaderMaterial, settings: Dictionary) -> void:
+	for parameter in settings:
+		material.set_shader_parameter(parameter, settings[parameter])
+
+## Copies the current Terrain3D texture settings to every chunk material (editor: when they change; game: on load,
+## so a color or scale changed after the bake still matches the terrain).
+func _update_texture_params() -> void:
+	var settings := _texture_settings()
+	_texture_signature = settings.values()
+	if settings.is_empty() or not is_instance_valid(_generated):
+		return
+	for chunk in _generated.get_children():
+		if chunk is MeshInstance3D and chunk.mesh != null:
+			for surface in chunk.mesh.get_surface_count():
+				var material := chunk.mesh.surface_get_material(surface) as ShaderMaterial
+				if material != null:
+					_apply_texture_params(material, settings)

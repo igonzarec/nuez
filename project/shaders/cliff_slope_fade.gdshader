@@ -9,7 +9,9 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 void fragment() {
 	// Interleaved gradient noise: an even screen-space threshold without a visible pattern.
 	float threshold = fract(52.9829189 * fract(dot(FRAGCOORD.xy, vec2(0.06711056, 0.00583715))));
-	if (surface_mask.y <= threshold) {
+	// Far away the band turns opaque: Terrain3D's coarse triangles behind it are shaded with the wall normal.
+	float far_opaque = fade_far_distance > 0.0 ? smoothstep(fade_far_distance, fade_far_distance * 2.0, length(VERTEX)) : 0.0;
+	if (mix(surface_mask.y, 1.0, far_opaque) <= threshold) {
 		discard;
 	}
 	ALBEDO = cliff_surface_albedo();

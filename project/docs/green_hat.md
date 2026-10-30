@@ -130,9 +130,22 @@ La forma de colisión es un cilindro simple, con **Collision Radius/Height**,
 pickup. Por defecto colisiona con terreno, sin bloquear al jugador.
 
 **Visual Offset**, **Visual Rotation Degrees** y **Visual Scale** ajustan cómo
-descansa la malla dentro del cuerpo: el valor inicial inclina ligeramente el
-borde para no enterrar el pompón. Si cambias mucho la forma, reajusta también
-la colisión; no se recalcula a partir de cada pliegue.
+descansa la malla dentro del cuerpo. Con 0 el gorro queda recto y el borde blanco
+se apoya justo sobre el suelo (la altura sale de Brim Height y Collision Height);
+Visual Offset sólo añade un desplazamiento extra. Si cambias mucho la forma,
+reajusta también la colisión; no se recalcula a partir de cada pliegue.
+
+**Aspecto en el suelo:** el gorro tirado se ve desinflado sin tocar el estilo
+compartido (el gorro puesto nunca se desinfla). **Deflate** (0,7) es la cantidad
+global; **Deflate Height** (0,45) hunde la tela verde, **Deflate Width** (0,12) la
+ensancha al hundirse y **Deflate Softness** (0,6) la ablanda para que la cola caiga
+lacia con el pompón en el suelo. Todo el verde y sus huesos pasan por el mismo
+aplastamiento, así que la física usa la forma desinflada como reposo.
+
+**Vista previa en el editor:** el pickup muestra el gorro con su colocación,
+desinflado y física (gravedad y apoyo en el suelo) y se actualiza en vivo al
+cambiar estos valores o el estilo. El origen del nodo marca el suelo. No se
+guarda en la escena.
 
 **Interaction Distance** y **Prompt Height** ajustan alcance y altura de la
 burbuja habitual. Los recursos **Equip Sound / Unequip Sound** permiten cambiar

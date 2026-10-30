@@ -25,7 +25,9 @@ uniform bool enable_projection = true;
 uniform float projection_threshold = 0.8;
 uniform float vertex_spacing = 1.0;
 uniform float fold_triplanar = 1.0;
+uniform float clean_rock_edge = 1.0;
 uniform float depth_offset = 0.002;
+uniform float fade_far_distance = 24.0;
 
 varying vec3 world_position;
 varying vec3 world_normal;
@@ -58,6 +60,8 @@ vec3 cliff_surface_albedo() {
 	if (!match_terrain) {
 		float angle = degrees(acos(clamp(lit.y, -1.0, 1.0)));
 		float rock = smoothstep(slope_start, slope_start + slope_width, angle);
+		// Clean rock edge: fold faces gentler than Rock Start Angle would paint grass teeth up the wall.
+		rock = max(rock, clean_rock_edge * surface_mask.y * smoothstep(0.0, 0.15, surface_mask.x));
 		vec3 grass = triplanar(grass_texture, world_position, weights, grass_scale) * grass_tint.rgb;
 		vec3 cliff = triplanar(cliff_texture, world_position, weights, cliff_scale) * cliff_tint.rgb;
 		return mix(grass, cliff, rock);
@@ -67,6 +71,14 @@ vec3 cliff_surface_albedo() {
 		? 1.0 - smoothstep(rock_angle_start, rock_angle_full, degrees(acos(clamp(n.y, -1.0, 1.0))))
 		: auto_slope * 2.0 * (n.y - 1.0) + 1.0;
 	float height_reduction = rock_by_angle ? rock_height_reduction : auto_height_reduction;
+	// Clean rock edge: the sculpted foot crosses the rock angles over almost a metre and the height blend draws grass teeth
+	// up the rock. Inside the mesh (the terrain under it is hidden) the transition narrows and folds are always rock; the seam
+	// band keeps the terrain's exact rule (weight = seam opacity), so the join still matches.
+	float edge = clean_rock_edge * surface_mask.y;
+	float rule = clamp(grass_rule, 0.0, 1.0);
+	float narrow = mix(0.5, 0.03, edge);
+	rule = mix(rule, smoothstep(0.5 - narrow, 0.5 + narrow, rule), edge);
+	grass_rule = min(rule, 1.0 - edge * smoothstep(0.0, 0.15, surface_mask.x));
 	float blend = clamp(grass_rule - height_reduction * 0.01 * world_position.y, 0.0, 1.0);
 	// Terrain3D UV: world XZ, or a vertical plane snapped to 8 directions on steep slopes; auto texels use scale 0.5.
 	vec3 dx = dFdx(world_position);

@@ -16,6 +16,17 @@ extends Node3D
 ## Capas que cuentan como suelo para Ground Collision.
 @export_flags_3d_physics var ground_mask := 1
 
+@export_group("Desinflado")
+## Aspecto desinflado de esta instancia (0–1), sin cambiar el estilo compartido: 0 es el gorro puesto;
+## 1 aplica todo Deflate Height, Deflate Width y Deflate Softness. Lo usa el gorro tirado. Live Preview.
+@export_range(0.0, 1.0, 0.01) var deflate := 0.0
+## Cuánto se hunde la tela verde en altura con Deflate = 1 (fracción). Mayor la aplasta más. Live Preview.
+@export_range(0.0, 0.9, 0.01) var deflate_height := 0.45
+## Cuánto se ensancha la tela al hundirse con Deflate = 1 (fracción). Live Preview.
+@export_range(0.0, 0.6, 0.01) var deflate_width := 0.12
+## Cuánto se ablanda la tela con Deflate = 1 (fracción de la rigidez). Mayor deja la cola más lacia. En vivo.
+@export_range(0.0, 0.95, 0.01) var deflate_softness := 0.6
+
 const SETTLE_STEPS := 360
 const STEP := 1.0 / 120.0
 ## Rigidez de contacto (1/s²) contra la cabeza, el borde y el suelo.
@@ -57,7 +68,16 @@ func _process(delta: float) -> void:
 	_clock += delta
 	if _clock < 0.2: return
 	_clock = 0.0
-	if style and _signature != style.signature(): rebuild()
+	if style and _signature != _full_signature(): rebuild()
+
+## Estilo compartido más el desinflado de esta instancia.
+func _full_signature() -> Array:
+	return style.signature() + [deflate, deflate_height, deflate_width]
+
+## Aplastamiento lineal del desinflado alrededor del centro del borde: baja y ensancha la tela verde.
+func _deflate_basis() -> Basis:
+	var widen := 1.0 + deflate * deflate_width
+	return Basis.from_scale(Vector3(widen, 1.0 - deflate * deflate_height, widen))
 
 func _material(color: Color) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -96,7 +116,7 @@ func rebuild() -> void:
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	_signature = style.signature().duplicate()
+	_signature = _full_signature().duplicate()
 	_sim_ready = false
 	# Borde: rectángulo de cantos redondeados con la cara exterior vertical; fijo a la cabeza.
 	var rings: Array = []
@@ -117,9 +137,13 @@ func rebuild() -> void:
 func _build_tail() -> void:
 	var bones := style.tail_bones
 	var rows := bones * ceili(float(style.length_rings) / bones)
-	_rest_dir = (Basis(Vector3.UP, deg_to_rad(style.tip_direction_degrees)) * Basis(Vector3.RIGHT, deg_to_rad(style.backward_angle_degrees)) * Vector3.UP).normalized()
+	var cone_dir := (Basis(Vector3.UP, deg_to_rad(style.tip_direction_degrees)) * Basis(Vector3.RIGHT, deg_to_rad(style.backward_angle_degrees)) * Vector3.UP).normalized()
 	var side := Vector3.RIGHT.rotated(Vector3.UP, deg_to_rad(style.tip_direction_degrees))
-	var other := side.cross(_rest_dir).normalized()
+	var other := side.cross(cone_dir).normalized()
+	# Desinflado: toda la geometría verde y los huesos pasan por el mismo aplastamiento lineal,
+	# así la cadena sigue recta y la física usa la forma desinflada como reposo.
+	var squash := _deflate_basis()
+	_rest_dir = (squash * cone_dir).normalized()
 	# Crown Offset mueve todo lo verde (malla, huesos y física) respecto al borde blanco.
 	var base := Vector3(0, 0.03, 0) + style.crown_offset
 	var base_x := style.brim_radii.x - style.brim_thickness * 0.55
@@ -128,7 +152,7 @@ func _build_tail() -> void:
 	_rest_radii = PackedFloat32Array()
 	for index in bones + 1:
 		var t := float(index) / bones
-		_rest_points.append(base + _rest_dir * style.cone_length * t)
+		_rest_points.append(squash * (base + cone_dir * style.cone_length * t))
 		_rest_radii.append(maxf(base_x, base_z) * _radius(t))
 	_pinned = 0
 	for index in bones:
@@ -156,7 +180,7 @@ func _build_tail() -> void:
 	var flat_other := side.cross(Vector3.UP).normalized()
 	for row in rows + 1:
 		var t := float(row) / rows
-		var center := base + _rest_dir * style.cone_length * t
+		var center := base + cone_dir * style.cone_length * t
 		var radius := _radius(t)
 		var settle := smoothstep(0.0, maxf(style.rigid_ratio, 0.05), t)
 		var ring_other := flat_other.slerp(other, settle).normalized()
@@ -167,7 +191,7 @@ func _build_tail() -> void:
 			var fold := style.folds * sin(a * 3.0 + t * 8.0) * sin(t * PI)
 			var x := maxf(0.01, base_x * radius + fold)
 			var z := maxf(0.01, base_z * radius + fold)
-			ring.append([center + ring_side * cos(a) * x + ring_other * sin(a) * z, _weights(t)])
+			ring.append([squash * (center + ring_side * cos(a) * x + ring_other * sin(a) * z), _weights(t)])
 		grid.append(ring)
 	for row in rows:
 		for col in style.segments:
@@ -183,7 +207,8 @@ func _build_tail() -> void:
 	var pom := SurfaceTool.new()
 	pom.begin(Mesh.PRIMITIVE_TRIANGLES)
 	pom.set_material(_material(style.trim_color))
-	var pom_center := base + _rest_dir * (style.cone_length + style.pom_backward_offset)
+	# El pompón sigue el desinflado en posición pero conserva su forma redonda.
+	var pom_center := squash * (base + cone_dir * (style.cone_length + style.pom_backward_offset))
 	var latitudes := 8
 	var longitudes := 16
 	var tip_bones := PackedInt32Array([bones, 0, 0, 0])
@@ -311,7 +336,11 @@ func _joint_stiffness(joint: int, count: int) -> float:
 	var distance := (progress - style.fold_position) / maxf(style.fold_spread * 0.5, 0.01)
 	var softening := style.fold_strength * 0.97 * exp(-distance * distance)
 	softening = maxf(softening, style.tip_softness * 0.97 * smoothstep(0.7, 1.0, progress))
-	return style.tail_stiffness * (1.0 - softening) * _moments[joint] * _gravity()
+	return style.tail_stiffness * (1.0 - softening) * _softness() * _moments[joint] * _gravity()
+
+## Factor de rigidez del desinflado (1 sin desinflar).
+func _softness() -> float:
+	return 1.0 - deflate * deflate_softness
 
 ## Fracción de flexibilidad de una articulación de la copa: máxima junto a la cola y nula en el borde.
 func _crown_flex(joint: int) -> float:
@@ -382,7 +411,7 @@ func _step(xf: Transform3D, dt: float) -> void:
 		var turn := _turns[segment]
 		var angle := turn.get_angle()
 		# En la copa, la rigidez es la de la cola dividida por la flexibilidad transmitida (muy rígida junto al borde).
-		var stiffness := _joint_stiffness(segment, count) if segment >= _pinned else minf(style.tail_stiffness / flex, 2000.0) * _moments[segment] * _gravity()
+		var stiffness := _joint_stiffness(segment, count) if segment >= _pinned else minf(style.tail_stiffness * _softness() / flex, 2000.0) * _moments[segment] * _gravity()
 		# Resorte y amortiguación implícitos (Euler hacia atrás): estables con cualquier rigidez, también la
 		# muy alta de la copa. Amortiguación relativa a la crítica (2·ζ·√(K/I)): sin rebote con ζ = 1.
 		var inertia_value := maxf(inertia_sum, 0.000001)

@@ -12,7 +12,7 @@
 [ext_resource type="Resource" uid="uid://c8uqxve2468pq" path="res://resources/sky/grass_day.tres" id="9_rof4l"]
 [ext_resource type="PackedScene" path="res://scenes/accessories/green_hat_pickup.tscn" id="10_hat"]
 
-[sub_resource type="Resource" id="Resource_tksx7"]
+[sub_resource type="Resource" id="Resource_045tv"]
 resource_local_to_scene = true
 script = ExtResource("5_045tv")
 softness = 0.92
@@ -20,7 +20,7 @@ light_offset = -0.98
 contrast = 1.65
 normal_strength = 0.77
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_045tv"]
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_uqour"]
 sky_top_color = Color(0.03759416, 0.41512576, 0.58637613, 1)
 sky_horizon_color = Color(0.52192205, 0.69517577, 0.9999991, 1)
 sky_curve = 0.8
@@ -28,12 +28,12 @@ ground_bottom_color = Color(0.39144152, 0.52138186, 0.74999934, 1)
 ground_horizon_color = Color(0.52192205, 0.69517577, 0.9999991, 1)
 sun_angle_max = 2.0
 
-[sub_resource type="Sky" id="Sky_uqour"]
-sky_material = SubResource("ProceduralSkyMaterial_045tv")
+[sub_resource type="Sky" id="Sky_xx2cs"]
+sky_material = SubResource("ProceduralSkyMaterial_uqour")
 
-[sub_resource type="Environment" id="Environment_xx2cs"]
+[sub_resource type="Environment" id="Environment_yyl4w"]
 background_mode = 2
-sky = SubResource("Sky_uqour")
+sky = SubResource("Sky_xx2cs")
 ambient_light_source = 2
 ambient_light_color = Color(0.68, 0.79, 0.92, 1)
 ambient_light_energy = 0.35
@@ -55,7 +55,7 @@ climb_grab_distance = 1.15
 climb_sound_phases = Vector2(0.485, 2.945)
 
 [node name="CameraRig" parent="." unique_id=62750041 instance=ExtResource("4_camera")]
-toon_general = SubResource("Resource_tksx7")
+toon_general = SubResource("Resource_045tv")
 
 [node name="Snowfall" type="Node3D" parent="." unique_id=349537031]
 script = ExtResource("5_weather")
@@ -82,7 +82,7 @@ player_path = NodePath("../SquirrelExplorer")
 enabled = false
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1052129262]
-environment = SubResource("Environment_xx2cs")
+environment = SubResource("Environment_yyl4w")
 
 [node name="Sunlight" type="DirectionalLight3D" parent="." unique_id=332969130]
 transform = Transform3D(0.7431448, 0.6691306, 2.9248625e-08, 0, -4.371139e-08, 0.9999999, 0.6691306, -0.7431448, -3.248389e-08, 0, 0, 0)
@@ -102,6 +102,6 @@ minimum_spacing = 177.0
 altitude_range = Vector2(35, 150.495)
 irregularity = 0.69
 
-[node name="GreenHatPickup" parent="." instance=ExtResource("10_hat")]
+[node name="GreenHatPickup" parent="." unique_id=1427710190 instance=ExtResource("10_hat")]
+transform = Transform3D(0.9396926, 0, -0.34202015, 0, 1, 0, 0.34202015, 0, 0.9396926, 66.2, 50, 61.6)
 spawn_id = "green_hat_playground"
-transform = Transform3D(0.9396926, 0, -0.34202015, 0, 1, 0, 0.34202015, 0, 0.9396926, 66.2, 50.0, 61.6)

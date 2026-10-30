@@ -14,12 +14,24 @@ extends Node3D
 @export var visual_scene: PackedScene = preload("res://scenes/accessories/green_hat_visual.tscn")
 ## Forma y colores compartidos con la presentación equipada. Live Preview en la escena visual.
 @export var style: GreenHatStyle = preload("res://resources/accessories/green_hat_style.tres")
-## Offset visual en metros respecto al cuerpo. Compensa el borde inclinado para apoyarlo. En vivo.
-@export var visual_offset := Vector3(0, 0.11, 0)
-## Rotación visual en grados. -16 en X deja el pompón sobre el suelo sin hundirlo. En vivo.
-@export var visual_rotation_degrees := Vector3(-16, 0, 0)
-## Escala visual; ajustar Collision Radius/Height si se cambia. En vivo.
+## Desplazamiento extra del gorro en metros. Con 0 el borde blanco se apoya justo sobre el suelo
+## (la altura se calcula a partir de Brim Height y Collision Height). En vivo, también en el editor.
+@export var visual_offset := Vector3.ZERO
+## Rotación del gorro en grados. 0 lo deja recto, apoyado sobre el borde. En vivo, también en el editor.
+@export var visual_rotation_degrees := Vector3.ZERO
+## Escala visual; ajustar Collision Radius/Height si se cambia. En vivo, también en el editor.
 @export var visual_scale := Vector3.ONE
+
+@export_group("Aspecto en el suelo")
+## Cuánto se ve desinflado el gorro tirado (0–1). 0 conserva la forma del gorro puesto; el gorro puesto
+## nunca se desinfla. Live Preview, también en el editor.
+@export_range(0.0, 1.0, 0.01) var deflate := 0.7
+## Cuánto se hunde la tela verde en altura con Deflate = 1 (fracción). Live Preview.
+@export_range(0.0, 0.9, 0.01) var deflate_height := 0.45
+## Cuánto se ensancha la tela al hundirse con Deflate = 1 (fracción). Live Preview.
+@export_range(0.0, 0.6, 0.01) var deflate_width := 0.12
+## Cuánto se ablanda la tela con Deflate = 1 (fracción de la rigidez): la cola cae más lacia. En vivo.
+@export_range(0.0, 0.95, 0.01) var deflate_softness := 0.6
 ## Ajusta al suelo al iniciar y devolver el objeto. Espera colisión del terreno antes de soltarlo.
 @export var ground_snap := true
 ## Búsqueda vertical en metros alrededor del origen. Mayor permite desniveles mayores. Reiniciar.
@@ -68,13 +80,16 @@ var _visual: Node3D
 var _origin := ""
 var _active := false
 var _settling := false
+var _editor_visual: Node3D
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
-		var preview := visual_scene.instantiate()
-		preview.set("style", style)
-		preview.transform = spawn_transform * Transform3D(Basis.from_euler(visual_rotation_degrees * PI / 180.0).scaled(visual_scale), visual_offset)
-		add_child(preview)
+		# Vista previa sólo de editor (no se guarda): se actualiza en vivo con la colocación y el desinflado.
+		_editor_visual = visual_scene.instantiate()
+		_editor_visual.set("style", style)
+		_editor_visual.set("ground_collision", true)
+		add_child(_editor_visual)
+		_apply_look(_editor_visual)
 		return
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	_origin = spawn_id if not spawn_id.is_empty() else get_tree().current_scene.scene_file_path + ":" + str(get_tree().current_scene.get_path_to(self))
@@ -92,6 +107,7 @@ func _ready() -> void:
 	_visual.set("style", style)
 	# La cola cae por gravedad y se apoya en el suelo bajo el gorro tirado.
 	_visual.set("ground_collision", true)
+	_apply_look(_visual)
 	_body.add_child(_visual)
 	_interaction = TrailInteractable.new()
 	_interaction.display_name = "green hat"
@@ -121,10 +137,30 @@ func _sync() -> void:
 	if active and not _active: _restore.call_deferred()
 	_active = active
 
+## Transformación del gorro respecto al centro del cuerpo: borde apoyado en la base del cilindro de colisión.
+func _visual_transform() -> Transform3D:
+	var rest_height := (style.brim_height * 0.5 * visual_scale.y if style else 0.0) - collision_height * 0.5
+	return Transform3D(Basis.from_euler(visual_rotation_degrees * PI / 180.0).scaled(visual_scale), Vector3(0, rest_height, 0) + visual_offset)
+
+## Desinflado propio del gorro tirado; no toca el estilo compartido con el gorro puesto.
+func _apply_look(visual: Node3D) -> void:
+	visual.set("deflate", deflate)
+	visual.set("deflate_height", deflate_height)
+	visual.set("deflate_width", deflate_width)
+	visual.set("deflate_softness", deflate_softness)
+	if Engine.is_editor_hint():
+		# En el editor el origen del nodo marca el suelo; el cuerpo se apoyaría sobre él.
+		visual.transform = spawn_transform * Transform3D(Basis.IDENTITY, Vector3.UP * collision_height * 0.5) * _visual_transform()
+	else:
+		visual.transform = _visual_transform()
+
+func _process(_delta: float) -> void:
+	if Engine.is_editor_hint() and is_instance_valid(_editor_visual):
+		if _editor_visual.get("style") != style: _editor_visual.set("style", style)
+		_apply_look(_editor_visual)
+
 func _apply_physics() -> void:
-	_visual.position = visual_offset
-	_visual.rotation_degrees = visual_rotation_degrees
-	_visual.scale = visual_scale
+	_apply_look(_visual)
 	_shape.radius = collision_radius
 	_shape.height = collision_height
 	_body.mass = mass
