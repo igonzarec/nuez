@@ -4,6 +4,6 @@
 
 [node name="GreenHatPickup" type="Node3D" unique_id=1674162194]
 script = ExtResource("1")
-deflate_height = 0.74
+deflate_height = 0.53
 deflate_width = 0.09
 deflate_softness = 0.95
