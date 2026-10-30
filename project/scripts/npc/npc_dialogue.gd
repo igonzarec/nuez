@@ -9,9 +9,8 @@ var _body: ExplorerPlayer
 var _player: ExplorerPlayer
 var _prompt: Node3D
 var _balloon: SquirrelDialogueBalloon
-var _near := false
 var _clock := 0.0
-var _gamepad := false
+var _interactable: TrailInteractable
 
 func _ready() -> void:
 	_npc = get_parent() as SquirrelNPC
@@ -19,6 +18,17 @@ func _ready() -> void:
 	_prompt = PromptScene.instantiate()
 	_prompt.visible = false
 	_body.add_child(_prompt)
+	_interactable = TrailInteractable.new()
+	_interactable.display_name = _npc.display_name
+	_interactable.verb = "Hablar"
+	_interactable.require_facing = false
+	_interactable.activation = _open_dialogue
+	_interactable.eligibility = _eligible
+	_interactable.collision_exclusions = [_body.get_rid()]
+	_interactable.prompt_pin = _prompt
+	_body.add_child(_interactable)
+	_interactable.add_to_group("interactable")
+
 
 func _find_player(node: Node) -> ExplorerPlayer:
 	if node is ExplorerPlayer and not is_instance_valid(node.command_source):
@@ -39,53 +49,16 @@ func _process(delta: float) -> void:
 	if _clock > 0.0:
 		return
 	_clock = 0.15
-	_near = false
 	if not is_instance_valid(_player):
 		_player = _find_player(get_tree().current_scene) if get_tree().current_scene else null
-	if is_instance_valid(_player) and _player.can_start_npc_dialogue() and not get_tree().paused and not get_tree().get_first_node_in_group("active_dialogue"):
-		var best := INF
-		var nearest: SquirrelNPC
-		for item in get_tree().get_nodes_in_group("npcs"):
-			var candidate := item as SquirrelNPC
-			if not candidate or not candidate.dialogue_enabled or candidate.dialogue_text.strip_edges().is_empty():
-				continue
-			var actor := candidate.get_node("Body") as ExplorerPlayer
-			if not actor.is_on_floor() or actor.is_splat or actor.is_climbing:
-				continue
-			var distance := _player.global_position.distance_to(actor.global_position)
-			if distance > candidate.dialogue_reach or distance >= best:
-				continue
-			var size := candidate.overall_size if candidate.proportions_enabled else 1.0
-			var ray := PhysicsRayQueryParameters3D.create(_player.global_position + Vector3.UP * 0.8, actor.global_position + Vector3.UP * 0.8 * size, 1, [_player.get_rid(), actor.get_rid()])
-			if _player.get_world_3d().direct_space_state.intersect_ray(ray).is_empty():
-				nearest = candidate
-				best = distance
-		_near = nearest == _npc
+	if is_instance_valid(_player): TrailInteraction.ensure_for(_player)
+	_interactable.interaction_reach = _npc.dialogue_reach
 	var size := _npc.overall_size if _npc.proportions_enabled else 1.0
 	_prompt.set("height", _npc.dialogue_prompt_height * size)
-	_prompt.set("key_text", TrailInput.interaction_glyph() if _gamepad else "E")
-	_prompt.call("set_prompt_visible", _near)
+	_interactable.sight_height = 0.8 * size
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.echo:
-		return
-	if event is InputEventJoypadButton:
-		_gamepad = true
-		TrailInput.active_device = event.device
-	elif event is InputEventKey or event is InputEventMouseButton:
-		_gamepad = false
-	if is_instance_valid(_balloon) or not _near or get_tree().paused or not is_instance_valid(_player) or not _player.control_enabled:
-		return
-	if get_tree().get_first_node_in_group("active_dialogue"):
-		return
-	if not _player.can_start_npc_dialogue():
-		return
-	var contextual_accept := event is InputEventJoypadButton and event.is_action_pressed("ui_accept") and _player.is_on_floor()
-	if event.is_action_pressed("interact") or contextual_accept:
-		if contextual_accept:
-			_player.consume_interaction_press()
-		get_viewport().set_input_as_handled()
-		_open_dialogue()
+func _eligible() -> bool:
+	return is_instance_valid(_player) and _npc.dialogue_enabled and not _npc.dialogue_text.strip_edges().is_empty() and _body.is_on_floor() and not _body.is_splat and not _body.is_climbing and not is_instance_valid(_balloon)
 
 ## Abre una reacción con el mismo bloqueo, mirada y globo de la conversación normal.
 ## El llamador puede reintentar mientras el jugador termina de aterrizar.
@@ -136,7 +109,6 @@ func _close_dialogue() -> void:
 	_balloon.release_interlocutors()
 	_balloon.queue_free()
 	_balloon = null
-	_near = false
 	_clock = 0.15
 
 func _exit_tree() -> void:

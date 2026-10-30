@@ -181,10 +181,14 @@ func confirm_new() -> void:
 	_button("Empezar de nuevo", "confirm_new")
 	_focus()
 
-func pause_menu(preview := false) -> void:
+## Menú de pausa único. Extras: pares [texto, comando] que se insertan tras "Seguir explorando" (vestuario).
+func pause_menu(extras: Array = []) -> void:
 	_begin("pause")
-	_heading("TÓMATE TU TIEMPO", "Un respiro", "Escena de trabajo: los ajustes se comparten con el juego." if preview else "Tu progreso se guarda al recoger semillas y restaurar faroles.")
+	_heading("TÓMATE TU TIEMPO", "Un respiro", "Tus ajustes y tu vestuario se guardan solos.")
 	_button("Seguir explorando", "resume")
+	for extra: Array in extras:
+		_button(extra[0], extra[1])
+	_button("Reinicio rápido", "fast_reset")
 	_button("Ajustes", "settings")
 	_button("Volver al título", "title")
 	_focus()
@@ -244,12 +248,6 @@ func settings(values: Dictionary) -> void:
 	display_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(display_status)
 	_appearance_controls(page, values)
-	var fast_reset := CheckButton.new()
-	fast_reset.text = "Reinicio rápido · Start"
-	fast_reset.tooltip_text = "Durante la exploración, Start devuelve a la ardilla junto al farol de la cima en lugar de abrir la pausa."
-	fast_reset.button_pressed = values.get("fast_reset_enabled", true)
-	fast_reset.toggled.connect(func(value: bool) -> void: setting_changed.emit("fast_reset_enabled", value))
-	page.add_child(fast_reset)
 	var glide_camera := CheckButton.new()
 	glide_camera.text = "Cámara al frente durante planeo"
 	glide_camera.tooltip_text = "Mantiene la cámara detrás del personaje mirando hacia su frente. R2 / C recentra una vez aunque esté desactivado."
@@ -283,8 +281,9 @@ func controls_menu() -> void:
 		["Correr / planeo rápido", "Mantén Shift · L1 / LB. En mando, R1 + L1 para planeo rápido."],
 		["Interactuar", "E · cuadrado / X (Xbox). Cerca y en el suelo, cruz / A también habla en lugar de saltar."],
 		["Diálogo", "E / Enter / Espacio · cuadrado o cruz / X o A.\nCompleta la página mientras escribe; después avanza.\nFlechas / cruceta: respuestas. Esc / círculo / B: cerrar."],
-		["Pausa / volver", "Esc · círculo / B. Start también, si reinicio rápido está desactivado."],
-		["Reinicio rápido", "Start: vuelve a la cima junto al farol durante exploración, si el ajuste está activado."],
+		["Pausa / volver", "Esc · Start · círculo / B."],
+		["Reinicio rápido", "Desde la pausa: vuelve a la cima junto al farol (partida) o al inicio de la escena de trabajo."],
+		["Vestuario", "Desde la pausa: ponerse o quitarse los accesorios encontrados."],
 		["Menús", "Flechas / cruceta: navegar; Enter / cruz / A: aceptar.\nIzquierda / derecha: ajustar deslizadores."]]:
 		page.add_child(_label(entry[0], 21, Color("e4c582")))
 		var detail := _label(entry[1], 17)

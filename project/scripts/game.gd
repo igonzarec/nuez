@@ -12,9 +12,8 @@ extends Node3D
 ## coordinación útil para un proyecto pequeño. Extraer cuando cada bloque tenga
 ## reglas propias suficientes para justificar su propio script.
 
-enum State { TITLE, PLAYING, DIALOGUE, PAUSED, SETTINGS, ENDING, COMPLETE, CONFIRM }
+enum State { TITLE, PLAYING, DIALOGUE, PAUSED, ENDING, COMPLETE, CONFIRM }
 var state := State.TITLE
-var settings_return := State.TITLE
 var level: TrailLevel
 var player: ExplorerPlayer
 var camera_rig: TrailCamera
@@ -34,36 +33,23 @@ var ending_time := 0.0
 var autosave_time := 0.0
 var using_gamepad := false
 var save_failed := false
-var pixel_material: ShaderMaterial
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	TrailInput.install()
-	# QA uses isolated files, never the player's expedition.
-	if "--qa" in OS.get_cmdline_user_args():
-		store.save_path = "user://qa_expedition.json"
-		store.settings_path = "user://qa_settings.json"
-	settings = store.load_settings()
+	# PauseMenu es el único menú de pausa y la única fuente de ajustes; usa
+	# los mismos archivos aislados de QA que esta partida.
+	store = PauseMenu.store
+	settings = PauseMenu.settings
 	audio = TrailAudio.new()
 	add_child(audio)
-	var finish := CanvasLayer.new()
-	finish.layer = 1
-	add_child(finish)
-	var screen := ColorRect.new()
-	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pixel_material = ShaderMaterial.new()
-	pixel_material.shader = preload("res://shaders/pixel_finish.gdshader")
-	screen.material = pixel_material
-	finish.add_child(screen)
 	ui = TrailUI.new()
 	ui.layer = 10
 	add_child(ui)
 	ui.action.connect(_on_action)
-	ui.setting_changed.connect(_on_setting)
+	PauseMenu.attach_host(self)
 	DialogueManager.dialogue_ended.connect(_on_dialogue_manager_ended)
 	_build_session(store.fresh())
-	_apply_settings()
 	show_title()
 	get_tree().auto_accept_quit = false
 
@@ -106,6 +92,7 @@ func _build_session(data: Dictionary) -> void:
 	level.restore(progress)
 	ui.update_hud(progress)
 	autosave_time = 0
+	PauseMenu.refresh()
 
 func _set_state(value: State) -> void:
 	state = value
@@ -123,7 +110,7 @@ func _set_state(value: State) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	# Durante una conversación el globo ocupa el protagonismo: ocultamos el HUD
 	# de exploración, que se restaura automáticamente al volver a jugar.
-	ui.hud.visible = state in [State.PLAYING, State.PAUSED] or (state == State.SETTINGS and settings_return != State.TITLE)
+	ui.hud.visible = state in [State.PLAYING, State.PAUSED]
 
 func show_title() -> void:
 	_set_state(State.TITLE)
@@ -150,20 +137,10 @@ func start_game(continue_game := false) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.echo:
 		return
-	if _is_fast_reset_event(event):
-		_fast_reset_to_summit()
-		get_viewport().set_input_as_handled()
-		return
+	# PauseMenu abre y cierra la pausa antes de llegar aquí; sólo quedan diálogo y confirmación.
 	if event.is_action_pressed("pause") or (event.is_action_pressed("ui_cancel") and not event is InputEventKey):
 		match state:
-			State.PLAYING: pause_game()
-			State.PAUSED: resume_game()
 			State.DIALOGUE: _close_dialogue()
-			State.SETTINGS:
-				if ui.panel_name == "controls":
-					ui.settings(_appearance_menu_values())
-				else:
-					_settings_back()
 			State.CONFIRM: show_title()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("interact"):
@@ -173,13 +150,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			advance_dialogue()
 		if dialogue_manager_resource == null:
 			get_viewport().set_input_as_handled()
-
-func _is_fast_reset_event(event: InputEvent) -> bool:
-	if state != State.PLAYING or settings.get("fast_reset_enabled", true) != true:
-		return false
-	if not event is InputEventJoypadButton:
-		return false
-	return event.pressed and event.button_index == JOY_BUTTON_START
 
 func _fast_reset_to_summit() -> void:
 	# No reemplaza el refugio de recuperación que el jugador haya desbloqueado.
@@ -222,9 +192,14 @@ func _on_target(target: TrailInteractable) -> void:
 	ui.prompt.text = target.prompt_text(using_gamepad) if target else ""
 
 func interact() -> void:
+	interaction.refresh_target()
 	var target := interaction.selected
 	if not is_instance_valid(target):
 		audio.play("deny")
+		return
+	if target.activation.is_valid():
+		player.consume_interaction_press()
+		target.activation.call()
 		return
 	player.react("interact")
 	if target is TrailLamp:
@@ -363,14 +338,32 @@ func _on_dialogue_manager_ended(resource: DialogueResource) -> void:
 	_set_state(State.PLAYING)
 
 func pause_game() -> void:
-	_save()
-	_set_state(State.PAUSED)
-	ui.pause_menu()
-	audio.play("back")
+	PauseMenu.open()
 
 func resume_game() -> void:
-	ui.close()
-	_set_state(State.PLAYING)
+	PauseMenu.resume()
+
+# Anfitrión de PauseMenu: decide cuándo se puede pausar y qué ocurre en la partida.
+func pause_allowed() -> bool:
+	return state == State.PLAYING
+
+func pause_opened() -> void:
+	_save()
+	_set_state(State.PAUSED)
+	audio.play("back")
+
+func pause_closed() -> void:
+	if state == State.PAUSED:
+		_set_state(State.PLAYING)
+	elif state == State.TITLE:
+		show_title()
+
+func pause_to_title() -> void:
+	_save()
+	show_title()
+
+func pause_fast_reset() -> void:
+	_fast_reset_to_summit()
 
 func begin_ending() -> void:
 	if progress.lamps.size() != 3:
@@ -415,43 +408,18 @@ func _on_action(command: String) -> void:
 		"confirm_new", "again": start_game()
 		"cancel_new": show_title()
 		"continue": start_game(true)
-		"resume": resume_game()
 		"title":
 			_save()
 			show_title()
 		"settings":
-			settings_return = state
-			_set_state(State.SETTINGS)
-			ui.settings(_appearance_menu_values())
-		"settings_back": _settings_back()
-		"controls": ui.controls_menu()
-		"controls_back": ui.settings(_appearance_menu_values())
+			ui.close()
+			PauseMenu.open_settings()
 		"advance": advance_dialogue()
 		"quit":
 			get_tree().quit()
 
-func _settings_back() -> void:
-	if not store.write_json(store.settings_path, settings):
-		ui.toast("No se pudieron guardar los ajustes en disco.")
-	if settings_return == State.TITLE:
-		show_title()
-	else:
-		_set_state(State.PAUSED)
-		ui.pause_menu()
-
 func _on_setting(key: String, value: Variant) -> void:
-	settings[key] = value
-	_apply_settings(key in ["resolution", "fullscreen"])
-
-func _apply_settings(update_display := true) -> void:
-	camera_rig.apply_appearance_settings(settings)
-	camera_rig.glide_forward_enabled = settings.get("glide_forward_enabled", false)
-	audio.apply(settings)
-	pixel_material.set_shader_parameter("pixel_size", settings.get("pixel_size", 2.0))
-	camera_rig.sensitivity = settings.sensitivity
-	if update_display:
-		# Godot termina la configuración inicial de ventana después de _ready.
-		TrailDisplay.apply.call_deferred(settings)
+	PauseMenu.set_setting(key, value)
 
 func _save() -> void:
 	save_failed = not store.write_json(store.save_path, progress)
@@ -465,8 +433,3 @@ func _notification(what: int) -> void:
 		get_tree().quit()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT and state == State.PLAYING and not "--qa" in OS.get_cmdline_user_args():
 		pause_game()
-
-func _appearance_menu_values() -> Dictionary:
-	var values := settings.duplicate()
-	if is_instance_valid(camera_rig): values.merge(camera_rig.appearance_settings(), true)
-	return values

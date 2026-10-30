@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/sky/stylized_sky.tscn" id="7_sky"]
 [ext_resource type="Script" uid="uid://3qaql3pm8oow" path="res://scripts/terrain3d_snow_footprints.gd" id="8_footprints"]
 [ext_resource type="Resource" uid="uid://c8uqxve2468pq" path="res://resources/sky/grass_day.tres" id="9_rof4l"]
+[ext_resource type="PackedScene" path="res://scenes/accessories/green_hat_pickup.tscn" id="10_hat"]
 
 [sub_resource type="Resource" id="Resource_tksx7"]
 resource_local_to_scene = true
@@ -100,3 +101,7 @@ cloud_count = 19
 minimum_spacing = 177.0
 altitude_range = Vector2(35, 150.495)
 irregularity = 0.69
+
+[node name="GreenHatPickup" parent="." instance=ExtResource("10_hat")]
+spawn_id = "green_hat_playground"
+transform = Transform3D(0.9396926, 0, -0.34202015, 0, 1, 0, 0.34202015, 0, 0.9396926, 66.2, 50.0, 61.6)

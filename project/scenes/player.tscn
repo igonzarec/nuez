@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://li1bpumy3co1" path="res://scripts/player.gd" id="1"]
 [ext_resource type="Script" uid="uid://big2xsl5t30c8" path="res://scripts/squirrel_animator.gd" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/accessories/green_hat_equipped.tscn" id="3_hat"]
 
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
@@ -78,3 +79,8 @@ splat_head_shake_degrees = 27.0
 splat_head_shake_frequency_multiplier = 0.9
 splat_head_shake_max_hz = 3.5
 splat_tail_sway_frequency_multiplier = 0.8
+
+[node name="GreenHatEquipped" parent="." unique_id=2030445117 instance=ExtResource("3_hat")]
+head_offset = Vector3(0, 0.595, -0.055)
+head_rotation_degrees = Vector3(18.19, 180, 0)
+cut_mesh_names = PackedStringArray("nuez_cabeza")

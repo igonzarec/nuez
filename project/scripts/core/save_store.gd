@@ -3,7 +3,7 @@ extends RefCounted
 
 const SAVE_PATH := "user://expedition_v3.json"
 const SETTINGS_PATH := "user://settings.json"
-const DEFAULT_SETTINGS := {"master": 0.8, "music": 0.45, "sfx": 0.75, "climb_sfx": 0.5, "sensitivity": 1.0, "fullscreen": false, "resolution": TrailDisplay.DEFAULT_RESOLUTION, "pixel_size": 2.0, "fast_reset_enabled": true, "toon_enabled": false, "toon_softness": 0.08}
+const DEFAULT_SETTINGS := {"master": 0.8, "music": 0.45, "sfx": 0.75, "climb_sfx": 0.5, "sensitivity": 1.0, "fullscreen": false, "resolution": TrailDisplay.DEFAULT_RESOLUTION, "pixel_size": 2.0, "toon_enabled": false, "toon_softness": 0.08}
 var save_path := SAVE_PATH
 var settings_path := SETTINGS_PATH
 
@@ -79,6 +79,5 @@ func load_settings() -> Dictionary:
 	result.fullscreen = loaded.get("fullscreen", false) == true
 	result.resolution = TrailDisplay.validated_resolution(loaded.get("resolution", TrailDisplay.DEFAULT_RESOLUTION))
 	result.pixel_size = clampf(float(loaded.get("pixel_size", 2.0)), 1, 4)
-	result.fast_reset_enabled = loaded.get("fast_reset_enabled", true) == true
 	result.glide_forward_enabled = loaded.get("glide_forward_enabled", false) == true
 	return result

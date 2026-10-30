@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TrailSoundCue" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/sound_cue.gd" id="1_cue"]
+[ext_resource type="AudioStream" uid="uid://cespvrp1n55hp" path="res://audio/sfx/nut_cracking.wav" id="2_nut"]
+
+[resource]
+script = ExtResource("1_cue")
+stream = ExtResource("2_nut")
+volume_db = -3.0
+pitch_variation = 0.03
+priority = 4
+cooldown = 0.2

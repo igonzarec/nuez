@@ -45,6 +45,7 @@ func _node_added(node: Node) -> void:
 
 func _refresh() -> void:
 	_pending = false
+	if not is_inside_tree(): return
 	var nodes := _new_nodes.duplicate()
 	_new_nodes.clear()
 	var scene := get_tree().current_scene
@@ -62,7 +63,8 @@ func _rebuild() -> void:
 func _character(node: Node) -> bool:
 	var ancestor := node
 	while ancestor:
-		if ancestor is SquirrelRig: return true
+		# El grupo character_look da el aspecto de personaje a objetos sueltos (p. ej. el gorro del suelo).
+		if ancestor is SquirrelRig or ancestor.is_in_group("character_look"): return true
 		ancestor = ancestor.get_parent()
 	return false
 

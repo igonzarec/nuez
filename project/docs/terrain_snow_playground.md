@@ -332,11 +332,8 @@ La técnica utiliza la [textura de profundidad de Godot](https://docs.godotengin
 
 ## Menú de pausa
 
-**Esc** o **Start** abre el menú; Seguir explorando vuelve a jugar. Ajustes y
-Controles reutilizan la interfaz del juego y comparten el archivo de ajustes.
-El autoload ScenePause descubre automáticamente las escenas de trabajo con
-ExplorerPlayer; no hace falta añadir un menú a cada escena. El juego principal
-conserva su coordinador de estados y usa la misma TrailUI sin duplicar menús.
+Hay un único menú de pausa para todo el proyecto: el autoload `PauseMenu`
+(`scripts/core/pause_menu.gd`). Consulta [pause_menu.md](pause_menu.md).
 En una escena de trabajo, el acabado pixelado se aplica cuando lo cambias en
 Ajustes; al abrir la escena se mantiene la vista de autoría sin ese filtro.
 

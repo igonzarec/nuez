@@ -8,7 +8,7 @@ resource_local_to_scene = true
 script = ExtResource("2_look")
 softness = 0.92
 light_offset = -0.98
-contrast = 1.6500000000000001
+contrast = 1.65
 normal_strength = 0.77
 
 [node name="OrbitCamera" type="Node3D" unique_id=1643455216]

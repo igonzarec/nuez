@@ -179,8 +179,11 @@ no se desactiva el procesamiento de los actores. Esto se aplica igualmente
 a los diálogos del juego principal. Los NPC nuevos deben heredar
 `squirrel_npc.tscn` y reutilizar este comportamiento compartido.
 
-Se selecciona el NPC habilitado más cercano con apoyo válido y línea de
-visión. No se usa el origen de Route: el icono y el globo siguen al Body que
+`npc_dialogue.gd` registra un `TrailInteractable` que sigue al Body.
+`TrailInteraction` selecciona el objetivo habilitado más cercano entre NPC,
+carteles y pickups, con apoyo válido y línea de visión. Así no compiten dos
+prompts ni se abren dos interfaces con la misma pulsación. Los NPC conservan
+su alcance editable y no exigen estar frente al jugador. No se usa el origen de Route: el icono y el globo siguen al Body que
 camina. Sólo se ofrece una conversación a la vez. Los NPC no se
 confunden con el jugador humano al buscar el destinatario del diálogo o del
 menú de pausa de escenas de trabajo.

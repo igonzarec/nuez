@@ -20,14 +20,11 @@ config/use_custom_user_dir=true
 config/custom_user_dir_name="LanternTrail"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
-[audio]
-
-buses/default_bus_layout="uid://beko10tig1mrv"
-
 [autoload]
 
 DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
-ScenePause="*res://scripts/core/scene_pause.gd"
+PauseMenu="*res://scripts/core/pause_menu.gd"
+TrailWardrobe="*res://scripts/core/wardrobe.gd"
 
 [dialogue_manager]
 

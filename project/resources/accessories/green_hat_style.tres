@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="GreenHatStyle" format=3 uid="uid://df1x6yid3ukm5"]
+
+[ext_resource type="Script" uid="uid://d4l2qr6jaqcpu" path="res://scripts/accessories/green_hat_style.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+brim_height = 0.3
+brim_thickness = 0.12
+cone_length = 1.3
+backward_angle_degrees = 29.0
+crown_offset = Vector3(0, 0.075, 0)
+crown_fullness = 0.0
+taper_power = 1.15
+folds = 0.0
+crown_transmission = 0.0
+tail_bones = 4
+tail_stiffness = 1.0
+fold_position = 1.0
+fold_spread = 0.18
+tip_softness = 0.33
+collision_center = Vector3(0, 0, 0)
+pom_radius = 0.215
+body_color = Color(0.7019608, 0.23137255, 0.25490198, 1)
