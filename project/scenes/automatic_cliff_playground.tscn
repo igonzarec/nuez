@@ -4,8 +4,10 @@
 [ext_resource type="Texture2D" uid="uid://b7hr804n3d65q" path="res://assets/textures/soft_surface/grass/normal_roughness.png" id="2_grass_n"]
 [ext_resource type="Texture2D" uid="uid://chmn23bfejc2t" path="res://assets/textures/soft_surface/cliff/albedo_height.png" id="3_cliff"]
 [ext_resource type="Texture2D" uid="uid://3tr38ts01r25" path="res://assets/textures/soft_surface/cliff/normal_roughness.png" id="4_cliff_n"]
+[ext_resource type="Texture2D" uid="uid://d0725dwfxxre5" path="res://assets/textures/snow_powder_v2/snow_albedo_height.png" id="5_0eymc"]
 [ext_resource type="Script" uid="uid://gy2nddaopn1u" path="res://scripts/terrain/cliff_folds_generator.gd" id="5_folds"]
 [ext_resource type="PackedScene" uid="uid://dqnflhlyuqtfn" path="res://terrain_data/automatic_cliff/cliffs_baked.scn" id="6_baked"]
+[ext_resource type="Texture2D" uid="uid://cwj2ar538i2h5" path="res://assets/textures/snow_powder_v2/snow_normal_roughness.png" id="6_gt7dw"]
 
 [sub_resource type="Gradient" id="Gradient_fjds1"]
 offsets = PackedFloat32Array(0.2, 1)
@@ -28,7 +30,7 @@ noise = SubResource("FastNoiseLite_m5nwl")
 color_ramp = SubResource("Gradient_fjds1")
 seamless = true
 
-[sub_resource type="Shader" id="Shader_m5nwl"]
+[sub_resource type="Shader" id="Shader_dj0bu"]
 code = "shader_type spatial;
 render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlick_ggx,skip_vertex_transform;
 
@@ -651,7 +653,7 @@ _shader_parameters = {
 world_background = 0
 auto_shader = true
 shader_override_enabled = true
-shader_override = SubResource("Shader_m5nwl")
+shader_override = SubResource("Shader_dj0bu")
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0eymc"]
 transparency = 4
@@ -690,9 +692,15 @@ normal_depth = 0.0
 ao_strength = 0.0
 roughness = 1.0
 
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_3oue0"]
+name = "snow_albedo"
+id = 2
+albedo_texture = ExtResource("5_0eymc")
+normal_texture = ExtResource("6_gt7dw")
+
 [sub_resource type="Terrain3DAssets" id="Terrain3DAssets_auto"]
 mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_gt7dw")])
-texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_grass"), SubResource("Terrain3DTextureAsset_cliff")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_grass"), SubResource("Terrain3DTextureAsset_cliff"), SubResource("Terrain3DTextureAsset_3oue0")])
 
 [node name="AutomaticCliffPlayground" type="Node3D" unique_id=1683785069]
 

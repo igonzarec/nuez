@@ -113,6 +113,66 @@ En el editor muestra un aviso en el nodo y en la salida. En el juego, con **Rebu
 sólo da un error. La solución definitiva es siempre **Hornear y guardar B** + **Ctrl+S** después
 de la última pincelada.
 
+## Texturas pintadas (nieve, tierra, caminos)
+
+Pinta con el pincel de texturas de Terrain3D como siempre, también sobre los cliffs. Donde la
+malla descansa sobre la escultura (collar, banda de fundido y hombros), **Painted Textures** usa
+la misma textura pintada que el terreno de debajo. Así una cima nevada no queda con un anillo de
+pasto. Las celdas en automático siguen la regla de pasto y roca, y los pliegues siguen siendo roca
+(`Painted Fold Limit`).
+
+- **En vivo.** La malla lee el mapa de control y las texturas del propio Terrain3D en la GPU:
+  pintar se ve al momento en el editor y en el juego, sin regenerar ni hornear. Cambiar el color o
+  la escala de una textura también se copia.
+- **Las celdas con agujero bajo la malla** usan la textura que tengan pintada. Si pintas una zona,
+  incluye la pared para que el borde del agujero no quede en automático.
+- **Coste.** Cuatro lecturas del mapa de control y hasta ocho de textura por píxel, sólo en la malla
+  y sólo fuera de los pliegues. Sin nada pintado alrededor, sólo se pagan las lecturas del mapa.
+- **Límites.**
+  - No copia la rotación ni el antirrepetición (detile) de cada celda pintada. Si los usas, puede
+    notarse un leve cambio de patrón en la unión; la banda de fundido lo suaviza.
+  - Usa API pública de Terrain3D (`get_control_maps_rid`, `get_albedo_array_rid`,
+    `get_region_map`, colores y escalas de textura). Sí depende del formato documentado del mapa
+    de control (bits de base, superpuesta, mezcla, escala y automático) y del mapa de regiones de
+    32×32. Tras actualizar Terrain3D, comprueba una zona pintada junto a un cliff.
+  - Terrain3D puede recrear sus mapas al actualizarlos. En el editor el nodo vuelve a enlazarlos en
+    0,25 s. En el juego se enlazan al cargar; si algo cambiara las regiones de Terrain3D en pleno
+    juego, la malla no lo vería hasta recargar.
+- **Comprobado:** con un disco de textura pintada sobre la cima de un pilar y una franja en su pie,
+  el collar y la banda copian la textura (apagado aparece el anillo de pasto). Sin nada pintado,
+  la escena se ve igual píxel a píxel. Confirmado pintando nieve a mano, en el editor y en el juego.
+- **Si en el editor sigue el anillo de pasto tras actualizar el script o el shader**, recarga la
+  escena (Escena → Recargar escena guardada): el editor puede seguir usando la versión anterior
+  del script `@tool`. El juego siempre arranca con la nueva.
+
+## Alternativa descartada: cliffs sin agujeros (2026-10-31)
+
+Se probó un "modelo piel" para reducir parches: Terrain3D entero bajo los cliffs y cada pliegue
+desplazado hacia fuera `Indentation` (+ 0,1 m de margen), de modo que el valle más hondo
+descansara sobre la escultura. Se hizo en una copia de la escena con su propio terreno y se
+retiró después; el código y las escenas ya no existen.
+
+**Lo que se midió:**
+- De cerca y en la cima, casi idéntico; la pared, hasta 0,6 m más ancha.
+- Escalada: una esfera de 0,42 m en 1620 aproximaciones tocó la malla escalable en todas menos
+  una, y nunca el terreno. La colisión de la malla por fuera basta.
+- **Los picos verdes lejanos no desaparecen.** Sin Far Spike Fix aparecían púas en el pie a
+  30–60 m y de lejos: los triángulos gruesos de Terrain3D cortan la esquina cóncava del pie por
+  fuera, haya agujero o no. Con Far Spike Fix quedaba limpio, igual que el modelo con agujeros.
+
+**Por qué se descartó:**
+- El parche más frágil (Far Spike Fix en el shader de Terrain3D) seguía siendo necesario, así que
+  la ganancia se limitaba a quitar agujeros: sin huecos al vacío con un bake viejo y sin registro
+  de agujeros propios. Eso ya está cubierto por la detección de bake desactualizado.
+- Estéticamente gustó más el modelo con agujeros.
+- El borde de la cima quedaba como un labio saliente y costaba trepar el final de la pared.
+
+**Si se revisita:** la causa de los picos es el LOD de Terrain3D en esquinas cóncavas, no los
+agujeros. Cualquier modelo de malla sobre Terrain3D necesitará algo como Far Spike Fix, salvo que
+el terreno lejano deje de dibujarse junto a los cliffs. Un desplazamiento hacia fuera debería
+reducirse antes de la cima para no crear el labio. **Rock Follows Cliffs** nació en este
+experimento y se conservó porque sirve en ambos modelos.
+
 ## Controles: Inspector → CliffFolds
 
 Todas las propiedades tienen ayuda `##`. Los cambios requieren **Regenerar** para la vista
@@ -145,10 +205,13 @@ previa y **Hornear + Ctrl+S** para conservarlos en juego.
 | | Match Terrain Shading | Copia el Auto Shader de Terrain3D. Apagado: mezcla antigua por Rock Start/Blend Angle. |
 | | Fold Triplanar | 0–1: roca triplanar en los pliegues (evita estiramientos) frente a la proyección exacta del terreno. |
 | | Clean Rock Edge | 0–1: pliegues siempre de roca y, con Match Terrain Shading, transición hierba/roca estrecha dentro de la malla. Quita los dientes verdes del pie. La banda de fundido conserva la regla del terreno. En vivo. |
+| | Painted Textures | Collar, banda y hombros copian lo pintado a mano en Terrain3D (nieve, tierra…), leído en vivo: sin regenerar ni hornear. Lo automático sigue la regla de siempre. Ver *Texturas pintadas*. |
+| | Painted Fold Limit | Intensidad de pliegue (0–1) desde la que lo pintado cede a la roca. 0,15 por defecto: los pliegues siguen siendo roca. En vivo. |
 | | Seam Depth Offset | Adelanto en profundidad (fracción de la distancia) para ganar a Terrain3D donde coinciden. |
 | | Rock Start / Blend Angle | Solo con Match Terrain Shading apagado. |
 | | Terrain Auto Shader / Terrain Auto Slope | Material de Terrain3D; Auto Slope solo con Rock By Angle apagado. |
 | | Rock By Angle / Rock Angle Start / Rock Angle Full / Rock Height Reduction | Roca por ángulo en Terrain3D (shader override) y en la malla, sin roca por altura por defecto. En vivo. |
+| | Rock Follows Cliffs / Rock Follow Lead / Rock Follow Width | La roca deriva de la detección: empieza en Minimum Slope − Lead (2°) y es completa Width (8°) después. Detrás de todo cliff hay roca aunque cambies Minimum Slope. Apagado usa Rock Angle Start/Full. En vivo. |
 | | Collision Enabled | Trimesh de la parte opaca, capas 1 y 3, grupo climbable. Blockout, no proxy simplificado. |
 | Distancia (LOD) | Far Spike Fix / Far Spike Push / Far Spike Reach | Quita los picos de terreno sobre los cliffs lejanos (shader override de Terrain3D). Activar: regenerar; empuje y radio en vivo. |
 | | Mesh LOD / Mesh LOD Merge Angle | Versiones simplificadas de cada chunk para la distancia. Regenerar/hornear. |

@@ -28,6 +28,16 @@ uniform float fold_triplanar = 1.0;
 uniform float clean_rock_edge = 1.0;
 uniform float depth_offset = 0.002;
 uniform float fade_far_distance = 24.0;
+// Textures painted by hand in Terrain3D. The generator binds Terrain3D's own texture array and control maps through
+// RenderingServer (live: painting shows at once), plus the region map and per-texture color and UV scale.
+uniform bool use_painted = false;
+uniform highp sampler2DArray painted_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform highp sampler2DArray painted_control : repeat_disable;
+uniform int painted_region_map[1024];
+uniform float painted_region_size = 256.0;
+uniform vec4 painted_colors[32];
+uniform float painted_uv_scales[32];
+uniform float painted_fold_limit = 0.15;
 
 varying vec3 world_position;
 varying vec3 world_normal;
@@ -53,7 +63,83 @@ vec3 triplanar(sampler2D tex, vec3 position, vec3 weights, float scale) {
 		+ texture(tex, position.xy * scale).rgb * weights.z;
 }
 
-vec3 cliff_surface_albedo() {
+// Terrain3D UV (before texture scale): world XZ, or a vertical plane snapped to 8 directions on steep slopes.
+// dx/dy: screen derivatives of world_position, taken in uniform control flow by the caller.
+void terrain_uv(vec3 n, vec3 dx, vec3 dy, out vec2 uv, out vec2 uv_dx, out vec2 uv_dy) {
+	uv = world_position.xz;
+	uv_dx = dx.xz;
+	uv_dy = dy.xz;
+	if (enable_projection && n.y <= projection_threshold) {
+		vec2 xz = round(normalize(-n.xz) * 1.3065629648763765);
+		xz *= abs(xz.x) + abs(xz.y) > 1.5 ? 0.7071067811865475 : 1.0;
+		xz = vec2(-xz.y, xz.x);
+		uv = vec2(dot(world_position.xz, xz), -world_position.y);
+		uv_dx = vec2(dot(dx.xz, xz), -dx.y);
+		uv_dy = vec2(dot(dy.xz, xz), -dy.y);
+	}
+}
+
+// Terrain3D control texel at a global vertex index; automatic (bit 0) outside any region.
+uint painted_control_at(ivec2 cell) {
+	int size = int(painted_region_size);
+	ivec2 region = ivec2(floor(vec2(cell) / painted_region_size));
+	ivec2 slot = region + 16;
+	if (uint(slot.x | slot.y) >= 32u) {
+		return 1u;
+	}
+	int layer = painted_region_map[slot.y * 32 + slot.x] - 1;
+	if (layer < 0) {
+		return 1u;
+	}
+	return floatBitsToUint(texelFetch(painted_control, ivec3(cell - region * size, layer), 0).r);
+}
+
+// Albedo of the textures painted by hand around this point, blended like Terrain3D over its four control texels
+// (without per-texel rotation or detiling). rgb: color; a: share of painted texels (0 = all automatic).
+vec4 painted_surface_albedo(vec3 n, vec3 dx, vec3 dy) {
+	vec2 cell = world_position.xz / vertex_spacing;
+	ivec2 origin = ivec2(floor(cell));
+	vec2 f = fract(cell);
+	vec4 corner = vec4((1.0 - f.x) * f.y, f.x * f.y, f.x * (1.0 - f.y), (1.0 - f.x) * (1.0 - f.y));
+	ivec2 offsets[4] = ivec2[4](ivec2(0, 1), ivec2(1, 1), ivec2(1, 0), ivec2(0, 0));
+	vec2 uv;
+	vec2 uv_dx;
+	vec2 uv_dy;
+	terrain_uv(n, dx, dy, uv, uv_dx, uv_dy);
+	float sharpness = 56.0 * blend_sharpness + 8.0;
+	vec3 color = vec3(0.0);
+	float total = 0.0;
+	float painted = 0.0;
+	for (int i = 0; i < 4; i++) {
+		uint c = painted_control_at(origin + offsets[i]);
+		// Automatic texels keep the cliff rule. Hole texels (under the mesh) keep the texture painted on them.
+		if ((c & 0x1u) != 0u) {
+			continue;
+		}
+		painted += corner[i];
+		float texel_scale = 0.9 - float(((c >> 7u & 0x7u) + 3u) % 8u + 1u) * 0.1;
+		float blend = float(c >> 14u & 0xFFu) / 255.0;
+		int base_id = int(c >> 27u & 0x1Fu);
+		int overlay_id = int(c >> 22u & 0x1Fu);
+		for (int k = 0; k < 2; k++) {
+			int id = k == 0 ? base_id : overlay_id;
+			float share = k == 0 ? 1.0 - blend : blend;
+			if (share <= 0.0 || (k == 1 && overlay_id == base_id)) {
+				continue;
+			}
+			float scale = painted_uv_scales[id] * texel_scale;
+			vec4 alb = textureGrad(painted_albedo, vec3(uv * scale - 0.5, float(id)), uv_dx * scale, uv_dy * scale);
+			float height = k == 0 ? alb.a : alb.a * clamp(n.y, 0.0, 1.0);
+			// Terrain3D height blend, divided by 3^sharpness (the largest base) so it cannot overflow.
+			float weight = exp2(sharpness * log2((corner[i] + share + height) / 3.0)) * corner[i];
+			color += alb.rgb * painted_colors[id].rgb * weight;
+			total += weight;
+		}
+	}
+	return total > 0.0 ? vec4(color / total, painted) : vec4(0.0);
+}
+
+vec3 cliff_auto_albedo() {
 	vec3 lit = normalize(world_normal);
 	vec3 weights = pow(abs(lit), vec3(4.0));
 	weights /= max(weights.x + weights.y + weights.z, 0.0001);
@@ -80,20 +166,11 @@ vec3 cliff_surface_albedo() {
 	rule = mix(rule, smoothstep(0.5 - narrow, 0.5 + narrow, rule), edge);
 	grass_rule = min(rule, 1.0 - edge * smoothstep(0.0, 0.15, surface_mask.x));
 	float blend = clamp(grass_rule - height_reduction * 0.01 * world_position.y, 0.0, 1.0);
-	// Terrain3D UV: world XZ, or a vertical plane snapped to 8 directions on steep slopes; auto texels use scale 0.5.
-	vec3 dx = dFdx(world_position);
-	vec3 dy = dFdy(world_position);
-	vec2 uv = world_position.xz;
-	vec2 uv_dx = dx.xz;
-	vec2 uv_dy = dy.xz;
-	if (enable_projection && n.y <= projection_threshold) {
-		vec2 xz = round(normalize(-n.xz) * 1.3065629648763765);
-		xz *= abs(xz.x) + abs(xz.y) > 1.5 ? 0.7071067811865475 : 1.0;
-		xz = vec2(-xz.y, xz.x);
-		uv = vec2(dot(world_position.xz, xz), -world_position.y);
-		uv_dx = vec2(dot(dx.xz, xz), -dx.y);
-		uv_dy = vec2(dot(dy.xz, xz), -dy.y);
-	}
+	// Auto texels use scale 0.5.
+	vec2 uv;
+	vec2 uv_dx;
+	vec2 uv_dy;
+	terrain_uv(n, dFdx(world_position), dFdy(world_position), uv, uv_dx, uv_dy);
 	uv *= 0.5;
 	uv_dx *= 0.5;
 	uv_dy *= 0.5;
@@ -121,4 +198,19 @@ vec3 cliff_surface_albedo() {
 		triplanar(grass_texture, world_position * 0.5, weights, grass_scale) * grass_tint.rgb,
 		grass_amount);
 	return mix(terrain_like, folded, clamp(surface_mask.x * fold_triplanar, 0.0, 1.0));
+}
+
+vec3 cliff_surface_albedo() {
+	vec3 albedo = cliff_auto_albedo();
+	vec3 dx = dFdx(world_position);
+	vec3 dy = dFdy(world_position);
+	// Where the mesh rests on the sculpture, textures painted in Terrain3D replace the automatic rule; folds keep it.
+	float reach = 1.0 - smoothstep(0.0, max(painted_fold_limit, 0.0001), surface_mask.x);
+	if (use_painted && reach > 0.0) {
+		vec4 painted = painted_surface_albedo(normalize(terrain_normal), dx, dy);
+		if (painted.a > 0.0) {
+			albedo = mix(albedo, painted.rgb, painted.a * reach);
+		}
+	}
+	return albedo;
 }

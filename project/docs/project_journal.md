@@ -168,3 +168,48 @@ guarda en Tree Materials; su valor inicial de 1 conserva los ajustes existentes.
 Aprendizaje: multiplicar negro no recupera detalle y un valor excesivo puede
 saturar las zonas claras. Los scripts pasan la comprobación de Godot 4.6;
 queda valorar el acabado con la iluminación real del nivel.
+
+## 2026-10-30 · CliffFolds aprende a convivir con Terrain3D
+
+Los cliffs plegados ganaron cuatro piezas. **Roca por ángulo**: la roca aparece
+sólo en pendientes escalables (58–66°) en Terrain3D y en la malla, así que las
+colinas quedan con hierba. Para lograrlo parcheamos el shader de Terrain3D
+como *shader override*. Primer tropiezo: copiar el shader ya compilado en el
+editor arrastra el código del pincel, Terrain3D lo inyecta otra vez y el
+terreno pierde las texturas; hay que partir del código limpio que Terrain3D
+rellena al activar un override vacío. **Bake desactualizado**: esculpir tras
+hornear dejaba agujeros sin malla, y caímos al vacío. Ahora el bake guarda
+alturas de muestra y el juego reconstruye o avisa si el terreno cambió.
+
+En la distancia, Terrain3D simplifica el terreno en anillos y sólo oculta los
+vértices que caen justo en un agujero. Los triángulos gruesos cruzaban la
+pared como picos verdes. La solución empuja esos vértices hacia atrás sólo en
+profundidad. Aprendizaje: hay que mover `POSITION`, no `VERTEX`; con `VERTEX`
+la luz se calcula "bajo tierra" y salen manchas. Se añadieron además LOD de
+malla, copia en vivo del color y la escala de las texturas de Terrain3D, banda
+de fundido opaca de lejos y Clean Rock Edge contra los dientes de hierba.
+Límite honesto: casi todo compensa un mismo origen, una malla superpuesta a un
+terreno con LOD y agujeros por vértice. El override depende de nombres
+internos de Terrain3D. Queda pendiente una auditoría para simplificar.
+
+## 2026-10-31 · Probamos cliffs sin agujeros y volvimos
+
+La auditoría apuntaba a los agujeros como raíz de los parches, así que probamos
+un "modelo piel": Terrain3D entero y cada pliegue desplazado hacia fuera para
+que el valle más hondo descansara sobre la escultura. Se hizo en una copia de
+la escena con su propio terreno. La escalada no cambió: la colisión de la malla
+quedaba siempre por fuera y una esfera del tamaño de la ardilla nunca tocó el
+terreno. Pero a 30–60 m volvieron las púas verdes al pie. Aprendizaje: los
+picos no los causan los agujeros, sino los triángulos gruesos del LOD de
+Terrain3D, que cortan la esquina cóncava del pie por fuera. El Far Spike Fix
+es estructural en cualquier malla sobre Terrain3D.
+
+Sin esa ganancia, el modelo piel sólo quitaba los huecos al vacío, que ya cubre
+la detección de bake desactualizado. Además, engordaba la pared y dejaba un
+labio en la cima difícil de trepar, y el aspecto con agujeros gustaba más.
+Retiramos el prototipo y conservamos **Rock Follows Cliffs**, que ata la roca a
+Minimum Slope. Decisión: lo automático se queda (como en A Short Hike, pero con
+geometría real) y con agujeros. Lo siguiente es endurecer el override, no
+cambiar de modelo. Los detalles están en
+[automatic_cliff_playground.md](automatic_cliff_playground.md) y
+[cliff_folds_audit.md](cliff_folds_audit.md).

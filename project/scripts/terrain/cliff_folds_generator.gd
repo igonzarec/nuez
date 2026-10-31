@@ -53,7 +53,11 @@ extends Node3D
 ## Inclinacion en grados (0 = plano, 90 = vertical) a partir de la cual una zona se convierte en cliff plegado. Mayor: solo paredes casi verticales.
 ## Cada columna termina donde la escultura baja de este angulo: el hombro mas suave queda como superficie esculpida sin pliegues.
 ## Con Terrain Auto Slope = 1, 60 coincide con la roca completa del Auto Shader. Coste: bajarlo amplia el area con vertices, colision y agujeros.
-@export_range(30.0, 89.0, 1.0, "suffix:degrees") var minimum_slope := 60.0
+## Con Rock Follows Cliffs, la roca de Terrain3D y la malla siguen este angulo en vivo.
+@export_range(30.0, 89.0, 1.0, "suffix:degrees") var minimum_slope := 60.0:
+	set(value):
+		minimum_slope = value
+		_update_rock_angles()
 ## Banda angular en la que el pliegue pasa de 0 a su intensidad completa. Mayor suaviza la entrada del efecto.
 ## Un collar se corta cuando la escultura vuelve a superar Minimum Slope + este valor (otra pared de una terraza). Sin coste extra.
 @export_range(1.0, 25.0, 1.0, "suffix:degrees") var slope_transition := 10.0
@@ -161,6 +165,21 @@ extends Node3D
 	set(value):
 		clean_rock_edge = value
 		_update_rock_angles()
+## Donde la malla descansa sobre la escultura (collar, banda de fundido, hombros) usa las texturas que pintes a mano en Terrain3D
+## (nieve, tierra, caminos...) en lugar de la regla automatica, asi la union no deja un anillo de pasto. Se lee en vivo del propio
+## Terrain3D: pintar se ve al momento, sin regenerar ni hornear. Las celdas en automatico siguen la regla de siempre.
+## No copia la rotacion ni el antirrepeticion (detile) de cada celda pintada. Coste: hasta cuatro lecturas del mapa de control y
+## ocho de textura por pixel, solo en la malla y solo fuera de los pliegues.
+@export var painted_textures := true:
+	set(value):
+		painted_textures = value
+		_update_texture_params()
+## Solo con Painted Textures. Intensidad de pliegue (0-1) a partir de la cual la textura pintada cede a la regla de roca. 0 = solo
+## collar y banda planos; mayor deja que lo pintado suba por los pliegues (una zona nevada pintaria tambien la pared). En vivo.
+@export_range(0.0, 1.0, 0.01) var painted_fold_limit := 0.15:
+	set(value):
+		painted_fold_limit = value
+		_update_texture_params()
 ## Fraccion de la distancia a la camara que la malla se adelanta en profundidad (sin moverse en pantalla) para ganar a Terrain3D
 ## donde coinciden. 0.002 = 2 mm por metro. Mayor evita parpadeos con LOD lejanos; demasiado puede dibujar la malla por delante de
 ## objetos muy cercanos a la pared. Coste nulo; regenerar para aplicarlo al material.
@@ -182,6 +201,24 @@ extends Node3D
 ## Con esto activo Terrain Auto Slope no se usa. Afecta a todo el terreno de esta escena; lo pintado a mano conserva prioridad.
 ## Activar/desactivar se aplica al regenerar u hornear. Coste: el del Auto Shader (un acos por pixel mas).
 @export var rock_by_angle := true
+## Solo con Rock By Angle. Deriva los angulos de roca de la deteccion de cliffs: empieza en Minimum Slope - Rock Follow Lead y es
+## completa Rock Follow Width grados despues. Asi detras de todo cliff hay roca y las colinas sin cliff quedan con hierba, aunque
+## cambies Minimum Slope. Rock Angle Start/Full se conservan y vuelven a usarse al apagarlo. En vivo; hornea para el juego.
+@export var rock_follows_cliffs := false:
+	set(value):
+		rock_follows_cliffs = value
+		_update_rock_angles()
+## Solo con Rock Follows Cliffs. Grados antes de Minimum Slope en que empieza la roca. Mayor anuncia la pared antes; 0 empieza
+## justo donde nacen los pliegues. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:degrees") var rock_follow_lead := 2.0:
+	set(value):
+		rock_follow_lead = value
+		_update_rock_angles()
+## Solo con Rock Follows Cliffs. Grados desde el inicio de la roca hasta roca completa. Menor: borde mas nitido. En vivo.
+@export_range(0.5, 30.0, 0.5, "suffix:degrees") var rock_follow_width := 8.0:
+	set(value):
+		rock_follow_width = value
+		_update_rock_angles()
 ## Pendiente en grados donde empieza a mezclarse roca. Por debajo, hierba pura. Por defecto algo menos que la escalada del jugador
 ## (65 grados en superficies sin etiqueta) para anunciar la pared. Se actualiza en vivo en Terrain3D y la malla; hornea para el juego.
 @export_range(0.0, 89.0, 0.5, "suffix:degrees") var rock_angle_start := 58.0:
@@ -208,7 +245,8 @@ extends Node3D
 @export_group("Distancia (LOD)")
 ## Terrain3D simplifica el terreno lejano en anillos cada vez mas gruesos y solo oculta un vertice si cae justo sobre un agujero:
 ## de lejos sobreviven triangulos grandes que cruzan la pared y asoman como picos verdes delante del cliff. Esto empuja hacia atras
-## en profundidad (mismo pixel en pantalla) los vertices lejanos que tienen un agujero cerca, para que la malla del cliff les gane.
+## en profundidad (mismo pixel en pantalla) los vertices lejanos que tienen un agujero o un desnivel fuerte cerca, para que la malla
+## del cliff les gane. Haria falta incluso sin agujeros: en el pie concavo los triangulos gruesos cortan la esquina por fuera.
 ## Va en el shader override de Terrain3D (junto a Rock By Angle). Activar/desactivar se aplica al regenerar u hornear.
 ## Coste: hasta 24 lecturas de textura por vertice, solo en los anillos lejanos (pocos vertices); nada en el LOD cercano.
 @export var far_spike_fix := true
@@ -281,7 +319,13 @@ func _preview_parameters() -> Array:
 		rock_start_angle, rock_blend_angle, terrain_auto_shader, terrain_auto_slope,
 		rock_by_angle, rock_angle_start, rock_angle_full, rock_height_reduction, collision_enabled,
 		far_spike_fix, far_spike_push, far_spike_reach, mesh_lod, mesh_lod_merge_angle, mesh_lod_bias,
-		seam_fade_far_distance, clean_rock_edge]
+		seam_fade_far_distance, clean_rock_edge, rock_follows_cliffs, rock_follow_lead, rock_follow_width]
+
+## Rock blend angles (start, full) used by the Terrain3D override and the mesh.
+func _rock_angles() -> Vector2:
+	var start := minimum_slope - rock_follow_lead if rock_follows_cliffs else rock_angle_start
+	var width := rock_follow_width if rock_follows_cliffs else rock_angle_full - rock_angle_start
+	return Vector2(start, start + maxf(width, 0.5))
 
 func _ready() -> void:
 	_observed_parameters = _preview_parameters()
@@ -333,6 +377,8 @@ func _check_stale_bake() -> void:
 		if is_instance_valid(terrain) and terrain.data != null:
 			break
 		await get_tree().process_frame
+	# Terrain3D's control maps and texture array exist only once its data is loaded: bind them for painted textures.
+	_update_texture_params()
 	_bake_stale = _uncovered_holes > 0 or _stale_bake_samples() > 0
 	if not _bake_stale:
 		return
@@ -646,7 +692,7 @@ func _override_up_to_date(material: Terrain3DMaterial) -> bool:
 	if not _is_our_override(material):
 		return false
 	var code: String = material.shader_override.code
-	return (not rock_by_angle or code.contains(ROCK_MARK)) and (not far_spike_fix or code.contains(FAR_SPIKE_CODE))
+	return rock_by_angle == code.contains(ROCK_MARK) and far_spike_fix == code.contains(FAR_SPIKE_CODE)
 
 ## Installs (or removes) CliffFolds' Terrain3D shader override, built from Terrain3D's own generated shader:
 ## the angle rule replaces the auto blend line (Rock By Angle) and the far spike fix is added to vertex()
@@ -710,12 +756,12 @@ func _apply_terrain_override(material: Terrain3DMaterial) -> void:
 func _update_rock_angles() -> void:
 	if not is_inside_tree():
 		return
-	var full := maxf(rock_angle_full, rock_angle_start + 0.5)
+	var angles := _rock_angles()
 	if is_instance_valid(terrain) and _is_our_override(terrain.material):
 		var code: String = terrain.material.shader_override.code
 		if code.contains(ROCK_MARK):
-			terrain.material.set_shader_param("rock_angle_start", rock_angle_start)
-			terrain.material.set_shader_param("rock_angle_full", full)
+			terrain.material.set_shader_param("rock_angle_start", angles.x)
+			terrain.material.set_shader_param("rock_angle_full", angles.y)
 			terrain.material.set_shader_param("rock_height_reduction", rock_height_reduction)
 		if code.contains("cliff_far_push"):
 			terrain.material.set_shader_param("cliff_far_push", far_spike_push)
@@ -732,8 +778,8 @@ func _update_rock_angles() -> void:
 					material.set_shader_parameter("rock_by_angle", rock_by_angle)
 					material.set_shader_parameter("clean_rock_edge", clean_rock_edge)
 					material.set_shader_parameter("fade_far_distance", seam_fade_far_distance)
-					material.set_shader_parameter("rock_angle_start", rock_angle_start)
-					material.set_shader_parameter("rock_angle_full", full)
+					material.set_shader_parameter("rock_angle_start", angles.x)
+					material.set_shader_parameter("rock_angle_full", angles.y)
 					material.set_shader_parameter("rock_height_reduction", rock_height_reduction)
 
 func _read_terrain() -> void:
@@ -973,8 +1019,9 @@ func _surface_material(faded: bool) -> Material:
 	material.set_shader_parameter("match_terrain", match_terrain_shading)
 	material.set_shader_parameter("auto_slope", terrain_auto_slope)
 	material.set_shader_parameter("rock_by_angle", rock_by_angle)
-	material.set_shader_parameter("rock_angle_start", rock_angle_start)
-	material.set_shader_parameter("rock_angle_full", maxf(rock_angle_full, rock_angle_start + 0.5))
+	var angles := _rock_angles()
+	material.set_shader_parameter("rock_angle_start", angles.x)
+	material.set_shader_parameter("rock_angle_full", angles.y)
 	material.set_shader_parameter("rock_height_reduction", rock_height_reduction)
 	material.set_shader_parameter("vertex_spacing", _spacing)
 	material.set_shader_parameter("fold_triplanar", fold_triplanar)
@@ -1000,11 +1047,25 @@ func _texture_settings() -> Dictionary:
 		"blend_sharpness": _terrain_parameter("blend_sharpness", 0.5),
 		"enable_projection": _terrain_parameter("enable_projection", true),
 		"projection_threshold": _terrain_parameter("projection_threshold", 0.8),
+		"use_painted": painted_textures and terrain.data != null,
+		"painted_fold_limit": painted_fold_limit,
+		"painted_region_map": terrain.data.get_region_map() if terrain.data != null else PackedInt32Array(),
+		"painted_region_size": float(terrain.region_size),
+		"painted_colors": terrain.assets.get_texture_colors(),
+		"painted_uv_scales": terrain.assets.get_texture_uv_scales(),
+		# Terrain3D's live GPU arrays: bound by RID, never stored in the bake.
+		RID_PREFIX + "painted_albedo": terrain.assets.get_albedo_array_rid(),
+		RID_PREFIX + "painted_control": terrain.data.get_control_maps_rid() if terrain.data != null else RID(),
 	}
 
+const RID_PREFIX := "rid:"
+
 func _apply_texture_params(material: ShaderMaterial, settings: Dictionary) -> void:
-	for parameter in settings:
-		material.set_shader_parameter(parameter, settings[parameter])
+	for parameter: String in settings:
+		if parameter.begins_with(RID_PREFIX):
+			RenderingServer.material_set_param(material.get_rid(), parameter.trim_prefix(RID_PREFIX), settings[parameter])
+		else:
+			material.set_shader_parameter(parameter, settings[parameter])
 
 ## Copies the current Terrain3D texture settings to every chunk material (editor: when they change; game: on load,
 ## so a color or scale changed after the bake still matches the terrain).
