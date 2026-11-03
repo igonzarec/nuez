@@ -213,3 +213,20 @@ geometría real) y con agujeros. Lo siguiente es endurecer el override, no
 cambiar de modelo. Los detalles están en
 [automatic_cliff_playground.md](automatic_cliff_playground.md) y
 [cliff_folds_audit.md](cliff_folds_audit.md).
+
+## 2026-11-03 · Membranas de planeo procedurales
+
+Al planear asomaba un "piquito" junto a una mano. La causa: cada membrana de
+Blender era un plano de sólo 4 vértices con la esquina en la superficie del
+brazo, no dentro. En lugar de retocarla en Blender, la rehicimos en Godot:
+**GlideMembranes** tiende cada frame una superficie entre hombro, cadera, mano y
+tobillo desde los huesos del rig. Así sigue el clip Glide, el temblor y el
+recoil sin Shape Keys, y forma, color y anclajes se ajustan en vivo desde el
+Inspector. **Source** permite volver a las de Blender.
+
+Dos aprendizajes. El esqueleto de playertest2 no está centrado en X = 0 (está
+desplazado −1,273 m), así que el lado derecho se refleja en el espacio del hueso
+`spine`, no en el del esqueleto. Y en el editor, el AnimationPlayer de un modelo
+instanciado no aplica la pose al hacer `seek`: la vista previa muestrea las
+pistas del clip y las copia al esqueleto. Límite: los NPC no planean y no las
+usan. Controles en [glide_membranes.md](glide_membranes.md).

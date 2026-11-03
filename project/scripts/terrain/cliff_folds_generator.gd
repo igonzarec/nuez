@@ -180,6 +180,30 @@ extends Node3D
 	set(value):
 		painted_fold_limit = value
 		_update_texture_params()
+## Solo con Painted Textures. Las caras de los pliegues que miran hacia arriba (repisas, salientes, fondos de hendidura) toman
+## tambien la textura pintada en esa zona: pinta nieve sobre el cliff (pared incluida) y se acumula en las repisas mientras las
+## caras empinadas siguen de roca. Sin pintura encima, no cambia nada. En vivo. Coste: el de Painted Textures, solo en esas caras.
+@export var painted_ledges := true:
+	set(value):
+		painted_ledges = value
+		_update_texture_params()
+## Solo con Painted Ledges. Inclinacion maxima en grados (0 = horizontal) de una cara totalmente cubierta. Mayor cubre tambien
+## caras mas empinadas (mas nieve); menor la deja solo en repisas casi planas. En vivo.
+@export_range(0.0, 80.0, 1.0, "suffix:degrees") var ledge_angle := 55.0:
+	set(value):
+		ledge_angle = value
+		_update_texture_params()
+## Solo con Painted Ledges. Grados por encima de Ledge Angle en los que la cobertura se desvanece. Menor: borde mas nitido. En vivo.
+@export_range(1.0, 30.0, 1.0, "suffix:degrees") var ledge_softness := 10.0:
+	set(value):
+		ledge_softness = value
+		_update_texture_params()
+## Solo con Painted Ledges. Cuanto rompe el borde de la repisa el relieve de la propia textura (su altura): 0 = borde liso que
+## sigue solo la inclinacion; mayor = borde irregular, como nieve acumulada. En vivo.
+@export_range(0.0, 0.5, 0.01) var ledge_breakup := 0.15:
+	set(value):
+		ledge_breakup = value
+		_update_texture_params()
 ## Fraccion de la distancia a la camara que la malla se adelanta en profundidad (sin moverse en pantalla) para ganar a Terrain3D
 ## donde coinciden. 0.002 = 2 mm por metro. Mayor evita parpadeos con LOD lejanos; demasiado puede dibujar la malla por delante de
 ## objetos muy cercanos a la pared. Coste nulo; regenerar para aplicarlo al material.
@@ -1049,6 +1073,10 @@ func _texture_settings() -> Dictionary:
 		"projection_threshold": _terrain_parameter("projection_threshold", 0.8),
 		"use_painted": painted_textures and terrain.data != null,
 		"painted_fold_limit": painted_fold_limit,
+		"painted_ledges": painted_ledges,
+		"ledge_min_y": cos(deg_to_rad(minf(ledge_angle + ledge_softness, 89.0))),
+		"ledge_full_y": cos(deg_to_rad(ledge_angle)),
+		"ledge_breakup": ledge_breakup,
 		"painted_region_map": terrain.data.get_region_map() if terrain.data != null else PackedInt32Array(),
 		"painted_region_size": float(terrain.region_size),
 		"painted_colors": terrain.assets.get_texture_colors(),

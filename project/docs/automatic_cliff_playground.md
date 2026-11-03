@@ -124,6 +124,15 @@ pasto. Las celdas en automático siguen la regla de pasto y roca, y los pliegues
 - **En vivo.** La malla lee el mapa de control y las texturas del propio Terrain3D en la GPU:
   pintar se ve al momento en el editor y en el juego, sin regenerar ni hornear. Cambiar el color o
   la escala de una textura también se copia.
+- **Repisas (Painted Ledges).** Si pintas también sobre la pared, las caras de los pliegues que
+  miran hacia arriba (salientes, hombros, fondos de hendidura) toman lo pintado y las empinadas
+  siguen de roca: nieve acumulada en las repisas. Se proyecta desde arriba, y el relieve de la
+  textura rompe el borde (`Ledge Breakup`). Cuánto se cubre depende de la geometría:
+  - Con los pliegues verticales del playground (`Vertical Stretch` 2,7) hay pocas caras planas.
+    A 50° apenas salen motas, a 55° algo más y a 60° ya cubre salientes y hombros de las terrazas.
+  - Para más nieve, sube `Ledge Angle`; para repisas más marcadas, baja `Vertical Stretch` o sube
+    `Protrusion`, que exigen regenerar.
+  - Sin pintura encima no cambia nada. Comprobado con renders; falta valorarlo en el juego.
 - **Las celdas con agujero bajo la malla** usan la textura que tengan pintada. Si pintas una zona,
   incluye la pared para que el borde del agujero no quede en automático.
 - **Coste.** Cuatro lecturas del mapa de control y hasta ocho de textura por píxel, sólo en la malla
@@ -207,6 +216,7 @@ previa y **Hornear + Ctrl+S** para conservarlos en juego.
 | | Clean Rock Edge | 0–1: pliegues siempre de roca y, con Match Terrain Shading, transición hierba/roca estrecha dentro de la malla. Quita los dientes verdes del pie. La banda de fundido conserva la regla del terreno. En vivo. |
 | | Painted Textures | Collar, banda y hombros copian lo pintado a mano en Terrain3D (nieve, tierra…), leído en vivo: sin regenerar ni hornear. Lo automático sigue la regla de siempre. Ver *Texturas pintadas*. |
 | | Painted Fold Limit | Intensidad de pliegue (0–1) desde la que lo pintado cede a la roca. 0,15 por defecto: los pliegues siguen siendo roca. En vivo. |
+| | Painted Ledges / Ledge Angle / Ledge Softness / Ledge Breakup | Repisas: las caras de los pliegues que miran hacia arriba toman lo pintado (nieve en salientes). Cubiertas del todo hasta Ledge Angle (55°), desvanecidas en Softness (10°) y con el borde roto por el relieve de la textura (Breakup 0,15). En vivo. |
 | | Seam Depth Offset | Adelanto en profundidad (fracción de la distancia) para ganar a Terrain3D donde coinciden. |
 | | Rock Start / Blend Angle | Solo con Match Terrain Shading apagado. |
 | | Terrain Auto Shader / Terrain Auto Slope | Material de Terrain3D; Auto Slope solo con Rock By Angle apagado. |

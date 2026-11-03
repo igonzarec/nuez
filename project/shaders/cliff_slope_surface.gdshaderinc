@@ -38,6 +38,11 @@ uniform float painted_region_size = 256.0;
 uniform vec4 painted_colors[32];
 uniform float painted_uv_scales[32];
 uniform float painted_fold_limit = 0.15;
+// Ledges: fold faces that look up take the painted texture too (snow on shelves). Normal Y range and edge breakup.
+uniform bool painted_ledges = true;
+uniform float ledge_min_y = 0.707;
+uniform float ledge_full_y = 0.819;
+uniform float ledge_breakup = 0.15;
 
 varying vec3 world_position;
 varying vec3 world_normal;
@@ -96,7 +101,9 @@ uint painted_control_at(ivec2 cell) {
 
 // Albedo of the textures painted by hand around this point, blended like Terrain3D over its four control texels
 // (without per-texel rotation or detiling). rgb: color; a: share of painted texels (0 = all automatic).
-vec4 painted_surface_albedo(vec3 n, vec3 dx, vec3 dy) {
+// height: blended texture height (albedo alpha), used to break the ledge edge.
+vec4 painted_surface_albedo(vec3 n, vec3 dx, vec3 dy, out float height) {
+	height = 0.5;
 	vec2 cell = world_position.xz / vertex_spacing;
 	ivec2 origin = ivec2(floor(cell));
 	vec2 f = fract(cell);
@@ -108,6 +115,7 @@ vec4 painted_surface_albedo(vec3 n, vec3 dx, vec3 dy) {
 	terrain_uv(n, dx, dy, uv, uv_dx, uv_dy);
 	float sharpness = 56.0 * blend_sharpness + 8.0;
 	vec3 color = vec3(0.0);
+	float heights = 0.0;
 	float total = 0.0;
 	float painted = 0.0;
 	for (int i = 0; i < 4; i++) {
@@ -133,10 +141,15 @@ vec4 painted_surface_albedo(vec3 n, vec3 dx, vec3 dy) {
 			// Terrain3D height blend, divided by 3^sharpness (the largest base) so it cannot overflow.
 			float weight = exp2(sharpness * log2((corner[i] + share + height) / 3.0)) * corner[i];
 			color += alb.rgb * painted_colors[id].rgb * weight;
+			heights += alb.a * weight;
 			total += weight;
 		}
 	}
-	return total > 0.0 ? vec4(color / total, painted) : vec4(0.0);
+	if (total <= 0.0) {
+		return vec4(0.0);
+	}
+	height = heights / total;
+	return vec4(color / total, painted);
 }
 
 vec3 cliff_auto_albedo() {
@@ -206,10 +219,17 @@ vec3 cliff_surface_albedo() {
 	vec3 dy = dFdy(world_position);
 	// Where the mesh rests on the sculpture, textures painted in Terrain3D replace the automatic rule; folds keep it.
 	float reach = 1.0 - smoothstep(0.0, max(painted_fold_limit, 0.0001), surface_mask.x);
-	if (use_painted && reach > 0.0) {
-		vec4 painted = painted_surface_albedo(normalize(terrain_normal), dx, dy);
+	// Ledges: fold faces looking up also take what is painted there. The texture height breaks the edge.
+	vec3 lit = normalize(world_normal);
+	float ledge_room = painted_ledges ? smoothstep(ledge_min_y - ledge_breakup, ledge_full_y, lit.y) : 0.0;
+	if (use_painted && max(reach, ledge_room) > 0.0) {
+		float height;
+		// Shelves are projected from above (their own normal); the seam keeps Terrain3D's projection.
+		vec4 painted = painted_surface_albedo(reach >= ledge_room ? normalize(terrain_normal) : lit, dx, dy, height);
 		if (painted.a > 0.0) {
-			albedo = mix(albedo, painted.rgb, painted.a * reach);
+			float ledge = painted_ledges
+				? smoothstep(ledge_min_y, ledge_full_y, lit.y + (height - 0.5) * 2.0 * ledge_breakup) : 0.0;
+			albedo = mix(albedo, painted.rgb, painted.a * max(reach, ledge));
 		}
 	}
 	return albedo;

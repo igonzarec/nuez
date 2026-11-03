@@ -8,6 +8,9 @@
 [ext_resource type="Script" uid="uid://gy2nddaopn1u" path="res://scripts/terrain/cliff_folds_generator.gd" id="5_folds"]
 [ext_resource type="PackedScene" uid="uid://dqnflhlyuqtfn" path="res://terrain_data/automatic_cliff/cliffs_baked.scn" id="6_baked"]
 [ext_resource type="Texture2D" uid="uid://cwj2ar538i2h5" path="res://assets/textures/snow_powder_v2/snow_normal_roughness.png" id="6_gt7dw"]
+[ext_resource type="Texture2D" uid="uid://b87nkmrua1glr" path="res://assets/textures/ice/ice_albedo_height.png" id="7_dj0bu"]
+[ext_resource type="Texture2D" uid="uid://ce1v5a8d3jtik" path="res://assets/textures/ice/ice_normal_roughness.png" id="8_3oue0"]
+[ext_resource type="Script" uid="uid://qre6boq8gmw7" path="res://scripts/terrain/terrain_ice_surface.gd" id="11_3oue0"]
 
 [sub_resource type="Gradient" id="Gradient_fjds1"]
 offsets = PackedFloat32Array(0.2, 1)
@@ -695,12 +698,23 @@ roughness = 1.0
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_3oue0"]
 name = "snow_albedo"
 id = 2
+albedo_color = Color(0.9882353, 0.9882353, 0.9882353, 1)
 albedo_texture = ExtResource("5_0eymc")
 normal_texture = ExtResource("6_gt7dw")
+normal_depth = 2.0
+ao_strength = 2.0
+roughness = 1.0
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_fnuc0"]
+name = "ice"
+id = 3
+albedo_texture = ExtResource("7_dj0bu")
+normal_texture = ExtResource("8_3oue0")
+uv_scale = 0.013
 
 [sub_resource type="Terrain3DAssets" id="Terrain3DAssets_auto"]
 mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_gt7dw")])
-texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_grass"), SubResource("Terrain3DTextureAsset_cliff"), SubResource("Terrain3DTextureAsset_3oue0")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_grass"), SubResource("Terrain3DTextureAsset_cliff"), SubResource("Terrain3DTextureAsset_3oue0"), SubResource("Terrain3DTextureAsset_fnuc0")])
 
 [node name="AutomaticCliffPlayground" type="Node3D" unique_id=1683785069]
 
@@ -715,6 +729,9 @@ vertex_spacing = 0.25
 free_editor_textures = false
 top_level = true
 metadata/_edit_lock_ = true
+
+[node name="IceSurface" type="Node" parent="Terrain3D" unique_id=580752548]
+script = ExtResource("11_3oue0")
 
 [node name="CliffFolds" type="Node3D" parent="." unique_id=843526811 node_paths=PackedStringArray("terrain")]
 script = ExtResource("5_folds")
