@@ -118,7 +118,7 @@ En **Animation → Postura de planeo**:
 - **Glide Lean Degrees = 20°**: inclinación del cuerpo hacia delante.
 - **Glide Blend Speed = 12**: rapidez de despliegue y recogida.
 
-Las membranas son una malla visual independiente, unida a la postura de manos y patas. Los brazos tubulares no comparten triángulos ni pesos con el torso: no aparece una membrana accidental en saltos normales. Los huesos del hombro proporcionan el giro principal y los codos una flexión secundaria.
+Las membranas pueden ser las de Blender o las procedurales de **GlideMembranes**; ver `glide_membranes.md` para sus controles y la vista previa en el editor. Las de Blender son una malla visual independiente, unida a la postura de manos y patas. Los brazos tubulares no comparten triángulos ni pesos con el torso: no aparece una membrana accidental en saltos normales. Los huesos del hombro proporcionan el giro principal y los codos una flexión secundaria.
 
 Empieza por **Arm Swing Degrees**, **Elbow Bend Degrees** y **Step Height**. Después ajusta el cuerpo con **Body Bounce** y **Torso Twist Degrees**. Cambia un parámetro cada vez para reconocer su efecto.
 

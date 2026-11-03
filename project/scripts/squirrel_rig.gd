@@ -16,6 +16,8 @@ var playertest2_glide_loop := &""
 var glide_active := false
 var glide_started := false
 var glide_membranes: Array[MeshInstance3D] = []
+## GlideMembranes del ExplorerPlayer; se registra solo al iniciar.
+var procedural_membranes: GlideMembranes
 var playertest2_skeleton: Skeleton3D
 var glide_tremor_degrees := 0.0
 var glide_tremor_speed := 12.0
@@ -226,12 +228,15 @@ func _find_skeleton(node: Node) -> Skeleton3D:
 	return null
 
 func _set_membrane_amount(amount: float) -> void:
+	var procedural := is_instance_valid(procedural_membranes) and procedural_membranes.replaces_blender()
+	if is_instance_valid(procedural_membranes):
+		procedural_membranes.set_open_amount(amount)
 	for membrane in glide_membranes:
 		if is_instance_valid(membrane):
 			# Una Shape Key con valor 0 solo pliega el plano; no lo vuelve invisible.
 			# Por eso la visibilidad se controla aparte y las membranas no aparecen
 			# durante Idle, Run ni RunFast.
-			membrane.visible = amount > 0.01
+			membrane.visible = amount > 0.01 and not procedural
 			var shape_index: int = -1
 			for candidate_index: int in membrane.mesh.get_blend_shape_count():
 				if membrane.mesh.get_blend_shape_name(candidate_index) == &"membrana_abierta":
