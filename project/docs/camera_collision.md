@@ -62,7 +62,7 @@ está activado por defecto. Mantiene yaw/pitch manuales al planear, sin alinears
 con el personaje. Ignora el seguimiento frontal
 de planeo aunque estuviera activado en Ajustes. El stick derecho o ratón permite
 órbita vertical entre Minimum Pitch y Maximum Pitch; se conserva la protección
-contra obstáculos. R2/C sigue recentrando sólo horizontalmente por petición.
+contra obstáculos. R3/V sigue recentrando sólo horizontalmente por petición.
 El control se consulta en vivo; desactivarlo recupera la vista automática anterior.
 
 **Glide Initial Pitch Enabled** es independiente de Free Camera y está activo
@@ -82,7 +82,7 @@ controles se guardan con la escena y se consultan en vivo:
   volver a orientar automáticamente la cámara hacia la ardilla.
 - **Glide Horizontal Range Degrees**: 120° a cada lado del ángulo al empezar
   el planeo. 180° permite vuelta completa; 0 bloquea el giro horizontal.
-  El centro no sigue al personaje; R2/C lo redefine al recentrar manualmente.
+  El centro no sigue al personaje; R3/V lo redefine al recentrar manualmente.
 - **Glide Minimum Pitch Degrees / Glide Maximum Pitch Degrees**: −80° / −15°.
   Ajustan cuánto puedes mirar desde arriba o hacia el horizonte. No cambian
   la cámara fuera del planeo. Valores negativos mantienen vista desde arriba.

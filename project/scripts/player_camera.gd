@@ -124,7 +124,7 @@ signal recenter_requested
 ## Aceleración de R2. Un valor alto reacciona sin el latigazo de un salto.
 @export_range(30, 1440, 10) var recenter_acceleration := 540.0
 @export_group("Recentrar sin mareo")
-## Cómo se resuelve el recentrado manual con R2/C.
+## Cómo se resuelve el recentrado manual con R3/V.
 @export_enum("Instantáneo", "Por tiempo con ease-out") var recenter_mode := 1
 ## [Modo Instantáneo] A partir de este error (grados) se salta directo al centro.
 ## Por debajo, recentrado normal con los parámetros de arriba.

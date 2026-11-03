@@ -1,0 +1,42 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/soft_surface/grass/albedo_height.png" id="1_grass"]
+[ext_resource type="Texture2D" path="res://assets/textures/soft_surface/grass/normal_roughness.png" id="2_grass_n"]
+[ext_resource type="Texture2D" path="res://assets/textures/ice/ice_albedo_height.png" id="3_ice"]
+[ext_resource type="Texture2D" path="res://assets/textures/ice/ice_normal_roughness.png" id="4_ice_n"]
+[ext_resource type="Script" path="res://scripts/terrain/terrain_ice_surface.gd" id="5_ice_surface"]
+
+[sub_resource type="Terrain3DMaterial" id="Terrain3DMaterial_ice"]
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_grass"]
+name = "soft-grass"
+albedo_color = Color(0.72156864, 0.7372549, 1, 1)
+albedo_texture = ExtResource("1_grass")
+normal_texture = ExtResource("2_grass_n")
+normal_depth = 0.0
+ao_strength = 0.0
+roughness = 1.0
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_ice"]
+name = "ice"
+id = 1
+albedo_texture = ExtResource("3_ice")
+normal_texture = ExtResource("4_ice_n")
+normal_depth = 0.4
+ao_strength = 0.0
+uv_scale = 0.08
+
+[sub_resource type="Terrain3DAssets" id="Terrain3DAssets_ice"]
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_grass"), SubResource("Terrain3DTextureAsset_ice")])
+
+[node name="IceTerrain" type="Node3D"]
+
+[node name="Terrain3D" type="Terrain3D" parent="."]
+data_directory = "res://terrain_data/ice_playground"
+material = SubResource("Terrain3DMaterial_ice")
+assets = SubResource("Terrain3DAssets_ice")
+collision_layer = 5
+vertex_spacing = 0.5
+
+[node name="IceSurface" type="Node" parent="Terrain3D"]
+script = ExtResource("5_ice_surface")

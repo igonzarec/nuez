@@ -1,0 +1,12 @@
+[gd_resource type="Terrain3DTextureAsset" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/ice/ice_albedo_height.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/textures/ice/ice_normal_roughness.png" id="2"]
+
+[resource]
+name = "ice"
+albedo_texture = ExtResource("1")
+normal_texture = ExtResource("2")
+normal_depth = 0.4
+ao_strength = 0.0
+uv_scale = 0.08

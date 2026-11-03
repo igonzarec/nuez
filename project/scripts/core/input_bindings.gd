@@ -12,16 +12,15 @@ static func interaction_glyph() -> String:
 static func install() -> void:
 	if not InputMap.has_action("camera_forward"):
 		InputMap.add_action("camera_forward", 0.5)
+	# V / R3 recentran: C y R2 quedan para el pie o brazo derecho (patinaje y escalada).
+	InputMap.action_erase_events("camera_forward")
 	var recenter_key := InputEventKey.new()
-	recenter_key.physical_keycode = KEY_C
-	if not InputMap.action_has_event("camera_forward", recenter_key):
-		InputMap.action_add_event("camera_forward", recenter_key)
-	var recenter_trigger := InputEventJoypadMotion.new()
-	recenter_trigger.axis = JOY_AXIS_TRIGGER_RIGHT
-	recenter_trigger.axis_value = 1.0
-	if not InputMap.action_has_event("camera_forward", recenter_trigger):
-		InputMap.action_add_event("camera_forward", recenter_trigger)
-	var keys := {"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN], "move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT], "jump": [KEY_SPACE], "climb": [KEY_F], "glide": [KEY_SPACE], "sprint": [KEY_SHIFT], "interact": [KEY_E], "pause": [KEY_ESCAPE]}
+	recenter_key.physical_keycode = KEY_V
+	InputMap.action_add_event("camera_forward", recenter_key)
+	var recenter_button := InputEventJoypadButton.new()
+	recenter_button.button_index = JOY_BUTTON_RIGHT_STICK
+	InputMap.action_add_event("camera_forward", recenter_button)
+	var keys := {"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN], "move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT], "jump": [KEY_SPACE], "climb": [KEY_F], "glide": [KEY_SPACE], "sprint": [KEY_SHIFT], "interact": [KEY_E], "pause": [KEY_ESCAPE], "skate_left": [KEY_Z], "skate_right": [KEY_C]}
 	for action: String in keys:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action, 0.18)
@@ -36,8 +35,12 @@ static func install() -> void:
 		event.button_index = buttons[action]
 		if not InputMap.action_has_event(action, event):
 			InputMap.action_add_event(action, event)
+	# Pies de patinaje: el gatillo a medio recorrido cuenta como empujón.
+	for action in ["skate_left", "skate_right"]:
+		if InputMap.has_action(action):
+			InputMap.action_set_deadzone(action, 0.5)
 	# R1 queda dedicado al planeo; L1 conserva sprint, incluido planeo rápido.
-	var axes := {"move_left": [JOY_AXIS_LEFT_X, -1.0], "move_right": [JOY_AXIS_LEFT_X, 1.0], "move_forward": [JOY_AXIS_LEFT_Y, -1.0], "move_back": [JOY_AXIS_LEFT_Y, 1.0], "look_left": [JOY_AXIS_RIGHT_X, -1.0], "look_right": [JOY_AXIS_RIGHT_X, 1.0], "look_up": [JOY_AXIS_RIGHT_Y, -1.0], "look_down": [JOY_AXIS_RIGHT_Y, 1.0]}
+	var axes := {"move_left": [JOY_AXIS_LEFT_X, -1.0], "move_right": [JOY_AXIS_LEFT_X, 1.0], "move_forward": [JOY_AXIS_LEFT_Y, -1.0], "move_back": [JOY_AXIS_LEFT_Y, 1.0], "look_left": [JOY_AXIS_RIGHT_X, -1.0], "look_right": [JOY_AXIS_RIGHT_X, 1.0], "look_up": [JOY_AXIS_RIGHT_Y, -1.0], "look_down": [JOY_AXIS_RIGHT_Y, 1.0], "skate_left": [JOY_AXIS_TRIGGER_LEFT, 1.0], "skate_right": [JOY_AXIS_TRIGGER_RIGHT, 1.0]}
 	for action: String in axes:
 		if not InputMap.has_action(action):
 			InputMap.add_action(action, 0.2)

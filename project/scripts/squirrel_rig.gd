@@ -27,6 +27,7 @@ var climb_active := false
 var climb_phase := 0.0
 var climb_visual_speed := 0.0
 var climb_surface_lean := 0.0
+var climb_hang_clock := 0.0
 var climb_ground_offset_active := false
 var climb_ground_uses_assist_offset := false
 var movement_dust: MovementDust
@@ -43,6 +44,10 @@ var air_pose_positions: Dictionary = {}
 var air_pose_response := 18.0
 var air_pose_clock := 0.0
 var air_pose_releasing := false
+var skate_active := false
+## 0–1: mezcla suavizada hacia la pose de frenada sobre hielo.
+var skate_brake_weight := 0.0
+var skate_clock := 0.0
 const GLIDE_TREMOR_BONES := [&"arm_left", &"arm_right", &"leg_left", &"leg_right"]
 
 func _ready() -> void:
@@ -81,7 +86,7 @@ func _ready() -> void:
 		playertest2_animation.pause()
 
 func update_handmade_run(speed: float, walk_member_speed: float, run_member_speed: float, sprint_requested: bool) -> void:
-	if glide_active or climb_active or air_active:
+	if glide_active or climb_active or air_active or skate_active:
 		return
 	if not playertest2_animation or playertest2_run.is_empty():
 		return
@@ -144,7 +149,9 @@ func update_climb(speed: float) -> void:
 	if actor.climb_surface_assist_active:
 		position = offset_axis * lerpf(actor.climb_mantle_surface_offset_start, actor.climb_mantle_surface_offset_end, 1.0 - stand_up)
 	var mantle_lean_weight := 1.0 - clampf(actor.climb_surface_normal.y, 0.0, 1.0) * actor.climb_surface_follow_strength if actor.climb_surface_follow_enabled else 1.0
-	set_body_tilt(-deg_to_rad(climb_surface_lean + actor.climb_body_lean_degrees + actor.climb_mantle_body_lean_degrees * mantle_effort * mantle_lean_weight) * stand_up, 0.0)
+	climb_hang_clock += get_physics_process_delta_time()
+	var hang_roll := sin(climb_hang_clock * TAU * 0.6) * deg_to_rad(actor.climb_hang_swing_degrees) * actor.climb_hang_weight()
+	set_body_tilt(-deg_to_rad(climb_surface_lean + actor.climb_body_lean_degrees + actor.climb_mantle_body_lean_degrees * mantle_effort * mantle_lean_weight) * stand_up, hang_roll)
 
 
 func end_climb(natural_finish := false, surface_finish := false) -> void:
@@ -262,6 +269,9 @@ func _process(delta: float) -> void:
 	if climb_active:
 		_apply_procedural_climb(delta)
 		return
+	if skate_active:
+		_apply_procedural_skate(delta)
+		return
 	if glide_active and playertest2_animation:
 		# Primero la pose del clip, luego la mezcla de salida aérea y al final
 		# el temblor. Una mezcla que persigue Glide nunca debe silenciarlo.
@@ -305,6 +315,8 @@ func _apply_procedural_climb(delta: float) -> void:
 				climb_phase += actor.climb_mantle_cycle_speed * delta
 		elif actor.climb_mantle_progress >= 0.0:
 			climb_phase = actor.climb_mantle_cycle_start + minf(1.0, actor.climb_mantle_progress / 0.85) * actor.climb_mantle_cycle_count
+		elif actor.uses_climb_arms():
+			climb_phase = actor.climb_manual_phase
 		else:
 			climb_phase += climb_visual_speed * actor.climb_member_speed * delta
 	_tick_procedural_climb_sounds(previous_cycle, climb_phase, actor)
@@ -348,6 +360,16 @@ func _apply_procedural_climb(delta: float) -> void:
 			elevation += mantle_effort * (actor.climb_mantle_arm_reach_degrees if arm else actor.climb_mantle_leg_tuck_degrees)
 			var spread := (actor.climb_arm_base_spread_degrees if arm else actor.climb_leg_base_spread_degrees) - orbit.y
 			var side := -1.0 if left else 1.0
+			# Los huesos *_left son el lado derecho del jugador: su lado de mando es -side.
+			if arm and actor.climb_held_side == -side:
+				elevation += actor.climb_hold_arm_reach_degrees
+			var hang := actor.climb_hang_weight()
+			if hang > 0.0:
+				var flail := sin(climb_hang_clock * TAU * actor.climb_hang_flail_speed + (0.0 if left else 1.7)) * actor.climb_hang_flail_degrees
+				var hanging_arm := arm and actor.climb_hang_side == -side
+				var hang_elevation := actor.climb_hang_arm_elevation_degrees if hanging_arm else (actor.climb_hang_free_arm_elevation_degrees + flail if arm else 10.0 + flail)
+				elevation = lerpf(elevation, hang_elevation, hang)
+				spread = lerpf(spread, 10.0 if hanging_arm else 25.0, hang)
 			var lift := deg_to_rad(clampf(elevation, 0.0, 175.0))
 			var opening := deg_to_rad(spread)
 			var direction := Vector3(side * sin(lift) * sin(opening), -cos(lift), sin(lift) * cos(opening)).normalized()
@@ -421,6 +443,118 @@ func _tick_procedural_climb_sounds(previous: float, current: float, actor: Explo
 			actor.feedback.emit("step" if surface_steps else "climb")
 
 
+## Entra o sale de la pose de patinaje; la salida se mezcla como la de Climb.
+func update_skate(active: bool) -> void:
+	if active == skate_active:
+		return
+	skate_active = active
+	if active:
+		_capture_air_pose()
+		air_active = false
+		landing_pose_active = false
+		air_pose_releasing = false
+		idle_active = false
+		skate_brake_weight = 0.0
+		if playertest2_animation:
+			playertest2_animation.pause()
+	else:
+		air_pose_releasing = true
+		skate_brake_weight = 0.0
+		if body_pivot:
+			body_pivot.position.x = 0.0
+			body_pivot.position.y = 0.0
+
+
+func _apply_procedural_skate(delta: float) -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor:
+		return
+	var anim := actor.animator
+	skate_clock += delta
+	_reset_idle_pose()
+	var blend := 1.0 - exp(-anim.skate_pose_response * delta)
+	skate_brake_weight = lerpf(skate_brake_weight, 1.0 if actor.skate_braking else 0.0, blend)
+	var targets: Dictionary = {}
+	# Los huesos *_left son el lado derecho del personaje visto desde atrás.
+	# shift < 0: empuja leg_right (pie izquierdo del jugador, L2) y el peso pasa a leg_left.
+	var shift := -sin(actor.skate_stroke_phase * TAU) * actor.skate_stroke_weight
+	var hip_target := 0.0
+	# Caída: sentado sobre el hielo, piernas arriba y brazos en aspaviento.
+	var fall := actor.skate_fall_weight()
+	var flail := sin(skate_clock * TAU * anim.skate_fall_flail_speed)
+	if anim.skate_pose_enabled:
+		for side_name in ["left", "right"]:
+			var side := -1.0 if side_name == "left" else 1.0
+			var push := maxf(0.0, -shift * side)
+			var support := maxf(0.0, shift * side)
+			var stride := 1.0 + anim.skate_speed_stride_extra * anim.skate_speed_pose()
+			var leg_out := anim.skate_glide_leg_spread_degrees + push * anim.skate_leg_push_out_degrees * stride - support * anim.skate_support_leg_in_degrees + skate_brake_weight * anim.skate_brake_leg_spread_degrees
+			var leg_forward := -push * anim.skate_leg_push_back_degrees * stride
+			if actor.skate_held_side == -side:
+				leg_out += anim.skate_hold_leg_out_degrees * actor.skate_hold_weight
+				leg_forward -= anim.skate_hold_leg_lift_degrees * actor.skate_hold_weight
+			leg_out = lerpf(leg_out, anim.skate_fall_leg_spread_degrees, fall)
+			leg_forward = lerpf(leg_forward, anim.skate_fall_leg_raise_degrees + flail * side * anim.skate_fall_leg_kick_degrees, fall)
+			_set_skate_limb(targets, "leg_" + side_name, side, leg_out, leg_forward, 0.0)
+			# Manos a la espalda: hacia atrás y hacia la columna, con balanceo común.
+			var arm_out := lerpf(-anim.skate_arm_inward_degrees, anim.skate_fall_arm_out_degrees + flail * side * anim.skate_fall_arm_flail_degrees, fall)
+			var arm_forward := lerpf(-anim.skate_arm_back_degrees, 10.0, fall)
+			_set_skate_limb(targets, "arm_" + side_name, side, arm_out, arm_forward, shift * anim.skate_arm_swing_degrees * (1.0 - fall))
+			var ear := playertest2_skeleton.find_bone("ear_" + side_name)
+			if ear >= 0:
+				var speed_ratio := clampf(actor.horizontal_speed / maxf(0.1, actor.skate_speed), 0.0, 1.5)
+				var flutter := sin(skate_clock * 11.0 + side) * 2.0 * speed_ratio
+				targets[ear] = playertest2_skeleton.get_bone_rest(ear).basis.get_rotation_quaternion() * _climb_axis_rotation(ear, Vector3.RIGHT, -deg_to_rad(anim.skate_ear_sweep_degrees * speed_ratio + flutter))
+		var twist := -shift * deg_to_rad(anim.skate_shoulder_twist_degrees)
+		var spine_lean := deg_to_rad(anim.skate_spine_lean_degrees) * (1.0 - skate_brake_weight) * (1.0 - fall)
+		var spine := playertest2_skeleton.find_bone("spine")
+		if spine >= 0:
+			targets[spine] = playertest2_skeleton.get_bone_rest(spine).basis.get_rotation_quaternion() * _climb_axis_rotation(spine, Vector3.UP, twist) * _climb_axis_rotation(spine, Vector3.RIGHT, spine_lean)
+		var head := playertest2_skeleton.find_bone("head")
+		if head >= 0:
+			# Body tilt: pitch negativo inclina hacia delante; roll gira sobre +Z del esqueleto.
+			var level := anim.skate_head_level * (1.0 - fall)
+			var pitch := deg_to_rad(lerpf(anim.skate_head_pitch_degrees, anim.skate_fall_head_pitch_degrees, fall)) - (spine_lean - anim.body_pitch) * level
+			targets[head] = playertest2_skeleton.get_bone_rest(head).basis.get_rotation_quaternion() * _climb_axis_rotation(head, Vector3.UP, -twist * level) * _climb_axis_rotation(head, Vector3.BACK, -anim.body_roll * level) * _climb_axis_rotation(head, Vector3.RIGHT, pitch)
+		var tail := playertest2_skeleton.find_bone("tail_base")
+		if tail >= 0:
+			var tail_lift := lerpf(anim.skate_tail_lift_degrees, -45.0, fall)
+			targets[tail] = playertest2_skeleton.get_bone_rest(tail).basis.get_rotation_quaternion() * _climb_axis_rotation(tail, Vector3.RIGHT, deg_to_rad(tail_lift)) * _climb_axis_rotation(tail, Vector3.UP, -shift * deg_to_rad(anim.skate_tail_sway_degrees))
+		# BodyPivot +X apunta a los huesos *_left tras el giro PI del modelo.
+		hip_target = -shift * anim.skate_hip_sway
+	if body_pivot:
+		body_pivot.position.x = lerpf(body_pivot.position.x, hip_target, blend)
+		body_pivot.position.y = -anim.skate_fall_body_drop * fall
+	for index in playertest2_skeleton.get_bone_count():
+		var rest := playertest2_skeleton.get_bone_rest(index)
+		var target: Quaternion = targets.get(index, rest.basis.get_rotation_quaternion())
+		var previous: Quaternion = air_pose_rotations.get(index, playertest2_skeleton.get_bone_pose_rotation(index))
+		var rotation := previous.slerp(target, blend)
+		var before_position: Vector3 = air_pose_positions.get(index, rest.origin)
+		var bone_position := before_position.lerp(rest.origin, blend)
+		playertest2_skeleton.set_bone_pose_rotation(index, rotation)
+		playertest2_skeleton.set_bone_pose_position(index, bone_position)
+		air_pose_rotations[index] = rotation
+		air_pose_positions[index] = bone_position
+
+
+## Orienta un miembro por dirección en el espacio del esqueleto (+Z delante):
+## outward abre hacia su lado, forward lo adelanta (negativo lo lleva atrás)
+## y yaw lo gira alrededor de la vertical.
+func _set_skate_limb(targets: Dictionary, bone_name: String, side: float, outward_degrees: float, forward_degrees: float, yaw_degrees: float) -> void:
+	var index := playertest2_skeleton.find_bone(bone_name)
+	if index < 0:
+		return
+	var outward := deg_to_rad(outward_degrees)
+	var direction := Vector3(side * sin(outward), -cos(outward), 0.0)
+	direction = direction.rotated(Vector3.RIGHT, -deg_to_rad(forward_degrees)).rotated(Vector3.UP, deg_to_rad(yaw_degrees)).normalized()
+	var rest_basis := playertest2_skeleton.get_bone_global_rest(index).basis.orthonormalized()
+	var swing := Quaternion((rest_basis * Vector3.UP).normalized(), direction)
+	var parent_index := playertest2_skeleton.get_bone_parent(index)
+	var parent_basis := playertest2_skeleton.get_bone_global_rest(parent_index).basis.orthonormalized() if parent_index >= 0 else Basis.IDENTITY
+	targets[index] = parent_basis.get_rotation_quaternion().inverse() * swing * rest_basis.get_rotation_quaternion()
+
+
 func align_glide_landing_surface(delta: float, pose_weight: float, entry_rotation: Quaternion, glide_rotation: Quaternion) -> void:
 	var actor := get_parent() as ExplorerPlayer
 	if not actor or not body_pivot:
@@ -491,7 +625,7 @@ func update_air_pose(airborne: bool, enabled: bool, lift: float, spread: float, 
 	if not playertest2_skeleton:
 		return
 	var active := airborne and not climb_active and not glide_active
-	var landing_active := not airborne and enabled and compression > 0.0 and not climb_active and not glide_active
+	var landing_active := not airborne and enabled and compression > 0.0 and not climb_active and not glide_active and not skate_active
 	if (active or landing_active) and not air_active and not landing_pose_active:
 		# Captura la pose visible de salida, sin arrastrar la zancada al aire.
 		_capture_air_pose()
@@ -691,6 +825,8 @@ func reset_interpolation() -> void:
 	glide_active = false
 	glide_started = false
 	idle_active = false
+	skate_active = false
+	skate_brake_weight = 0.0
 	reset_body_tilt()
 	_set_membrane_amount(0.0)
 	_clear_glide_tremor()

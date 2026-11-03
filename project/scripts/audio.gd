@@ -69,7 +69,7 @@ func _ready() -> void:
 		sounds[kind] = _tone(kind)
 	sounds["step"] = step_sample
 	sounds["land"] = step_sample
-	# Sonido dedicado para R2/C; no reutiliza el clic genérico de los menús.
+	# Sonido dedicado para R3/V; no reutiliza el clic genérico de los menús.
 	sounds["camera_recenter"] = preload("res://audio/camera_recenter.wav")
 	sounds["climb"] = preload("res://audio/Gentle Stone Drop.wav")
 	music = _loop("Music", _ambience(false), -13)

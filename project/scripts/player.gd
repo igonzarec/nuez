@@ -4,6 +4,8 @@ extends CharacterBody3D
 signal feedback(kind: String)
 signal respawned
 signal gliding_changed(active: bool)
+## Inicio de cada empujón de patinaje; lo usa IceSkateAudio.
+signal skate_stroke
 
 @export_group("Mirada al interactuar")
 ## Orienta el modelo hacia el interlocutor al iniciar una conversación, sin cambiar velocidad, controles, postura ni cámara. Apagar conserva su orientación normal. Se consulta al iniciar la interacción.
@@ -138,6 +140,138 @@ var _snow_step_side := -1.0
 @export var slide_dust_enabled := true
 ## Velocidad tangencial mínima de resbalamiento para emitir polvo, en m/s. Mayor evita polvo al deslizar muy despacio; menor lo muestra antes. No cambia la velocidad física y no usa el umbral de carrera. Se guarda con la escena y se consulta en vivo.
 @export_range(0.0, 10.0, 0.05, "suffix:m/s") var slide_dust_min_speed := 0.3
+@export_group("Patinaje sobre hielo · física")
+## Activa el estado de patinaje al pisar una textura de hielo detectada por un TerrainIceSurface. Apagado, el hielo se comporta como suelo normal. Se consulta en vivo. La pose se ajusta en SquirrelAnimator › Patinaje.
+@export var skate_enabled := true
+## Velocidad de crucero patinando, en m/s, con la palanca a fondo. Sustituye a Walk Speed sobre hielo. Se consulta en vivo.
+@export_range(0.5, 20.0, 0.1, "suffix:m/s") var skate_speed := 6.5
+## Velocidad máxima patinando con Sprint, en m/s. Sprint también acelera el ritmo de zancadas. Se consulta en vivo.
+@export_range(0.5, 25.0, 0.1, "suffix:m/s") var skate_sprint_speed := 9.5
+## Aceleración media al impulsarse, en m/s². Mucho menor que Acceleration para dar inercia: 4 tarda ~1,6 s en llegar a 6,5 m/s; 10 responde casi como en tierra. Se consulta en vivo.
+@export_range(0.5, 40.0, 0.1, "suffix:m/s²") var skate_acceleration := 5.0
+## Cuánto se concentra la aceleración en cada empujón de pierna (0–1). 0 acelera de forma continua; 1 sólo empuja mientras una pierna se abre, dando tirones rítmicos sincronizados con la animación. Se consulta en vivo.
+@export_range(0.0, 1.0, 0.05) var skate_stroke_pulse := 0.6
+## Frenado por rozamiento al soltar la palanca, en m/s². Menor sigue deslizando más lejos: 0,8 tarda ~8 s en detener 6,5 m/s; 3 tarda ~2 s. Se consulta en vivo.
+@export_range(0.0, 20.0, 0.05, "suffix:m/s²") var skate_glide_friction := 0.8
+## Frenado al ir más rápido que la velocidad pedida (palanca a medias o tras soltar Sprint), en m/s². Se consulta en vivo.
+@export_range(0.0, 20.0, 0.05, "suffix:m/s²") var skate_overspeed_friction := 2.0
+## Velocidad máxima de giro del rumbo, en grados/s, a baja velocidad. Menor traza curvas más abiertas; mayor permite cambiar de dirección casi como en tierra. Se consulta en vivo.
+@export_range(10.0, 720.0, 5.0, "suffix:°/s") var skate_turn_rate_degrees := 180.0
+## Multiplicador del giro a Skate Sprint Speed. 0,5 hace que a máxima velocidad las curvas sean el doble de abiertas; 1 gira igual a cualquier velocidad. Se consulta en vivo.
+@export_range(0.1, 1.0, 0.05) var skate_high_speed_turn_multiplier := 0.5
+## Por debajo de esta velocidad, en m/s, la palanca elige el rumbo directamente, para poder arrancar en cualquier dirección. Se consulta en vivo.
+@export_range(0.0, 3.0, 0.05, "suffix:m/s") var skate_start_speed := 0.8
+## Diferencia de ángulo entre el rumbo y la palanca a partir de la cual se frena en vez de girar (frenada en «T»). 180 desactiva la frenada. Se consulta en vivo.
+@export_range(60.0, 180.0, 1.0, "suffix:°") var skate_brake_angle_degrees := 125.0
+## Desaceleración de la frenada, en m/s². Mayor detiene antes. Se consulta en vivo.
+@export_range(0.5, 60.0, 0.5, "suffix:m/s²") var skate_brake_deceleration := 10.0
+## Giro visual del cuerpo al frenar, en grados respecto al rumbo, como una frenada de hockey. 0 frena mirando al frente. No cambia la física. Se consulta en vivo.
+@export_range(0.0, 110.0, 1.0, "suffix:°") var skate_brake_body_turn_degrees := 70.0
+## Fracción de la gravedad que empuja cuesta abajo sobre hielo inclinado. 0 ignora la pendiente; 0,4 deja que una rampa suave arrastre al player aunque no toque la palanca. Se consulta en vivo.
+@export_range(0.0, 1.0, 0.05) var skate_slope_gravity_scale := 0.4
+## Rapidez con que el modelo mira hacia el deslizamiento sobre hielo (mismo uso que Turn Speed). Menor gira el cuerpo con más suavidad. Se consulta en vivo.
+@export_range(1.0, 30.0, 0.5) var skate_facing_turn_speed := 9.0
+## Segundos que se conserva el patinaje tras perder el contacto con el hielo sin despegar; evita parpadeos en bordes pintados. Se consulta en vivo.
+@export_range(0.0, 0.5, 0.01, "suffix:s") var skate_contact_grace := 0.12
+@export_group("Patinaje sobre hielo · pies (L2/R2)")
+## Impulso manual: L2/Z empuja con el pie izquierdo y R2/C con el derecho, alternando. El stick sólo dirige y frena. Apagado vuelven las zancadas automáticas con el stick. Los NPC siempre usan zancadas automáticas. La cámara se recentra con R3 / V. En vivo.
+@export var skate_manual_feet := true
+## Velocidad que suma cada empujón, en m/s. Mayor arranca antes; la velocidad final depende del ritmo: alternar deprisa da un patinaje rápido y alternar despacio, uno lento. En vivo.
+@export_range(0.1, 5.0, 0.05, "suffix:m/s") var skate_push_impulse := 1.5
+## Velocidad máxima alcanzable con empujones, en m/s. Cada empujón rinde menos al acercarse a este valor. En vivo.
+@export_range(1.0, 25.0, 0.1, "suffix:m/s") var skate_manual_max_speed := 10.0
+## Duración visual de un empujón, en segundos: lo que tarda la pierna en abrirse y volver. Menor da zancadas más secas. En vivo.
+@export_range(0.1, 1.0, 0.01, "suffix:s") var skate_push_duration := 0.4
+## Mantener pulsado el gatillo deja esa pierna elevada en el punto más abierto del empujón, deslizando sobre la otra, hasta soltarlo. Mantenerla no da más impulso. Apagado, el empujón siempre termina solo. La altura extra se ajusta en SquirrelAnimator › Patinaje · pierna sostenida. En vivo.
+@export var skate_hold_leg_enabled := true
+## Rapidez con que la pierna sostenida sube su elevación extra y la pierde al soltar, en s⁻¹. En vivo.
+@export_range(0.5, 30.0, 0.5) var skate_hold_response := 6.0
+## Si se sostiene una pierna hasta casi detenerse, pierde el equilibrio y se cae. Apagado, puede quedarse quieta sobre un pie indefinidamente. En vivo.
+@export var skate_hold_fall_enabled := true
+## Velocidad, en m/s, por debajo de la cual sostener la pierna hace caer. Mayor obliga a bajar la pierna antes; menor permite aguantar hasta casi parar. Ignora Fall Min Speed. En vivo.
+@export_range(0.0, 5.0, 0.05, "suffix:m/s") var skate_hold_fall_speed := 0.8
+## Segundos que se aguanta por debajo de Hold Fall Speed antes de caer. 0 cae en cuanto baja del umbral. En vivo.
+@export_range(0.0, 3.0, 0.05, "suffix:s") var skate_hold_fall_delay := 0.3
+## Dificultad (0–1): estrecha la ventana de tiempo durante la que se toleran ambos gatillos pulsados a la vez. 0 tolera 0,35 s de solape; 1 sólo 0,04 s. Empujar dos veces seguidas con el mismo pie siempre cuenta como fallo. En vivo.
+@export_range(0.0, 1.0, 0.01) var skate_feet_difficulty := 0.4
+## Fracción de la ventana de solape que queda a Manual Max Speed. 0,5 la reduce a la mitad cuanto más rápido se va; 1 no depende de la velocidad. En vivo.
+@export_range(0.1, 1.0, 0.05) var skate_high_speed_window_scale := 0.5
+## Tras este tiempo sin empujar, en segundos, se olvida cuál fue el último pie y se puede repetir sin caer. 0 nunca lo olvida. En vivo.
+@export_range(0.0, 5.0, 0.1, "suffix:s") var skate_same_foot_memory := 1.5
+## Velocidad mínima, en m/s, a la que un fallo provoca caída. Por debajo, el fallo sólo cuenta como empujón normal; útil para arrancar. En vivo.
+@export_range(0.0, 5.0, 0.1, "suffix:m/s") var skate_fall_min_speed := 1.5
+@export_group("Patinaje sobre hielo · racha")
+## Acumular velocidad: cada empujón bien alternado, a tiempo tras el anterior, sube una racha que multiplica el impulso y eleva el techo de velocidad. Parar de empujar, sostener la pierna más de Streak Window, repetir pie o caer la reinicia. Apagado, cada empujón vale lo mismo. Sólo con pies manuales. En vivo.
+@export var skate_streak_enabled := true
+## Cuánto sube el multiplicador con cada empujón de la racha. 0,15 llega a ×2,5 tras 10 empujones seguidos. En vivo.
+@export_range(0.0, 1.0, 0.01) var skate_streak_gain := 0.15
+## Multiplicador máximo de la racha, sobre Push Impulse y Manual Max Speed. En vivo.
+@export_range(1.0, 5.0, 0.05) var skate_streak_max_multiplier := 2.5
+## Tiempo máximo entre empujones, en segundos, para mantener la racha. Mayor permite un ritmo más lento sin perderla. En vivo.
+@export_range(0.2, 3.0, 0.05, "suffix:s") var skate_streak_window := 0.9
+## Techo absoluto de velocidad con racha, en m/s, por seguridad aunque el multiplicador lo supere. En vivo.
+@export_range(1.0, 40.0, 0.5, "suffix:m/s") var skate_streak_max_speed := 20.0
+@export_group("Patinaje sobre hielo · salto")
+## Al saltar mientras patina, conserva la velocidad horizontal en el aire en vez de frenar hacia Walk/Sprint Speed. El stick sólo curva el rumbo. Apagado, el salto usa el control aéreo normal. En vivo.
+@export var skate_jump_keep_speed := true
+## Frenado en el aire tras un salto patinando, en m/s². 0 conserva toda la velocidad hasta aterrizar. En vivo.
+@export_range(0.0, 20.0, 0.1, "suffix:m/s²") var skate_air_drag := 0.5
+## Giro máximo del rumbo en el aire tras un salto patinando, en grados/s. 0 mantiene la trayectoria recta. En vivo.
+@export_range(0.0, 360.0, 1.0, "suffix:°/s") var skate_air_turn_rate_degrees := 60.0
+## Conserva la racha durante el salto: si aterriza sobre hielo, sigue acumulando; si aterriza fuera, se reinicia. En vivo.
+@export var skate_jump_keep_streak := true
+## Impulso vertical extra del salto a Streak Max Speed, en m/s; crece en proporción a la velocidad. 0 salta siempre igual. Con Gravity 22, +2 m/s eleva el salto de ~1,65 a ~2,5 m. En vivo.
+@export_range(0.0, 10.0, 0.1, "suffix:m/s") var skate_jump_speed_lift := 2.0
+@export_group("Patinaje sobre hielo · caída")
+## Permite caerse al fallar la alternancia de pies. Apagado, los fallos sólo se ignoran. En vivo.
+@export var skate_fall_enabled := true
+## Duración total de la caída, en segundos, incluida la recuperación. Sin control durante ese tiempo. En vivo.
+@export_range(0.3, 5.0, 0.05, "suffix:s") var skate_fall_duration := 1.6
+## Segundos finales de la caída dedicados a levantarse. En vivo.
+@export_range(0.05, 2.0, 0.05, "suffix:s") var skate_fall_recover_duration := 0.5
+## Frenado mientras resbala caído, en m/s². Mayor detiene antes el deslizamiento. En vivo.
+@export_range(0.0, 20.0, 0.1, "suffix:m/s²") var skate_fall_friction := 3.0
+## Reproduce el grito del splat (Hurt Sound, en Audio de reacciones) al caer patinando. En vivo.
+@export var skate_fall_scream_enabled := true
+@export_group("Escalada · brazos (L2/R2)")
+## Escalada manual: L2/Z tira con el brazo izquierdo y R2/C con el derecho, alternando. Cada tirón avanza un tramo en la dirección del stick (stick neutro: hacia arriba). Sin tirones se queda agarrada sin moverse. Apagado vuelve el movimiento continuo con el stick. Los NPC nunca lo usan. La cámara se recentra con R3 / V. En vivo.
+@export var climb_manual_arms := true
+## Distancia que avanza cada tirón sobre la pared, en metros. Más ritmo de tirones = trepa más rápido. En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:m") var climb_pull_distance := 0.45
+## Duración de cada tirón, en segundos: lo que tarda el brazo en estirarse y recogerse mientras el cuerpo avanza. En vivo.
+@export_range(0.1, 1.5, 0.01, "suffix:s") var climb_pull_duration := 0.4
+## Dificultad (0–1): estrecha la ventana durante la que se toleran ambos gatillos pulsados a la vez. 0 tolera 0,35 s de solape; 1 sólo 0,04 s. Tirar dos veces seguidas con el mismo brazo siempre cuenta como fallo. Independiente de la dificultad del patinaje. En vivo.
+@export_range(0.0, 1.0, 0.01) var climb_arms_difficulty := 0.4
+## Tras este tiempo sin tirar, en segundos, se olvida cuál fue el último brazo y se puede repetir sin fallo. 0 nunca lo olvida. En vivo.
+@export_range(0.0, 5.0, 0.1, "suffix:s") var climb_same_arm_memory := 1.5
+## Mantener pulsado el gatillo deja ese brazo estirado arriba, sin avanzar, hasta soltarlo. En vivo.
+@export var climb_hold_arm_enabled := true
+## Elevación extra del brazo sostenido, en grados, sobre la del ciclo. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var climb_hold_arm_reach_degrees := 25.0
+@export_group("Escalada · colgada de un brazo")
+## Al fallar la alternancia queda colgada de un brazo, sin poder moverse, durante Hang Duration. Apagado, los fallos se ignoran. En vivo.
+@export var climb_hang_enabled := true
+## Segundos colgada tras un fallo, incluida la recuperación. En vivo.
+@export_range(0.2, 5.0, 0.05, "suffix:s") var climb_hang_duration := 1.4
+## Reproduce el grito del splat (Hurt Sound, en Audio de reacciones) al quedar colgada. En vivo.
+@export var climb_hang_scream_enabled := true
+## Elevación del brazo que sostiene, en grados desde abajo. 180 apunta recto hacia arriba. En vivo.
+@export_range(90.0, 180.0, 0.5, "suffix:°") var climb_hang_arm_elevation_degrees := 165.0
+## Elevación del brazo libre, en grados desde abajo; con aspaviento alrededor de este valor. En vivo.
+@export_range(0.0, 120.0, 0.5, "suffix:°") var climb_hang_free_arm_elevation_degrees := 35.0
+## Pataleo de piernas y aspaviento del brazo libre, en grados. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var climb_hang_flail_degrees := 22.0
+## Frecuencia del pataleo, en Hz. En vivo.
+@export_range(0.5, 10.0, 0.1, "suffix:Hz") var climb_hang_flail_speed := 3.0
+## Balanceo lateral del cuerpo colgado, en grados. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var climb_hang_swing_degrees := 10.0
+@export_group("Patinaje sobre hielo · zancadas")
+## Ciclos de zancada por segundo (cada ciclo empuja izquierda y derecha) con la palanca a fondo. Mayor da un ritmo más nervioso; menor, zancadas largas y elegantes. Se consulta en vivo.
+@export_range(0.1, 3.0, 0.01, "suffix:Hz") var skate_stroke_rate := 0.7
+## Multiplicador del ritmo de zancadas con Sprint. Se consulta en vivo.
+@export_range(1.0, 3.0, 0.05) var skate_sprint_stroke_multiplier := 1.4
+## Rapidez con que la animación entra y sale de las zancadas al tocar o soltar la palanca. Menor deja una transición más lenta hacia la pose de deslizamiento. Se consulta en vivo.
+@export_range(0.5, 20.0, 0.1) var skate_stroke_blend_speed := 4.0
 @export_group("Planeo")
 ## Permite desplegar membranas al pulsar Brincar una vez que la ardilla ya está en el aire.
 ## Mantener Brincar desde el salto no activa el planeo; al soltarlo, las membranas se recogen inmediatamente.
@@ -586,6 +720,48 @@ var previous_motion := Vector3.ZERO
 var is_sliding := false
 var slide_velocity := Vector3.ZERO
 var slide_surface_normal := Vector3.UP
+## Sobre hielo: física de patinaje y pose de SquirrelRig.
+var is_skating := false
+## Fase del ciclo de zancadas: [0, 0,5) empuja la izquierda, [0,5, 1) la derecha.
+var skate_stroke_phase := 0.0
+## 0–1: cuánto de la pose de zancada se ve frente a la de deslizamiento.
+var skate_stroke_weight := 0.0
+var skate_braking := false
+## -1 o 1: lado hacia el que gira el cuerpo durante la frenada.
+var skate_brake_side := 1.0
+var _skate_grace_left := 0.0
+var is_skate_falling := false
+var skate_fall_elapsed := 0.0
+## -1 o 1: lado hacia el que rueda el cuerpo al caer.
+var skate_fall_side := 1.0
+var _skate_last_foot := 0
+var _skate_foot_age := 0.0
+var _skate_overlap := 0.0
+var _skate_push_left := 0.0
+var _skate_push_start := 0.0
+var is_climb_hanging := false
+var climb_hang_elapsed := 0.0
+## -1 brazo izquierdo, 1 derecho: brazo del que cuelga tras un fallo.
+var climb_hang_side := -1.0
+## Fase del ciclo procedural de escalada que dictan los tirones manuales.
+var climb_manual_phase := 0.0
+## -1 izquierdo, 1 derecho, 0 ninguno: brazo mantenido estirado con su gatillo.
+var climb_held_side := 0.0
+var _climb_last_arm := 0
+var _climb_arm_age := 0.0
+var _climb_overlap := 0.0
+var _climb_pull_left := 0.0
+var _climb_pull_start := 0.0
+## -1 izquierda, 1 derecha, 0 ninguna: pierna mantenida en alto con su gatillo.
+var skate_held_side := 0.0
+## 0–1: elevación extra suavizada de la pierna sostenida.
+var skate_hold_weight := 0.0
+var _skate_hold_slow_time := 0.0
+## Multiplicador actual de la racha de empujones (1 = sin racha).
+var skate_streak := 1.0
+var _skate_since_push := 999.0
+## En el aire tras saltar patinando: conserva velocidad y racha hasta tocar suelo.
+var _skate_air_carry := false
 var is_gliding := false:
 	set(value):
 		if is_gliding == value:
@@ -724,6 +900,19 @@ func respawn() -> void:
 	glide_landing_elapsed = 0.0
 	glide_landing_contact_lost = 0.0
 	glide_landing_velocity = Vector3.ZERO
+	is_skating = false
+	skate_braking = false
+	skate_stroke_weight = 0.0
+	_skate_grace_left = 0.0
+	is_skate_falling = false
+	_skate_last_foot = 0
+	_skate_overlap = 0.0
+	_skate_push_left = 0.0
+	skate_streak = 1.0
+	_skate_air_carry = false
+	skate_hold_weight = 0.0
+	skate_held_side = 0.0
+	reset_climb_arms()
 	if climbing:
 		climbing.reset()
 	model.end_climb()
@@ -770,6 +959,8 @@ func _physics_process(delta: float) -> void:
 		previous_motion = Vector3.ZERO
 		angular_velocity = 0.0
 		buffer_left = 0.0
+		skate_stroke_weight = 0.0
+		skate_braking = false
 		animator.tick(delta, 0.0)
 		model.update_handmade_run(0.0, walk_member_animation_speed, run_member_animation_speed, false)
 		return
@@ -787,6 +978,9 @@ func _physics_process(delta: float) -> void:
 	fall_peak_y = global_position.y if is_on_floor() else maxf(fall_peak_y, global_position.y)
 	if is_glide_recoiling and _tick_glide_recoil(delta):
 		return
+	if is_skate_falling:
+		_tick_skate_fall(delta)
+		return
 	if is_glide_landing and _tick_glide_landing(delta):
 		return
 	if not interaction_press_consumed and climbing.tick(delta):
@@ -798,6 +992,7 @@ func _physics_process(delta: float) -> void:
 	if is_sliding:
 		fall_peak_y = global_position.y
 	slide_surface_normal = steep_normal if is_sliding else Vector3.UP
+	_update_skating(grounded, delta)
 	if grounded or is_sliding:
 		is_gliding = false
 		glide_button_pressed_in_air = false
@@ -832,6 +1027,9 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= gravity * delta
 	if buffer_left > 0 and coyote_left > 0 and not jump_consumed:
 		velocity.y = jump_velocity
+		_skate_air_carry = is_skating and skate_jump_keep_speed
+		if is_skating:
+			velocity.y += skate_jump_speed_lift * clampf(Vector2(velocity.x, velocity.z).length() / skate_streak_max_speed, 0.0, 1.0)
 		jump_consumed = true
 		is_sliding = false
 		coyote_left = 0
@@ -900,7 +1098,12 @@ func _physics_process(delta: float) -> void:
 		glide_turn_amount = direction_change
 		var direct_control := smoothstep(0.7, 1.0, glide_air_control)
 		air_steering *= 1.0 - glide_high_speed_turn_reduction * (1.0 - direct_control) * speed_ratio * direction_change
-	planar = planar.move_toward(desired * target_speed, rate * (1.0 if grounded else air_steering) * delta)
+	if is_skating:
+		planar = _skate_planar(planar, desired, direction.length(), delta)
+	elif _skate_air_carry and not grounded and not is_gliding:
+		planar = _skate_air_planar(planar, desired, delta)
+	else:
+		planar = planar.move_toward(desired * target_speed, rate * (1.0 if grounded else air_steering) * delta)
 	if is_gliding and glide_turn_amount > 0.001 and planar.length_squared() > 0.0001:
 		var retained_speed := planar_speed_before_turn * glide_turn_speed_retention
 		planar = planar.normalized() * maxf(planar.length(), retained_speed)
@@ -961,7 +1164,10 @@ func _physics_process(delta: float) -> void:
 	if facing_planar.length_squared() > 0.0001:
 		var old_yaw := model.rotation.y
 		var target_angle := atan2(-facing_planar.x, -facing_planar.z)
-		var visual_turn_speed := glide_visual_turn_speed if is_gliding else turn_speed
+		if is_skating and skate_braking:
+			# Frenada de hockey: el cuerpo se cruza al rumbo, sin cambiar la física.
+			facing_planar = facing_planar.rotated(Vector3.UP, deg_to_rad(skate_brake_body_turn_degrees) * skate_brake_side)
+		var visual_turn_speed := glide_visual_turn_speed if is_gliding else (skate_facing_turn_speed if is_skating else turn_speed)
 		var angle_step := wrapf(target_angle - old_yaw, -PI, PI) * (1.0 - exp(-visual_turn_speed * delta))
 		model.rotation.y = wrapf(old_yaw + angle_step, -PI, PI)
 		angular_velocity = angle_step / delta
@@ -979,13 +1185,13 @@ func _physics_process(delta: float) -> void:
 			_update_glide_landing_floor()
 			landing_time = 0.0
 			animator.landing_elapsed = -1.0
-			feedback.emit("land")
+			_emit_landing()
 		elif impact_speed >= landing_threshold:
 			landing_strength = lerpf(0.25, 1.0, clampf((impact_speed - landing_threshold) / maxf(0.1, hard_landing_speed - landing_threshold), 0, 1))
 			landing_time = animator.landing_duration
 			animator.landed()
-			feedback.emit("land")
-	if is_on_floor() and not is_sliding and not is_glide_landing and horizontal_speed > 0.3:
+			_emit_landing()
+	if is_on_floor() and not is_sliding and not is_glide_landing and not is_skating and horizontal_speed > 0.3:
 		step_time += delta * horizontal_speed
 		var step_distance := animator.stride_length * 0.5 / maxf(0.1, animator.cadence_multiplier) / maxf(0.1, step_frequency_multiplier)
 		if step_time > step_distance:
@@ -997,8 +1203,324 @@ func _physics_process(delta: float) -> void:
 		respawn()
 		return
 	animator.tick(delta, horizontal_speed)
-	if not is_gliding and not is_glide_landing:
+	if not is_gliding and not is_glide_landing and not is_skating:
 		model.update_handmade_run(horizontal_speed, walk_member_animation_speed, run_member_animation_speed, action_pressed("sprint"))
+
+
+## Sobre hielo suena el aterrizaje de IceSkateAudio en lugar del de nieve/tierra.
+func _emit_landing() -> void:
+	feedback.emit("ice_land" if skate_enabled and not ice_contact_at(global_position).is_empty() else "land")
+
+
+## Primer contacto de hielo bajo point entre los TerrainIceSurface; {} si no hay.
+func ice_contact_at(point: Vector3, ignore_height := false) -> Dictionary:
+	for surface in get_tree().get_nodes_in_group("ice_surface_receivers"):
+		var contact: Dictionary = surface.ice_contact(point, ignore_height)
+		if not contact.is_empty():
+			return contact
+	return {}
+
+
+func _update_skating(grounded: bool, delta: float) -> void:
+	if grounded or is_sliding or is_gliding:
+		_skate_air_carry = false
+	var contact: Dictionary = ice_contact_at(global_position) if skate_enabled and grounded and not is_sliding else {}
+	if not contact.is_empty():
+		_skate_grace_left = skate_contact_grace
+	elif skate_enabled and grounded and not is_sliding:
+		_skate_grace_left = maxf(0.0, _skate_grace_left - delta)
+	else:
+		_skate_grace_left = 0.0
+	is_skating = _skate_grace_left > 0.0
+	if not is_skating:
+		skate_braking = false
+		skate_stroke_weight = 0.0
+		if not (_skate_air_carry and skate_jump_keep_streak):
+			skate_streak = 1.0
+		skate_hold_weight = 0.0
+		skate_held_side = 0.0
+
+
+## Vuelo tras saltar patinando: misma velocidad, rumbo curvado por el stick.
+func _skate_air_planar(planar: Vector3, desired: Vector3, delta: float) -> Vector3:
+	var speed := planar.length()
+	if speed < 0.05:
+		return planar
+	var heading := planar / speed
+	if desired.length_squared() > 0.0025:
+		var turn := heading.signed_angle_to(desired.normalized(), Vector3.UP)
+		var max_turn := deg_to_rad(skate_air_turn_rate_degrees) * delta
+		heading = heading.rotated(Vector3.UP, clampf(turn, -max_turn, max_turn))
+	return heading * move_toward(speed, 0.0, skate_air_drag * delta)
+
+
+func _skate_planar(planar: Vector3, desired: Vector3, intent: float, delta: float) -> Vector3:
+	var sprinting := action_pressed("sprint")
+	var max_speed := skate_sprint_speed if sprinting else skate_speed
+	var speed := planar.length()
+	var heading := planar / speed if speed > 0.05 else Vector3.FORWARD.rotated(Vector3.UP, model.rotation.y)
+	var stroking := false
+	skate_braking = false
+	var manual := uses_skate_feet()
+	if intent > 0.05:
+		var requested := desired.normalized()
+		var turn := heading.signed_angle_to(requested, Vector3.UP)
+		if speed < skate_start_speed:
+			heading = requested
+			turn = 0.0
+		if absf(turn) > deg_to_rad(skate_brake_angle_degrees):
+			skate_braking = true
+			skate_brake_side = signf(turn) if turn != 0.0 else 1.0
+			speed = move_toward(speed, 0.0, skate_brake_deceleration * delta)
+		else:
+			stroking = true
+			# Las curvas se abren con la velocidad: el rumbo gira a ritmo limitado.
+			var ratio := clampf(speed / maxf(0.1, skate_sprint_speed), 0.0, 1.0)
+			var max_turn := deg_to_rad(skate_turn_rate_degrees) * lerpf(1.0, skate_high_speed_turn_multiplier, ratio) * delta
+			heading = heading.rotated(Vector3.UP, clampf(turn, -max_turn, max_turn))
+			var target := max_speed * intent
+			if manual:
+				speed = move_toward(speed, 0.0, skate_glide_friction * delta)
+			elif speed < target:
+				# |sin| promedia 2/π: normalizado, el pulso conserva la aceleración media.
+				var drive := absf(sin(skate_stroke_phase * TAU)) / (2.0 / PI)
+				speed = move_toward(speed, target, skate_acceleration * lerpf(1.0, drive, skate_stroke_pulse) * delta)
+			else:
+				speed = move_toward(speed, target, skate_overspeed_friction * delta)
+	else:
+		speed = move_toward(speed, 0.0, skate_glide_friction * delta)
+	if manual:
+		speed = _tick_skate_feet(speed, delta)
+	var result := heading * speed
+	var normal := get_floor_normal()
+	if normal.y < 0.9999:
+		var downhill := Vector3(normal.x, 0.0, normal.z).normalized()
+		result += downhill * gravity * skate_slope_gravity_scale * sqrt(1.0 - normal.y * normal.y) * delta
+	if manual:
+		_advance_manual_strokes(delta)
+	else:
+		_advance_skate_strokes(stroking, intent * (skate_sprint_stroke_multiplier if sprinting else 1.0), delta)
+	return result
+
+
+## Brazos de escalada con L2/R2 (o Z/C) sólo para el jugador.
+func uses_climb_arms() -> bool:
+	return climb_manual_arms and not is_instance_valid(command_source)
+
+
+func reset_climb_arms() -> void:
+	is_climb_hanging = false
+	climb_manual_phase = 0.0
+	climb_held_side = 0.0
+	_climb_last_arm = 0
+	_climb_overlap = 0.0
+	_climb_pull_left = 0.0
+
+
+## Lee los brazos y devuelve el input equivalente del stick para Climbing:
+## sólo hay movimiento durante un tirón, con una curva suave de velocidad.
+func climb_arms_input(delta: float) -> Vector2:
+	if is_climb_hanging:
+		climb_hang_elapsed += delta
+		if climb_hang_elapsed >= climb_hang_duration:
+			is_climb_hanging = false
+		return Vector2.ZERO
+	_climb_arm_age += delta
+	if climb_same_arm_memory > 0.0 and _climb_arm_age > climb_same_arm_memory:
+		_climb_last_arm = 0
+	if action_pressed("skate_left") and action_pressed("skate_right"):
+		_climb_overlap += delta
+		if _climb_overlap > lerpf(0.35, 0.04, climb_arms_difficulty) and _try_start_climb_hang(_climb_last_arm if _climb_last_arm != 0 else -1):
+			return Vector2.ZERO
+	else:
+		_climb_overlap = 0.0
+	var arm := 0
+	if action_just_pressed("skate_left"):
+		arm = -1
+	elif action_just_pressed("skate_right"):
+		arm = 1
+	if arm != 0:
+		if arm == _climb_last_arm and _try_start_climb_hang(arm):
+			return Vector2.ZERO
+		_climb_last_arm = arm
+		_climb_arm_age = 0.0
+		_climb_pull_left = climb_pull_duration
+		# Los huesos *_left son el lado derecho del personaje: L2 mueve arm_right,
+		# que va desfasado Opposite Side Phase. El tirón centra el pico del brazo.
+		var side_offset := climb_opposite_side_phase if arm < 0 else 0.0
+		var start := climb_arm_phase + side_offset + (0.5 if climb_reverse_cycle else 0.0)
+		_climb_pull_start = start + ceilf(climb_manual_phase - start)
+	climb_held_side = 0.0
+	if _climb_pull_left <= 0.0:
+		return Vector2.ZERO
+	var progress := 1.0 - _climb_pull_left / climb_pull_duration
+	climb_manual_phase = _climb_pull_start + 0.5 * progress
+	var action := "skate_left" if _climb_last_arm < 0 else "skate_right"
+	if climb_hold_arm_enabled and progress >= 0.5 and action_pressed(action):
+		climb_held_side = float(_climb_last_arm)
+		return Vector2.ZERO
+	_climb_pull_left = maxf(0.0, _climb_pull_left - delta)
+	var stick := movement_input()
+	var direction := stick.normalized() if stick.length() > 0.1 else Vector2.UP
+	# sin(π·t)·π/2 promedia 1: el tirón recorre exactamente Pull Distance.
+	var speed := climb_pull_distance / climb_pull_duration * sin(progress * PI) * PI * 0.5
+	return direction * speed / maxf(0.01, climb_speed)
+
+
+func _try_start_climb_hang(side: int) -> bool:
+	if not climb_hang_enabled:
+		return false
+	is_climb_hanging = true
+	climb_hang_elapsed = 0.0
+	climb_hang_side = float(side)
+	climb_held_side = 0.0
+	_climb_last_arm = 0
+	_climb_overlap = 0.0
+	_climb_pull_left = 0.0
+	feedback.emit("climb")
+	if climb_hang_scream_enabled:
+		feedback.emit("splat")
+	return true
+
+
+## 0–1: peso de la pose colgada, con entrada rápida y recuperación final.
+func climb_hang_weight() -> float:
+	if not is_climb_hanging:
+		return 0.0
+	return smoothstep(0.0, 0.12, climb_hang_elapsed) * (1.0 - smoothstep(climb_hang_duration - 0.3, climb_hang_duration, climb_hang_elapsed))
+
+
+## Pies con L2/R2 (o Z/C) sólo para el jugador; los NPC usan zancadas automáticas.
+func uses_skate_feet() -> bool:
+	return skate_manual_feet and not is_instance_valid(command_source)
+
+
+## Lee los pies: suma impulso al alternar y provoca la caída al fallar.
+func _tick_skate_feet(speed: float, delta: float) -> float:
+	# Sostener la pierna no cuenta como tiempo sin empujar.
+	_skate_foot_age = 0.0 if _is_holding_leg() else _skate_foot_age + delta
+	_skate_since_push += delta
+	if _skate_since_push > skate_streak_window:
+		skate_streak = 1.0
+	if skate_same_foot_memory > 0.0 and _skate_foot_age > skate_same_foot_memory:
+		_skate_last_foot = 0
+	var window := lerpf(0.35, 0.04, skate_feet_difficulty) * lerpf(1.0, skate_high_speed_window_scale, clampf(speed / skate_manual_max_speed, 0.0, 1.0))
+	if action_pressed("skate_left") and action_pressed("skate_right"):
+		_skate_overlap += delta
+		if _skate_overlap > window and _try_start_skate_fall(speed):
+			return speed
+	else:
+		_skate_overlap = 0.0
+	var foot := 0
+	if action_just_pressed("skate_left"):
+		foot = -1
+	elif action_just_pressed("skate_right"):
+		foot = 1
+	# Sobre un pie y casi parada: pierde el equilibrio.
+	if skate_hold_fall_enabled and _is_holding_leg() and speed < skate_hold_fall_speed:
+		_skate_hold_slow_time += delta
+		if _skate_hold_slow_time > skate_hold_fall_delay and _try_start_skate_fall(speed, true):
+			return speed
+	else:
+		_skate_hold_slow_time = 0.0
+	if foot == 0:
+		return speed
+	if foot == _skate_last_foot and _try_start_skate_fall(speed):
+		return speed
+	var alternated := _skate_last_foot != 0 and foot != _skate_last_foot
+	if skate_streak_enabled and alternated and _skate_since_push <= skate_streak_window:
+		skate_streak = minf(skate_streak + skate_streak_gain, skate_streak_max_multiplier)
+	else:
+		skate_streak = 1.0
+	_skate_since_push = 0.0
+	_skate_last_foot = foot
+	_skate_foot_age = 0.0
+	_skate_push_left = skate_push_duration
+	_skate_push_start = 0.0 if foot < 0 else 0.5
+	skate_stroke.emit()
+	# El rendimiento cae al acercarse a la máxima: el ritmo decide la velocidad,
+	# y la racha eleva impulso y techo para acumular velocidad.
+	var top := minf(skate_manual_max_speed * skate_streak, skate_streak_max_speed)
+	return speed + skate_push_impulse * skate_streak * maxf(0.0, 1.0 - pow(speed / top, 2.0))
+
+
+## Al llegar a mitad del empujón (pierna más abierta) se congela mientras se mantenga el gatillo.
+func _is_holding_leg() -> bool:
+	if not skate_hold_leg_enabled or _skate_last_foot == 0 or _skate_push_left <= 0.0 or _skate_push_left > skate_push_duration * 0.5:
+		return false
+	return action_pressed("skate_left" if _skate_last_foot < 0 else "skate_right")
+
+
+## Cada empujón recorre media fase: [0, 0,5) izquierda, [0,5, 1) derecha.
+func _advance_manual_strokes(delta: float) -> void:
+	var pushing := _skate_push_left > 0.0
+	var holding := _is_holding_leg()
+	if not holding:
+		_skate_push_left = maxf(0.0, _skate_push_left - delta)
+	if holding:
+		skate_held_side = float(_skate_last_foot)
+	skate_hold_weight = lerpf(skate_hold_weight, 1.0 if holding else 0.0, 1.0 - exp(-skate_hold_response * delta))
+	if skate_hold_weight < 0.01:
+		skate_held_side = 0.0
+	if pushing:
+		skate_stroke_phase = _skate_push_start + 0.5 * (1.0 - _skate_push_left / skate_push_duration)
+	skate_stroke_weight = lerpf(skate_stroke_weight, 1.0 if pushing else 0.0, 1.0 - exp(-skate_stroke_blend_speed * 2.0 * delta))
+
+
+func _try_start_skate_fall(speed: float, ignore_min_speed := false) -> bool:
+	if not skate_fall_enabled or (speed < skate_fall_min_speed and not ignore_min_speed):
+		return false
+	is_skate_falling = true
+	skate_fall_elapsed = 0.0
+	skate_fall_side = -1.0 if randf() < 0.5 else 1.0
+	skate_braking = false
+	_skate_last_foot = 0
+	_skate_overlap = 0.0
+	_skate_push_left = 0.0
+	skate_hold_weight = 0.0
+	skate_held_side = 0.0
+	_skate_hold_slow_time = 0.0
+	skate_streak = 1.0
+	feedback.emit("ice_land")
+	if skate_fall_scream_enabled:
+		feedback.emit("splat")
+	return true
+
+
+## 0–1: peso de la pose de caída, con entrada rápida y recuperación final.
+func skate_fall_weight() -> float:
+	if not is_skate_falling:
+		return 0.0
+	var recover_start := skate_fall_duration - skate_fall_recover_duration
+	return smoothstep(0.0, 0.15, skate_fall_elapsed) * (1.0 - smoothstep(recover_start, skate_fall_duration, skate_fall_elapsed))
+
+
+func _tick_skate_fall(delta: float) -> void:
+	skate_fall_elapsed += delta
+	var planar := Vector3(velocity.x, 0.0, velocity.z).move_toward(Vector3.ZERO, skate_fall_friction * delta)
+	velocity = Vector3(planar.x, 0.0 if is_on_floor() else velocity.y - gravity * delta, planar.z)
+	var before := global_position
+	move_and_slide()
+	var actual := (global_position - before) / delta
+	horizontal_speed = Vector2(actual.x, actual.z).length()
+	previous_motion = Vector3(actual.x, 0.0, actual.z)
+	angular_velocity = 0.0
+	skate_stroke_weight = 0.0
+	if skate_fall_elapsed >= skate_fall_duration:
+		is_skate_falling = false
+	animator.tick(delta, horizontal_speed)
+
+
+func _advance_skate_strokes(stroking: bool, rate_scale: float, delta: float) -> void:
+	skate_stroke_weight = lerpf(skate_stroke_weight, 1.0 if stroking else 0.0, 1.0 - exp(-skate_stroke_blend_speed * delta))
+	if skate_stroke_weight < 0.02:
+		return
+	var previous := skate_stroke_phase
+	skate_stroke_phase += skate_stroke_rate * maxf(0.35, rate_scale) * skate_stroke_weight * delta
+	# Cada empujón empieza al cruzar 0 o 0,5.
+	if stroking and floor(skate_stroke_phase * 2.0) > floor(previous * 2.0):
+		skate_stroke.emit()
+	skate_stroke_phase = fposmod(skate_stroke_phase, 1.0)
 
 
 var _npc_bounce_airborne := false

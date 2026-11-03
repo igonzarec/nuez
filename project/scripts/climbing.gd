@@ -88,6 +88,7 @@ func _is_untagged_steep_surface(normal: Vector3, sustained := false) -> bool:
 
 func _release() -> void:
 	reset()
+	actor.reset_climb_arms()
 	actor.velocity = wall_normal * actor.climb_detach_speed
 	actor.glide_button_pressed_in_air = false
 	actor.buffer_left = 0.0
@@ -129,7 +130,7 @@ func tick(delta: float) -> bool:
 	if mantle_stage != 0:
 		_mantle_tick(delta)
 		return true
-	var input := actor.movement_input()
+	var input := actor.climb_arms_input(delta) if actor.uses_climb_arms() else actor.movement_input()
 	var contact := _wall_hit(-wall_normal, true)
 	# Al rebasar la pared el pecho puede dejar de verla. Sólo se continúa
 	# sobre suelo cercano bajo los pies; nunca se busca un destino lejano.

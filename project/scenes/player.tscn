@@ -4,6 +4,8 @@
 [ext_resource type="Script" uid="uid://big2xsl5t30c8" path="res://scripts/squirrel_animator.gd" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/accessories/green_hat_equipped.tscn" id="3_hat"]
 [ext_resource type="Script" uid="uid://wlssk0a80v87" path="res://scripts/glide_membranes.gd" id="4_membranes"]
+[ext_resource type="Script" uid="uid://b1lgbruv7hft8" path="res://scripts/ice_skate_audio.gd" id="5_ice_audio"]
+[ext_resource type="Script" uid="uid://dr14kwro8cmrf" path="res://scripts/ice_reflection.gd" id="6_ice_reflection"]
 
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
@@ -20,6 +22,10 @@ slide_acceleration = 13.2
 slide_max_speed = 13.8
 slide_steering = 0.312
 slide_dust_min_speed = 0.1
+skate_high_speed_turn_multiplier = 0.7999999999999999
+skate_hold_fall_speed = 1.0
+skate_hold_fall_delay = 0.15
+climb_pull_distance = 1.5
 glide_landing_pose_delay = 0.0
 glide_landing_pose_blend_duration = 0.25
 glide_landing_belly_sink = 2.875
@@ -80,6 +86,8 @@ splat_head_shake_degrees = 27.0
 splat_head_shake_frequency_multiplier = 0.9
 splat_head_shake_max_hz = 3.5
 splat_tail_sway_frequency_multiplier = 0.8
+skate_hold_leg_lift_degrees = 60.0
+skate_hold_body_lean_degrees = 12.0
 
 [node name="GreenHatEquipped" parent="." unique_id=2030445117 instance=ExtResource("3_hat")]
 head_offset = Vector3(0, 0.595, -0.055)
@@ -94,3 +102,9 @@ wrist_offset = Vector3(0, 0.41, 0)
 ankle_offset = Vector3(0, 0.36, 0)
 billow = 0.35
 editor_preview = true
+
+[node name="IceSkateAudio" type="Node3D" parent="." unique_id=275503979]
+script = ExtResource("5_ice_audio")
+
+[node name="IceReflection" type="Node3D" parent="." unique_id=929833593]
+script = ExtResource("6_ice_reflection")

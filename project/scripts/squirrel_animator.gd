@@ -268,6 +268,102 @@ extends Node
 ## Rapidez mínima de respuesta de los huesos mientras prepara y empuja, en s⁻¹. Mayor permite colocar manos en recuperaciones cortas; menor suaviza. La inclinación del cuerpo conserva Splat Pose Response. En vivo.
 @export_range(1.0, 90.0, 0.5) var splat_support_pose_response := 55.0
 
+@export_group("Patinaje · postura")
+## Activa la pose procedural de patinaje sobre hielo. Apagado, el patinaje conserva su física pero el rig queda en la pose de reposo. En vivo. La física está en ExplorerPlayer › Patinaje sobre hielo.
+@export var skate_pose_enabled := true
+## Rapidez con que los huesos persiguen la pose de patinaje, en s⁻¹. Mayor sigue las zancadas con más precisión; menor las suaviza y hace más lentas la entrada y la salida del hielo. En vivo.
+@export_range(1.0, 40.0, 0.5) var skate_pose_response := 12.0
+## Inclinación del cuerpo entero hacia delante al patinar, en grados. Mayor da una postura más aerodinámica de velocista. En vivo.
+@export_range(0.0, 45.0, 0.5, "suffix:°") var skate_body_lean_degrees := 16.0
+## Inclinación extra sólo del torso (hueso spine), en grados, que se suma a Body Lean. En vivo.
+@export_range(-20.0, 40.0, 0.5, "suffix:°") var skate_spine_lean_degrees := 8.0
+## Cabeceo de la cabeza, en grados; negativo mira hacia arriba. Se suma a la compensación de Head Level. En vivo.
+@export_range(-40.0, 40.0, 0.5, "suffix:°") var skate_head_pitch_degrees := -4.0
+## Cuánto contrarresta la cabeza la inclinación y el balanceo del cuerpo (0–1). 1 mantiene la mirada horizontal y estable, como un patinador elegante; 0 deja que la cabeza siga al torso. En vivo.
+@export_range(0.0, 1.0, 0.05) var skate_head_level := 0.8
+
+@export_group("Patinaje · manos atrás")
+## Ángulo de los brazos hacia atrás desde la vertical, en grados. Mayor lleva las manos más arriba sobre la espalda. En vivo.
+@export_range(0.0, 120.0, 0.5, "suffix:°") var skate_arm_back_degrees := 65.0
+## Cierre de los brazos hacia la columna, en grados. Mayor junta las manos detrás de la espalda; negativo las separa. En vivo.
+@export_range(-30.0, 60.0, 0.5, "suffix:°") var skate_arm_inward_degrees := 18.0
+## Balanceo de ambos brazos alrededor del eje vertical, en grados, al ritmo de las zancadas. 0 los deja inmóviles. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var skate_arm_swing_degrees := 6.0
+
+@export_group("Patinaje · zancadas")
+## Apertura lateral de la pierna que empuja, en grados. Mayor da zancadas más amplias. Las piernas son rígidas: valores altos levantan más el pie del hielo. En vivo.
+@export_range(0.0, 70.0, 0.5, "suffix:°") var skate_leg_push_out_degrees := 30.0
+## Cuánto se va hacia atrás la pierna que empuja, en grados. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var skate_leg_push_back_degrees := 22.0
+## Cierre de la pierna de apoyo bajo el cuerpo mientras la otra empuja, en grados. En vivo.
+@export_range(0.0, 20.0, 0.5, "suffix:°") var skate_support_leg_in_degrees := 5.0
+## Apertura de ambas piernas al deslizar sin empujar, en grados. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var skate_glide_leg_spread_degrees := 5.0
+## Balanceo lateral del cuerpo hacia la pierna de apoyo, en grados. Mayor marca más el traspaso de peso entre zancadas. En vivo.
+@export_range(0.0, 25.0, 0.5, "suffix:°") var skate_weight_shift_roll_degrees := 7.0
+## Desplazamiento lateral de cadera hacia la pierna de apoyo, en metros. En vivo.
+@export_range(0.0, 0.2, 0.005, "suffix:m") var skate_hip_sway := 0.04
+## Giro del torso alrededor de la vertical con cada zancada, en grados. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var skate_shoulder_twist_degrees := 7.0
+
+@export_group("Patinaje · estilo")
+## Inclinación hacia el interior de las curvas, en grados, al girar a Carve Full Turn Rate. En vivo.
+@export_range(0.0, 40.0, 0.5, "suffix:°") var skate_carve_lean_degrees := 14.0
+## Velocidad de giro, en grados/s, que produce la inclinación completa de Carve Lean. Menor inclina más en curvas suaves. En vivo.
+@export_range(20.0, 720.0, 5.0, "suffix:°/s") var skate_carve_full_turn_rate_degrees := 160.0
+## Elevación de la cola al patinar, en grados. En vivo.
+@export_range(-30.0, 60.0, 0.5, "suffix:°") var skate_tail_lift_degrees := -25.0
+## Contrapeso lateral de la cola, en grados, opuesto al traspaso de peso. En vivo.
+@export_range(0.0, 45.0, 0.5, "suffix:°") var skate_tail_sway_degrees := 16.0
+## Barrido de las orejas hacia atrás a Skate Speed, en grados; crece con la velocidad. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var skate_ear_sweep_degrees := 22.0
+## Balanceo de equilibrio al deslizar sin empujar, en grados. 0 lo desactiva. En vivo.
+@export_range(0.0, 10.0, 0.1, "suffix:°") var skate_glide_sway_degrees := 2.0
+## Frecuencia del balanceo de equilibrio, en Hz. En vivo.
+@export_range(0.05, 3.0, 0.05, "suffix:Hz") var skate_glide_sway_speed := 0.5
+## Inclinación del cuerpo hacia atrás durante la frenada, en grados. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var skate_brake_lean_back_degrees := 8.0
+## Apertura de ambas piernas durante la frenada, en grados. En vivo.
+@export_range(0.0, 45.0, 0.5, "suffix:°") var skate_brake_leg_spread_degrees := 16.0
+
+@export_group("Patinaje · velocidad")
+## Inclinación extra del cuerpo hacia delante a Speed Pose Full Speed, en grados: cuanto más rápido, más agachada y aerodinámica. 0 la desactiva. En vivo.
+@export_range(0.0, 40.0, 0.5, "suffix:°") var skate_speed_lean_degrees := 14.0
+## Alargamiento de la zancada a Speed Pose Full Speed, como fracción extra de apertura y retroceso de la pierna que empuja. 0,5 la hace un 50 % más amplia. En vivo.
+@export_range(0.0, 1.5, 0.05) var skate_speed_stride_extra := 0.5
+## Velocidad, en m/s, a la que esos efectos llegan al máximo. Empiezan a notarse desde la mitad de este valor. En vivo.
+@export_range(1.0, 40.0, 0.5, "suffix:m/s") var skate_speed_pose_full_speed := 16.0
+
+@export_group("Patinaje · pierna sostenida")
+## Elevación extra hacia atrás de la pierna sostenida con su gatillo, en grados, sumada a la del empujón. Mayor la levanta más, como un patinador artístico. En vivo.
+@export_range(0.0, 90.0, 0.5, "suffix:°") var skate_hold_leg_lift_degrees := 30.0
+## Apertura lateral extra de la pierna sostenida, en grados. En vivo.
+@export_range(-20.0, 40.0, 0.5, "suffix:°") var skate_hold_leg_out_degrees := 5.0
+## Inclinación extra del cuerpo hacia delante mientras se sostiene la pierna, en grados; equilibra la pierna levantada. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var skate_hold_body_lean_degrees := 8.0
+
+@export_group("Patinaje · caída")
+## Inclinación del cuerpo hacia atrás al caer, en grados: 0 erguido, 90 tumbado de espaldas. En vivo. La duración está en ExplorerPlayer › Patinaje sobre hielo · caída.
+@export_range(0.0, 90.0, 0.5, "suffix:°") var skate_fall_body_pitch_degrees := 50.0
+## Cuánto baja el cuerpo hasta quedar sentado sobre el hielo, en metros. En vivo.
+@export_range(0.0, 0.6, 0.005, "suffix:m") var skate_fall_body_drop := 0.22
+## Vuelco lateral al caer, en grados; el lado se elige al azar en cada caída. En vivo.
+@export_range(0.0, 40.0, 0.5, "suffix:°") var skate_fall_roll_degrees := 12.0
+## Elevación de las piernas hacia delante al caer, en grados. En vivo.
+@export_range(0.0, 120.0, 0.5, "suffix:°") var skate_fall_leg_raise_degrees := 75.0
+## Apertura lateral de las piernas al caer, en grados. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var skate_fall_leg_spread_degrees := 20.0
+## Pataleo de las piernas en el suelo, en grados. 0 las deja quietas. En vivo.
+@export_range(0.0, 40.0, 0.5, "suffix:°") var skate_fall_leg_kick_degrees := 12.0
+## Apertura de los brazos al caer, en grados desde la vertical. En vivo.
+@export_range(0.0, 150.0, 0.5, "suffix:°") var skate_fall_arm_out_degrees := 80.0
+## Aspaviento de los brazos al caer, en grados. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var skate_fall_arm_flail_degrees := 25.0
+## Frecuencia del aspaviento y del pataleo, en Hz. En vivo.
+@export_range(0.5, 15.0, 0.1, "suffix:Hz") var skate_fall_flail_speed := 5.0
+## Cabeceo de la cabeza al caer, en grados; positivo mira hacia los pies. En vivo.
+@export_range(-45.0, 45.0, 0.5, "suffix:°") var skate_fall_head_pitch_degrees := 18.0
+
 var actor: ExplorerPlayer
 var glide_blend := 0.0
 var clock := 0.0
@@ -381,8 +477,14 @@ func reset() -> void:
 	actor.model.reset_body_tilt()
 	actor.model.reset_interpolation()
 
+## 0–1: cuánto se nota la velocidad acumulada en la pose de patinaje.
+func skate_speed_pose() -> float:
+	return smoothstep(skate_speed_pose_full_speed * 0.5, skate_speed_pose_full_speed, actor.horizontal_speed) if actor else 0.0
+
+
 func tick(delta: float, speed: float) -> void:
 	clock += delta
+	actor.model.update_skate(actor.is_skating and not actor.is_splat and not actor.is_glide_recoiling and not actor.is_glide_landing)
 	if actor.is_splat:
 		_tick_splat(delta)
 		return
@@ -409,7 +511,7 @@ func tick(delta: float, speed: float) -> void:
 	var grounded := actor.is_on_floor() or actor.is_sliding
 	var blend := 1.0 - exp(-blend_speed * delta)
 	glide_blend = lerpf(glide_blend, 1.0 if actor.is_gliding else 0.0, 1.0 - exp(-glide_blend_speed * delta))
-	run_blend = lerpf(run_blend, 1.0 if speed > 0.12 and grounded and not actor.is_sliding else 0.0, blend)
+	run_blend = lerpf(run_blend, 1.0 if speed > 0.12 and grounded and not actor.is_sliding and not actor.is_skating else 0.0, blend)
 	if grounded and not actor.is_sliding:
 		gait_phase += actor.previous_motion.length() * delta * TAU * cadence_multiplier / maxf(0.1, stride_length)
 	jump_start = maxf(0.0, jump_start - delta)
@@ -423,6 +525,8 @@ func tick(delta: float, speed: float) -> void:
 		locomotion_state = "jump_start"
 	elif not grounded:
 		locomotion_state = "rise" if actor.velocity.y > 0.5 else "fall"
+	elif actor.is_skating:
+		locomotion_state = "skate_fall" if actor.is_skate_falling else "skate"
 	elif actor.landing_time > 0.0:
 		locomotion_state = "land"
 	elif speed > 0.12:
@@ -438,6 +542,12 @@ func tick(delta: float, speed: float) -> void:
 	var forward := Vector3.FORWARD.rotated(Vector3.UP, actor.model.rotation.y)
 	var acceleration := clampf(actor.motion_acceleration.dot(forward) / maxf(0.01, actor.acceleration), -1.0, 1.0)
 	var lean := -acceleration * acceleration_lean - deg_to_rad(run_lean_degrees) * run_blend
+	var skating := actor.is_skating and skate_pose_enabled
+	if skating:
+		lean = -deg_to_rad(lerpf(skate_body_lean_degrees, -skate_brake_lean_back_degrees, actor.model.skate_brake_weight))
+		lean -= deg_to_rad(skate_hold_body_lean_degrees) * actor.skate_hold_weight
+		lean -= deg_to_rad(skate_speed_lean_degrees) * skate_speed_pose()
+		lean = lerpf(lean, deg_to_rad(skate_fall_body_pitch_degrees), actor.skate_fall_weight())
 	# Conserva una postura base de planeo. La entrada y Sprint añaden inclinación
 	# para comunicar intención de avanzar y ganar velocidad.
 	var glide_intent := clampf(actor.glide_movement_intent, 0.0, 1.0)
@@ -452,6 +562,13 @@ func tick(delta: float, speed: float) -> void:
 		lean -= deg_to_rad(air_fall_body_lean_degrees) * long_fall * falling * (1.0 - air_stride_weight)
 	body_pitch = lerp_angle(body_pitch, lean, blend)
 	var run_roll := clampf(-actor.angular_velocity * 0.018, -turn_lean, turn_lean) * run_blend
+	if skating:
+		# Traspaso de peso a la pierna de apoyo + inclinación hacia el interior de la curva.
+		var shift := -sin(actor.skate_stroke_phase * TAU) * actor.skate_stroke_weight
+		var carve := clampf(-actor.angular_velocity / deg_to_rad(skate_carve_full_turn_rate_degrees), -1.0, 1.0) * deg_to_rad(skate_carve_lean_degrees)
+		var sway := sin(clock * TAU * skate_glide_sway_speed) * deg_to_rad(skate_glide_sway_degrees) * (1.0 - actor.skate_stroke_weight)
+		run_roll = -shift * deg_to_rad(skate_weight_shift_roll_degrees) + carve * (1.0 - actor.model.skate_brake_weight) + sway
+		run_roll += actor.skate_fall_side * deg_to_rad(skate_fall_roll_degrees) * actor.skate_fall_weight()
 	var bank_direction := 1.0 if glide_bank_invert else -1.0
 	var glide_turn_rate := rad_to_deg(actor.angular_velocity)
 	var max_glide_roll := deg_to_rad(glide_bank_degrees) * glide_blend

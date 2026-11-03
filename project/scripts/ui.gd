@@ -250,7 +250,7 @@ func settings(values: Dictionary) -> void:
 	_appearance_controls(page, values)
 	var glide_camera := CheckButton.new()
 	glide_camera.text = "Cámara al frente durante planeo"
-	glide_camera.tooltip_text = "Mantiene la cámara detrás del personaje mirando hacia su frente. R2 / C recentra una vez aunque esté desactivado."
+	glide_camera.tooltip_text = "Mantiene la cámara detrás del personaje mirando hacia su frente. R3 / V recentra una vez aunque esté desactivado."
 	glide_camera.button_pressed = values.get("glide_forward_enabled", false)
 	glide_camera.toggled.connect(func(value: bool) -> void: setting_changed.emit("glide_forward_enabled", value))
 	page.add_child(glide_camera)
@@ -274,7 +274,7 @@ func controls_menu() -> void:
 	for entry: Array in [
 		["Moverse", "WASD / flechas · stick izquierdo"],
 		["Cámara", "Clic derecho + arrastrar · stick derecho"],
-		["Cámara al frente", "C · R2 / RT (una vez por pulsación)"],
+		["Cámara al frente", "V · R3 / clic del stick derecho (una vez por pulsación)"],
 		["Saltar", "Espacio · cruz (PlayStation) / A (Xbox)"],
 		["Planear", "En el aire: pulsa y mantén R1 / RB; en teclado, pulsa otra vez Espacio y mantén. Suelta para caer."],
 		["Escalar", "Mantén salto cerca de roca escalable, mirando hacia ella.\nMuévete con WASD / stick; suelta salto para desprenderte."],
