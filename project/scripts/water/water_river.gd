@@ -52,14 +52,35 @@ extends WaterBody
 	set(value):
 		fall_bulge = value
 		_queue_rebuild()
-## 0-1: cuanto se ensancha la cortina hacia abajo (0,3 = 30 % mas ancha en la base). 0 = mismo ancho que el agua visible
-## del rio entre sus orillas (Width), igual que la espuma de la base. En vivo.
-## Metros de agua, antes y despues del borde, que se redondean para que el rio pase a la caida en una curva suave en
-## vez de un codo. Mayor = curva mas amplia (baja un poco el rio antes del borde). 0 = codo de la trayectoria tal cual.
-## Mas suave con Step pequeno. En vivo.
+## Hacia donde sale el agua del borde, en grados: 0 = horizontal; positivo = sube un poco antes de caer (joroba sobre el
+## borde, como un chorro con fuerza); negativo = ya sale apuntando hacia abajo (cae mas pegada a la roca). Aterriza en
+## el mismo sitio (Fall Bulge). En vivo.
+@export_range(-60.0, 45.0, 0.5, "suffix:degrees") var fall_exit_angle := 0.0:
+	set(value):
+		fall_exit_angle = value
+		_queue_rebuild()
+## 0-1: forma de toda la caida. 1 = arco de chorro (sale abierta y se curva con la gravedad); menor = se acerca a una
+## rampa recta entre el borde y la poza. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_arc := 1.0:
+	set(value):
+		fall_arc = value
+		_queue_rebuild()
+## Tamano de la curva del borde sobre el rio, en metros antes del borde: cuanto antes empieza el rio a doblarse hacia la
+## caida (baja un poco al acercarse). 0 = el rio llega recto hasta el borde. Mas suave con Step pequeno. En vivo.
+@export_range(0.0, 6.0, 0.05, "suffix:m") var fall_lip_round_before := 1.5:
+	set(value):
+		fall_lip_round_before = value
+		_queue_rebuild()
+## Tamano de la curva del borde sobre la cortina, en metros despues del borde: cuanto tarda el agua en pasar de salir
+## del borde a caer. Mayor = curva mas amplia y redonda. 0 = codo tal cual. En vivo.
 @export_range(0.0, 6.0, 0.05, "suffix:m") var fall_lip_round := 1.5:
 	set(value):
 		fall_lip_round = value
+		_queue_rebuild()
+## 0-1: cuanto se redondea la curva dentro de ese tamano. 1 = curva suave y amplia; menor = codo mas marcado. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_round_strength := 1.0:
+	set(value):
+		fall_lip_round_strength = value
 		_queue_rebuild()
 ## 0-1: cuanto se ensancha la cortina hacia abajo (0,3 = 30 % mas ancha en la base). 0 = mismo ancho que el agua visible
 ## del rio entre sus orillas (Width), igual que la espuma de la base. En vivo.
@@ -73,6 +94,25 @@ extends WaterBody
 	set(value):
 		fall_thickness = value
 		_queue_rebuild()
+## Mueve la espuma de la base (lobulos, lineas, burbujas, gotas) a lo largo de la corriente, en metros: positivo = mas
+## hacia fuera, alejandose del acantilado; negativo = mas hacia la pared. Ya se coloca sola donde aterriza la cortina y
+## delante de su grosor; esto es un ajuste fino. En vivo.
+@export_range(-4.0, 4.0, 0.05, "suffix:m") var fall_fx_offset := 0.0:
+	set(value):
+		fall_fx_offset = value
+		_queue_rebuild()
+## Sube o baja la espuma de la base, en metros. En vivo.
+@export_range(-1.0, 1.0, 0.01, "suffix:m") var fall_fx_lift := 0.0:
+	set(value):
+		fall_fx_lift = value
+		_queue_rebuild()
+## Donde va la franja del borde en esta cascada: la mueve entera a lo largo de la superficie, en metros, sin cambiar su
+## forma. Positivo = mas abajo por la cortina; negativo = mas arriba por el rio (hasta unos 6 m antes del borde). 0 =
+## centrada en el borde. En vivo (guarda la escena para que el juego lo use).
+@export_range(-5.0, 10.0, 0.05, "suffix:m") var fall_lip_band_offset := 0.0:
+	set(value):
+		fall_lip_band_offset = value
+		_apply_band_shifts()
 
 @export_group("Desembocadura")
 ## Funde el rio con el lago donde entra o sale de uno (WaterLake a la misma altura): la malla del rio sigue dentro del lago y
@@ -279,12 +319,6 @@ var fall_puff_shape_variation: float:
 var fall_puff_scatter: float:
 	get:
 		return style.fall_puff_scatter if style != null else 0.5
-var fall_puff_small_ratio: float:
-	get:
-		return style.fall_puff_small_ratio if style != null else 0.35
-var fall_puff_small_distance: float:
-	get:
-		return style.fall_puff_small_distance if style != null else 3.0
 var fall_puff_seed: int:
 	get:
 		return style.fall_puff_seed if style != null else 7
@@ -300,18 +334,12 @@ var fall_puff_life_speed_variation: float:
 var fall_puff_life_size_variation: float:
 	get:
 		return style.fall_puff_life_size_variation if style != null else 0.5
-var fall_puff_wander: float:
-	get:
-		return style.fall_puff_wander if style != null else 0.8
 var fall_puff_min_size: float:
 	get:
 		return style.fall_puff_min_size if style != null else 0.0
 var fall_puff_hold: float:
 	get:
 		return style.fall_puff_hold if style != null else 0.3
-var fall_puff_shading: float:
-	get:
-		return style.fall_puff_shading if style != null else 1.0
 var fall_fx_shadow_color: Color:
 	get:
 		return style.fall_fx_shadow_color if style != null else Color(0.56, 0.8, 0.95)
@@ -357,9 +385,6 @@ var fall_splash_size: float:
 var fall_bubbles_opacity: float:
 	get:
 		return style.fall_bubbles_opacity if style != null else 0.85
-var fall_bubbles_shading: float:
-	get:
-		return style.fall_bubbles_shading if style != null else 1.0
 var fall_splash_opacity: float:
 	get:
 		return style.fall_splash_opacity if style != null else 1.0
@@ -791,13 +816,25 @@ func _shape_falls(points: PackedVector3Array, slopes: PackedFloat32Array, tangen
 		var lip := points[a]
 		var drop := maxf(lip.y - points[b].y, 0.01)
 		var reach := Vector2(points[b].x - lip.x, points[b].z - lip.z).dot(Vector2(outward.x, outward.z)) + fall_bulge
+		# Exit Angle tilts the jet as it leaves; solve the flight so it still lands Reach away and Drop below.
+		var tan_exit := tan(deg_to_rad(fall_exit_angle))
 		var flight := sqrt(2.0 * drop / 9.8)
 		var speed := maxf(reach, 0.05) / flight
+		var rise := 0.0
+		for _step in 8:
+			rise = speed * tan_exit
+			flight = (rise + sqrt(maxf(rise * rise + 19.6 * drop, 0.0))) / 9.8
+			speed = maxf(reach, 0.05) / maxf(flight, 0.01)
+		rise = speed * tan_exit
+		var land_point := lip + outward * maxf(reach, 0.05) + Vector3.DOWN * drop
 		for j in range(a, b + 1):
 			var u := (distances[j] - distances[a]) / span
 			var time := u * flight
-			points[j] = lip + outward * speed * time + Vector3.DOWN * 4.9 * time * time
-			var velocity := outward * speed + Vector3.DOWN * 9.8 * time
+			var jet := lip + outward * speed * time + Vector3.UP * (rise * time - 4.9 * time * time)
+			var jet_velocity := (outward * speed + Vector3.UP * (rise - 9.8 * time)) * flight
+			# Fall Arc blends the jet towards a straight ramp from the lip to the landing point.
+			points[j] = lip.lerp(land_point, u).lerp(jet, fall_arc)
+			var velocity := (land_point - lip).lerp(jet_velocity, fall_arc)
 			tangents[j] = velocity.normalized()
 			slopes[j] = asin(clampf(absf(tangents[j].y), 0.0, 1.0)) / (PI * 0.5)
 			widen[j] = 1.0 + fall_widen * u
@@ -816,11 +853,14 @@ func _shape_falls(points: PackedVector3Array, slopes: PackedFloat32Array, tangen
 				break
 			_lip_gap[j] = gap if _lip_gap[j] < 0.0 else minf(_lip_gap[j], gap)
 		# Round the bend from the river into the drop: relax the rows around the lip towards their neighbours.
-		var reach_rows := ceili(fall_lip_round / maxf(distances[mini(a + 1, count - 1)] - distances[a], 0.05))
-		if fall_lip_round > 0.0 and reach_rows > 0:
-			var first := maxi(a - reach_rows, 1)
-			var last := mini(a + reach_rows, b - 1)
-			for _pass in reach_rows * 3:
+		var row_step := maxf(distances[mini(a + 1, count - 1)] - distances[a], 0.05)
+		var rows_before := ceili(fall_lip_round_before / row_step)
+		var rows_after := ceili(fall_lip_round / row_step)
+		var passes := roundi(maxi(rows_before, rows_after) * 3 * fall_lip_round_strength)
+		if passes > 0 and (rows_before > 0 or rows_after > 0):
+			var first := maxi(a - rows_before, 1)
+			var last := mini(a + rows_after, b - 1)
+			for _pass in passes:
 				var relaxed := points.duplicate()
 				for j in range(first, last + 1):
 					relaxed[j] = (points[j - 1] + points[j] * 2.0 + points[j + 1]) * 0.25
@@ -859,6 +899,9 @@ func _shape_falls(points: PackedVector3Array, slopes: PackedFloat32Array, tangen
 		for j in range(b, mini(b + 4, count)):
 			base.y = minf(base.y, points[j].y)
 		# Foam as wide as the curtain at its foot.
+		# The curtain's visible face sits ahead of its centre line by its thickness: bring the foam out to meet it, plus the
+		# hand offsets.
+		base += outward * (fall_thickness * 0.6 + fall_fx_offset) + Vector3.UP * fall_fx_lift
 		_fall_bases.append([base, halves[b] * (1.0 + fall_widen) * 2.0, outward])
 		i = b + 1
 	return widen
@@ -866,7 +909,13 @@ func _shape_falls(points: PackedVector3Array, slopes: PackedFloat32Array, tangen
 ## Foam, mist and splashes at the base of every fall of this river.
 var _built_fx_key: Array = []
 
+## Where this river's lip band sits, on its own material (not part of the shared style).
+func _apply_band_shifts() -> void:
+	if _material != null:
+		_material.set_shader_parameter("fall_lip_band_offset", fall_lip_band_offset)
+
 func _after_style() -> void:
+	_apply_band_shifts()
 	var key: Array = style.fall_fx_key() if style != null else []
 	if key != _built_fx_key and is_inside_tree():
 		_built_fx_key = key
@@ -935,8 +984,7 @@ func _make_fall_foam(width: float) -> MeshInstance3D:
 func _make_fall_puffs(width: float) -> MultiMeshInstance3D:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = fall_puff_seed
-	var big := maxi(3, ceili(width * fall_puff_density))
-	var count := big + int(big * fall_puff_small_ratio)
+	var count := maxi(3, ceili(width * fall_puff_density))
 	var sphere := SphereMesh.new()
 	sphere.radius = 1.0
 	sphere.height = 2.0
@@ -948,44 +996,31 @@ func _make_fall_puffs(width: float) -> MultiMeshInstance3D:
 	multimesh.mesh = sphere
 	multimesh.instance_count = count
 	for k in count:
-		var small := k >= big
-		var across: float
-		var row: int
-		if small:
-			# Loose bits: anywhere across, mostly in front of the band.
-			across = rng.randf_range(-0.5, 0.5)
-			row = 3
-		else:
-			across = (float(k) + rng.randf_range(-0.3, 0.3) * (1.0 + fall_puff_scatter)) / float(maxi(big - 1, 1)) - 0.5
-			row = k % 3
-		var row_scale: float = [1.0, 0.85, 0.65, 0.4][row]
+		var across := (float(k) + rng.randf_range(-0.3, 0.3) * (1.0 + fall_puff_scatter)) / float(maxi(count - 1, 1)) - 0.5
+		var row := k % 3
+		var row_scale: float = [1.0, 0.85, 0.65][row]
 		var variation := rng.randf_range(-1.0, 1.0) * fall_puff_size_variation
 		var size := fall_puff_size * row_scale * (1.0 + variation * (0.6 if variation > 0.0 else 0.5))
 		var shape := fall_puff_shape_variation
 		var stretch := Vector3(1.15 * (1.0 + rng.randf_range(-0.3, 0.5) * shape), 0.8 * (1.0 + rng.randf_range(-0.4, 0.5) * shape),
 			1.0 + rng.randf_range(-0.3, 0.3) * shape) * size
 		var basis := Basis(Vector3.UP, rng.randf() * TAU * shape) * Basis.from_scale(stretch)
-		var depth := -0.1 - minf(row, 2) * fall_puff_size * 0.9
-		if small:
-			depth -= fall_puff_size * fall_puff_small_distance * rng.randf_range(0.5, 1.0)
-		var origin := Vector3(across * width * 1.08, size * 0.25 - 0.05 - minf(row, 2) * 0.08 + rng.randf_range(-0.12, 0.12) * fall_puff_scatter,
+		var depth := -0.1 - row * fall_puff_size * 0.9
+		var origin := Vector3(across * width * 1.08, size * 0.25 - 0.05 - row * 0.08 + rng.randf_range(-0.12, 0.12) * fall_puff_scatter,
 			depth + rng.randf_range(-0.12, 0.12) * (1.0 + 3.0 * fall_puff_scatter))
 		multimesh.set_instance_transform(k, Transform3D(basis, origin))
 		multimesh.set_instance_custom_data(k, Color(rng.randf() * TAU, rng.randf_range(0.7, 1.4), 0.0, 0.0))
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://shaders/water/fall_puff.gdshader")
 	material.set_shader_parameter("light_color", fall_fx_color)
-	material.set_shader_parameter("shadow_color", fall_fx_shadow_color)
 	material.set_shader_parameter("pulse", fall_puff_pulse)
 	material.set_shader_parameter("opacity", fall_puff_opacity)
 	material.set_shader_parameter("life_enabled", fall_puff_life_enabled)
 	material.set_shader_parameter("life_speed", fall_puff_life_speed)
 	material.set_shader_parameter("life_speed_variation", fall_puff_life_speed_variation)
 	material.set_shader_parameter("life_size_variation", fall_puff_life_size_variation)
-	material.set_shader_parameter("wander", fall_puff_wander)
 	material.set_shader_parameter("min_size", fall_puff_min_size)
 	material.set_shader_parameter("hold", fall_puff_hold)
-	material.set_shader_parameter("shading", fall_puff_shading)
 	# Translucent: after lakes (0), rivers (1) and the foam lines (2), so the water never paints over them.
 	material.render_priority = 3
 	var puffs := MultiMeshInstance3D.new()
@@ -1117,11 +1152,9 @@ func _make_fall_bubbles(width: float) -> CPUParticles3D:
 	var material := ShaderMaterial.new()
 	material.shader = preload("res://shaders/water/fall_puff.gdshader")
 	material.set_shader_parameter("light_color", fall_fx_color)
-	material.set_shader_parameter("shadow_color", fall_fx_shadow_color)
 	material.set_shader_parameter("pulse", 0.0)
 	# Particles have their own life; no lump cycle on top.
 	material.set_shader_parameter("life_enabled", false)
-	material.set_shader_parameter("shading", fall_bubbles_shading)
 	material.set_shader_parameter("opacity", fall_bubbles_opacity)
 	material.render_priority = 3
 	ball.material = material

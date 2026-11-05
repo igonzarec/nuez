@@ -84,6 +84,7 @@ uniform float fall_foot_bottom_amount = 0.0;
 uniform float fall_foot_bottom_size = 0.5;
 uniform float fall_foot_bottom_width = 0.4;
 uniform float fall_lip_band = 0.85;
+// Set per river by WaterRiver (Fall Lip Band Offset), not by the style.
 uniform float fall_lip_band_offset = 0.0;
 uniform float fall_lip_band_transparency = 0.0;
 uniform float fall_lip_opaque = 1.5;
@@ -107,32 +108,6 @@ uniform float fall_lip_top_ragged = 0.6;
 uniform float fall_marks_light = 1.15;
 uniform float fall_streak_shimmer = 0.25;
 uniform float fall_streak_seed = 0.0;
-uniform bool fall_top_enabled = true;
-uniform float fall_top_amount = 0.9;
-uniform float fall_top_density = 1.2;
-uniform float fall_top_chance = 0.8;
-uniform float fall_top_length = 0.3;
-uniform float fall_top_length_variation = 0.8;
-uniform float fall_top_width = 0.9;
-uniform float fall_top_width_variation = 0.6;
-uniform float fall_top_taper = 0.45;
-uniform float fall_top_tip = 0.55;
-uniform float fall_top_ragged = 0.55;
-uniform float fall_top_pulse = 0.45;
-uniform float fall_top_pulse_speed = 1.1;
-uniform bool fall_bottom_enabled = true;
-uniform float fall_bottom_amount = 0.9;
-uniform float fall_bottom_density = 1.1;
-uniform float fall_bottom_chance = 0.7;
-uniform float fall_bottom_length = 0.25;
-uniform float fall_bottom_length_variation = 0.65;
-uniform float fall_bottom_width = 0.9;
-uniform float fall_bottom_width_variation = 0.5;
-uniform float fall_bottom_taper = 0.45;
-uniform float fall_bottom_tip = 0.5;
-uniform float fall_bottom_ragged = 0.6;
-uniform float fall_bottom_pulse = 0.5;
-uniform float fall_bottom_pulse_speed = 1.6;
 uniform float fall_color_mix = 0.25;
 uniform float fall_crests = 0.6;
 uniform float river_edge_light = 0.35;
@@ -392,43 +367,6 @@ float lip_band_edge(float x, float out_dist, float edge_h, int shape, float amou
 	return max(inside, lip_points(x, out_dist + soft, size + soft, amount, width, seed_off, bt, softness));
 }
 
-// Light marks on a waterfall curtain: pointed, uneven strokes anchored at one end (along = 0 there, in fractions of the
-// drop), each with its own length, width and rhythm, growing and shrinking over time. Returns 0-1 coverage.
-float fall_marks(float x, float uv_y, float along_anchor, float t, float seed_base, float density, float chance,
-		float len_mean, float len_var, float width, float width_var, float taper, float tip_len, float ragged_amount,
-		float pulse, float pulse_speed, float sway_amount, float softness) {
-	float result = 0.0;
-	float base_cell = floor(x * density);
-	for (int k = -1; k <= 1; k++) {
-		float cell = base_cell + float(k);
-		vec2 s = vec2(cell, seed_base);
-		if (hash(s + 5.9) >= chance) {
-			continue;
-		}
-		float phase = hash(s + 3.3) * 6.2831;
-		float rate = 0.6 + 0.8 * hash(s + 9.2);
-		// Two beats per stroke so it never repeats plainly: it grows, shrinks, flickers.
-		float beat = sin(t * pulse_speed * rate + phase) * 0.7 + sin(t * pulse_speed * rate * 2.3 + phase * 1.7) * 0.3;
-		float len = len_mean * (1.0 - len_var * hash(s + 7.7)) * max(1.0 + pulse * beat, 0.05);
-		float along = along_anchor / max(len, 0.001);
-		if (along >= 1.0) {
-			continue;
-		}
-		float centre = (cell + 0.2 + 0.6 * hash(s + 1.7)) / density;
-		float sway = sin(along_anchor * 7.0 + hash(s + 4.1) * 6.2831 + t * 0.8) * 0.12 * sway_amount;
-		float dx = abs(x - centre - sway);
-		float half_w = 0.5 * width * (1.0 + (hash(s + 2.3) - 0.5) * 2.0 * width_var)
-			* (1.0 + 0.25 * pulse * sin(t * pulse_speed * rate * 0.7 + phase * 2.0));
-		// Uneven edges that slide along the stroke.
-		float rag = 1.0 + (value_noise(vec2(cell * 3.1 + seed_base, uv_y * 2.5 - t * pulse_speed * 0.8)) - 0.5) * 1.2 * ragged_amount;
-		float tip = sqrt(clamp((1.0 - along) / max(tip_len, 0.01), 0.0, 1.0));
-		float w = half_w * rag * (1.0 - taper * along) * tip;
-		float edge_soft = max(w * (0.15 + softness), 0.005);
-		result = max(result, 1.0 - smoothstep(w - edge_soft, w, dx));
-	}
-	return result;
-}
-
 void fragment() {
 	float flow = body.a;
 	float slope = body.r;
@@ -574,26 +512,8 @@ void fragment() {
 	float dark_band = 1.0 - smoothstep(0.24 - soft * 0.5, 0.24 + soft * 0.5, streak);
 	// The curtain is the river's own water falling: its colours, darker lower down, and its crests stretched by the drop.
 	float progress = 1.0 - sqrt(clamp(lip, 0.0, 1.0));
-	// Light marks that stay put while the water runs through them: the lip band (lower edge on the curtain, with blue notches
-	// rising into it) and the strokes hanging from it and rising from the foam at the foot.
-	float drop = progress * progress;
-	float lines_curtain = 0.0;
+	// Water running through the lip and foot bands while they stay in place.
 	float shimmer = 1.0 - fall_streak_shimmer * value_noise(vec2(UV.x * 3.0, (UV.y - TIME * fall_speed) * 0.8));
-	if (curtain > 0.001) {
-		float soft_marks = fall_streak_softness;
-		if (fall_top_enabled) {
-			lines_curtain = max(lines_curtain, fall_top_amount * fall_marks(UV.x, UV.y, drop, TIME, fall_streak_seed,
-				fall_top_density, fall_top_chance, fall_top_length, fall_top_length_variation, fall_top_width,
-				fall_top_width_variation, fall_top_taper, fall_top_tip, fall_top_ragged, fall_top_pulse, fall_top_pulse_speed,
-				fall_streak_wave, soft_marks));
-		}
-		if (fall_bottom_enabled) {
-			lines_curtain = max(lines_curtain, fall_bottom_amount * fall_marks(UV.x, UV.y, 1.0 - drop, TIME, fall_streak_seed + 17.3,
-				fall_bottom_density, fall_bottom_chance, fall_bottom_length, fall_bottom_length_variation, fall_bottom_width,
-				fall_bottom_width_variation, fall_bottom_taper, fall_bottom_tip, fall_bottom_ragged, fall_bottom_pulse,
-				fall_bottom_pulse_speed, fall_streak_wave, soft_marks));
-		}
-	}
 	vec3 river_tone = mix(shallow_color.rgb, deep_color.rgb, 0.35 + 0.4 * progress);
 	vec3 fall_tone = mix(river_tone, fall_color.rgb, fall_color_mix);
 	fall_tone = mix(fall_tone, fall_shadow_color.rgb, dark_band * 0.3);
@@ -652,18 +572,16 @@ void fragment() {
 			fall_foot_bottom_size, fall_foot_bottom_width, 73.0, ft, fall_foot_band_softness);
 		foot_mark = min(top_edge, bottom_edge);
 	}
-	float line_mark = lines_curtain * curtain * shimmer;
 	// Band Transparency lets the real water show through the band (its crests and motion), unlike Fall Lip Band.
 	float lip_share = band_mark * (1.0 - fall_lip_band_transparency);
 	float foot_share = foot_mark * (1.0 - fall_foot_band_transparency);
-	float flat_amount = max(max(lip_share, foot_share), line_mark);
+	float flat_amount = max(lip_share, foot_share);
 	// The band is see-through (Fall Lip Band < 1) onto one even colour (Fall Color), not onto the water under it, which
 	// differs on each side of the fold and would show the fold as a line through the band.
 	vec3 lip_colour = mix(fall_color.rgb, fall_lip_band_color.rgb, fall_lip_band * shimmer);
 	vec3 foot_colour = mix(fall_color.rgb, fall_foot_band_color.rgb, fall_foot_band * shimmer);
-	float band_share = max(lip_share, foot_share);
 	vec3 band_colour = (lip_colour * lip_share + foot_colour * foot_share) / max(lip_share + foot_share, 0.001);
-	vec3 flat_colour = mix(fall_streak_color.rgb, band_colour, clamp(band_share / max(flat_amount, 0.001), 0.0, 1.0));
+	vec3 flat_colour = band_colour;
 	// The marks are opaque like foam, however see-through the curtain is.
 	float body_amount = max(1.0 - visible, foam);
 	vec3 albedo = lit * body_amount * (1.0 - crest);
