@@ -100,6 +100,13 @@ func _build_mesh() -> ArrayMesh:
 	if triangles.is_empty():
 		push_warning("%s: el contorno del lago se cruza consigo mismo." % name)
 		return null
+	# Moving surface: fill the outline with a grid so the water can bend, and triangulate it all again.
+	var spacing := _motion_spacing()
+	if spacing > 0.0:
+		var filled := _fill_outline(outline, spacing)
+		if not filled.is_empty():
+			outline = filled[0]
+			triangles = filled[1]
 	var origin := global_position
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -131,6 +138,38 @@ func _build_mesh() -> ArrayMesh:
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+## Outline plus an inner grid at Spacing, Delaunay-triangulated; triangles outside the outline are dropped.
+## Returns [points, triangle indices] or [] if it failed.
+func _fill_outline(outline: PackedVector2Array, spacing: float) -> Array:
+	var points := PackedVector2Array(outline)
+	var low := outline[0]
+	var high := outline[0]
+	for point in outline:
+		low = low.min(point)
+		high = high.max(point)
+	var keep_out := spacing * 0.45
+	for z in range(ceili(low.y / spacing), floori(high.y / spacing) + 1):
+		for x in range(ceili(low.x / spacing), floori(high.x / spacing) + 1):
+			var q := Vector2(x * spacing, z * spacing)
+			if not Geometry2D.is_point_in_polygon(q, outline):
+				continue
+			var near_edge := false
+			for i in outline.size():
+				if q.distance_to(Geometry2D.get_closest_point_to_segment(q, outline[i], outline[(i + 1) % outline.size()])) < keep_out:
+					near_edge = true
+					break
+			if not near_edge:
+				points.append(q)
+	var all := Geometry2D.triangulate_delaunay(points)
+	if all.is_empty():
+		return []
+	var inside := PackedInt32Array()
+	for i in range(0, all.size(), 3):
+		var centre := (points[all[i]] + points[all[i + 1]] + points[all[i + 2]]) / 3.0
+		if Geometry2D.is_point_in_polygon(centre, outline):
+			inside.append_array(PackedInt32Array([all[i], all[i + 1], all[i + 2]]))
+	return [points, inside]
 
 func _collect_targets(targets: Dictionary) -> void:
 	if curve == null or curve.point_count < 3:

@@ -1746,7 +1746,10 @@ func _try_start_splat(impact_speed: float) -> bool:
 	# Caer en agua poco honda frena la caida: nunca hay pansazo dentro del agua.
 	if swimming and swimming.is_in_water_at(global_position + Vector3.UP * 0.1):
 		return false
-	if not splat_enabled or impact_speed < splat_min_impact_speed or fall_height < splat_min_fall_height:
+	# Un clavado que acaba en suelo siempre es pansazo, caiga de la altura que caiga.
+	var headfirst := is_water_diving and swimming != null and swimming.dive_jump_splat_on_ground
+	is_water_diving = false
+	if not splat_enabled or (not headfirst and (impact_speed < splat_min_impact_speed or fall_height < splat_min_fall_height)):
 		return false
 	is_splat = true
 	splat_elapsed = 0.0

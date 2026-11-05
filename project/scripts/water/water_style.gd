@@ -53,6 +53,13 @@ extends Resource
 		self_light = value
 		emit_changed()
 
+## 0-1: rios mas claros junto a las orillas y mas azules en el centro del cauce (no depende de la profundidad, asi que
+## las uniones con lagos no cambian). 0 = mismo tono en todo el ancho. En vivo.
+@export_range(0.0, 1.0, 0.01) var river_edge_light := 0.35:
+	set(value):
+		river_edge_light = value
+		emit_changed()
+
 @export_group("Superficie")
 ## Tamano de las ondas en metros. Mayor = ondulacion amplia y tranquila; menor = superficie picada.
 @export_range(0.2, 10.0, 0.05, "suffix:m") var wave_scale := 2.0:
@@ -208,6 +215,24 @@ extends Resource
 		foam_strength = value
 		emit_changed()
 
+@export_group("Lineas de orilla")
+## Segunda linea fina de espuma, discontinua, separada de la orilla hacia el agua (la primera es la espuma de orilla).
+## 0 = sin segunda linea. En vivo.
+@export_range(0.0, 1.0, 0.01) var shore_line_strength := 0.7:
+	set(value):
+		shore_line_strength = value
+		emit_changed()
+## Metros de profundidad del agua donde va la segunda linea (mayor = mas lejos de la orilla). En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:m") var shore_line_depth := 0.35:
+	set(value):
+		shore_line_depth = value
+		emit_changed()
+## Grosor de la segunda linea, en metros de profundidad. En vivo.
+@export_range(0.01, 0.5, 0.005, "suffix:m") var shore_line_width := 0.05:
+	set(value):
+		shore_line_width = value
+		emit_changed()
+
 @export_group("Rapidos y cascadas")
 ## Pendiente del rio en grados donde empiezan los rapidos (mas ondas, corriente mas rapida, espuma).
 @export_range(0.0, 45.0, 0.5, "suffix:degrees") var rapids_start_angle := 4.0:
@@ -229,13 +254,63 @@ extends Resource
 	set(value):
 		fall_full_angle = value
 		emit_changed()
-## Color de la cortina de la cascada.
-@export var fall_color := Color(0.78, 0.90, 0.98):
+## Color base de la cortina de la cascada (el azul del agua cayendo). En vivo.
+@export var fall_color := Color(0.45, 0.67, 0.88):
 	set(value):
 		fall_color = value
 		emit_changed()
-## Densidad de las vetas verticales de la cascada. Mayor = vetas finas.
-@export_range(0.1, 8.0, 0.05) var fall_streak_scale := 3.0:
+## Color de la franja del borde y de las lineas claras de la cortina. En vivo.
+@export var fall_streak_color := Color(0.86, 0.94, 1.0):
+	set(value):
+		fall_streak_color = value
+		emit_changed()
+## Color de las manchas oscuras y de los lados de la cortina (le da volumen redondeado). En vivo.
+@export var fall_shadow_color := Color(0.3, 0.52, 0.78):
+	set(value):
+		fall_shadow_color = value
+		emit_changed()
+## Largo de las manchas oscuras que bajan con el agua (menor = mas largas). En vivo.
+@export_range(0.01, 1.0, 0.005) var fall_streak_length := 0.07:
+	set(value):
+		fall_streak_length = value
+		emit_changed()
+## 0-1: cuanto del color propio de la cascada (Fall Color) se mezcla con el del rio. 0 = la cortina es el mismo agua
+## del rio cayendo (sus colores y crestas), mas oscura abajo; 1 = solo Fall Color. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_color_mix := 0.25:
+	set(value):
+		fall_color_mix = value
+		emit_changed()
+## 0-1: crestas del rio que siguen sobre la cortina, estiradas por la caida. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_crests := 0.6:
+	set(value):
+		fall_crests = value
+		emit_changed()
+## 0-1: transparencia de la cortina: cuanto se ve el acantilado detras, tenido del azul de la cascada. 0 = opaca.
+## En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_transparency := 0.3:
+	set(value):
+		fall_transparency = value
+		emit_changed()
+## 0-1: reflejo del cielo y brillo del sol sobre la cortina. Es el brillo que aparece justo debajo del borde, donde la
+## cortina sale casi horizontal y se ve en angulo rasante. 1 = como el resto del agua (Fresnel Strength, Specular);
+## 0 = la cortina sin reflejos. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_reflection := 1.0:
+	set(value):
+		fall_reflection = value
+		emit_changed()
+## 0-1: cuanto ondulan de lado las lineas claras y las manchas oscuras. 0 = rectas. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_streak_wave := 0.3:
+	set(value):
+		fall_streak_wave = value
+		emit_changed()
+## 0-1: suavidad del borde de las lineas claras y de las manchas. Menor = trazos duros de dibujo; mayor = degradados.
+## En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_streak_softness := 0.35:
+	set(value):
+		fall_streak_softness = value
+		emit_changed()
+## Escala de las manchas oscuras de la cortina. Mayor = manchas mas finas. En vivo.
+@export_range(0.1, 8.0, 0.05) var fall_streak_scale := 1.5:
 	set(value):
 		fall_streak_scale = value
 		emit_changed()
@@ -245,7 +320,7 @@ extends Resource
 		fall_speed = value
 		emit_changed()
 ## 0-2: espuma en los rapidos.
-@export_range(0.0, 2.0, 0.01) var rapids_foam := 0.6:
+@export_range(0.0, 2.0, 0.01) var rapids_foam := 0.2:
 	set(value):
 		rapids_foam = value
 		emit_changed()
@@ -253,6 +328,643 @@ extends Resource
 @export_range(0.0, 2.0, 0.01) var break_foam := 1.0:
 	set(value):
 		break_foam = value
+		emit_changed()
+
+
+@export_subgroup("Cascada · franja del borde")
+## 0-1: opacidad de la franja blanca del borde (donde el agua se asoma y empieza a caer). Menor = mas transparente: deja
+## ver Fall Color (el mismo a ambos lados del borde, sin linea en el pliegue). 0 = sin franja. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_band := 0.85:
+	set(value):
+		fall_lip_band = value
+		emit_changed()
+## Metros antes del borde en que el agua del rio se vuelve opaca y deja de reflejar el cielo (rapida y con aire): el
+## borde del acantilado bajo el agua no se ve como una linea oscura, y los picos de la franja sobre el rio contrastan
+## igual que sus muescas sobre la cortina, se mire desde donde se mire. 0 = agua normal hasta el borde. En vivo.
+@export_range(0.0, 6.0, 0.05, "suffix:m") var fall_lip_opaque := 1.5:
+	set(value):
+		fall_lip_opaque = value
+		emit_changed()
+## Mueve la franja entera a lo largo de la superficie, en metros, sin cambiar su forma: positivo = mas abajo por la
+## cortina; negativo = mas arriba por el rio (hasta unos 6 m antes del borde). 0 = centrada en el borde. En vivo.
+@export_range(-5.0, 10.0, 0.05, "suffix:m") var fall_lip_band_offset := 0.0:
+	set(value):
+		fall_lip_band_offset = value
+		emit_changed()
+## 0-1: transparencia real de la franja: deja ver el agua de debajo (sus crestas y su movimiento). Distinto de Fall Lip
+## Band, que la mezcla con un color uniforme. Con valores altos puede notarse el pliegue del borde, porque el agua es
+## distinta a cada lado. 0 = opaca. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_band_transparency := 0.0:
+	set(value):
+		fall_lip_band_transparency = value
+		emit_changed()
+## Color de la franja y de sus picos (las lineas de la cortina usan Fall Streak Color). En vivo.
+@export var fall_lip_band_color := Color(0.86, 0.94, 1.0):
+	set(value):
+		fall_lip_band_color = value
+		emit_changed()
+## Brillo de la franja y de las lineas claras: color plano, sin luz ni reflejos, igual a ambos lados del borde.
+## 1 = el color tal cual; menor = mas apagadas. En vivo.
+@export_range(0.0, 1.5, 0.01) var fall_marks_light := 1.15:
+	set(value):
+		fall_marks_light = value
+		emit_changed()
+## 0-1: suavidad de los bordes de la franja y de sus muescas. 0 = recortados; 1 = difuminados. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_band_softness := 0.3:
+	set(value):
+		fall_lip_band_softness = value
+		emit_changed()
+## Tamano de las irregularidades de los bordes: mayor = ondulaciones mas pequenas y seguidas; menor = mas amplias. En vivo.
+@export_range(0.2, 4.0, 0.05) var fall_lip_band_ragged_scale := 1.0:
+	set(value):
+		fall_lip_band_ragged_scale = value
+		emit_changed()
+## 0-1: cuanto respira el grosor de la franja con el tiempo, distinto a lo ancho. 0 = grosor fijo. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_band_pulse := 0.25:
+	set(value):
+		fall_lip_band_pulse = value
+		emit_changed()
+## Velocidad con que la franja, sus muescas y sus picos cambian de forma. 0 = quietos. En vivo.
+@export_range(0.0, 5.0, 0.05) var fall_lip_band_speed := 0.8:
+	set(value):
+		fall_lip_band_speed = value
+		emit_changed()
+
+@export_subgroup("Cascada · franja · borde de abajo")
+## Grosor de la franja por debajo del borde, en metros sobre la cortina. Junto con Band Up decide el grosor del
+## centro blanco. En vivo.
+@export_range(0.0, 6.0, 0.01, "suffix:m") var fall_lip_band_height := 1.2:
+	set(value):
+		fall_lip_band_height = value
+		emit_changed()
+## 0-1: irregularidad de este borde (sube y baja a lo ancho). 0 = recto. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_band_ragged := 0.6:
+	set(value):
+		fall_lip_band_ragged = value
+		emit_changed()
+## Forma de este borde: muescas de agua azul que entran en la franja, o picos blancos que salen de ella (misma
+## forma, mismo pulso y velocidad). En vivo.
+@export_enum("Muescas hacia dentro", "Picos hacia fuera") var fall_lip_bottom_shape := 0:
+	set(value):
+		fall_lip_bottom_shape = value
+		emit_changed()
+## 0-1: cuantas muescas o picos tiene este borde. 0 = ninguno. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_bottom_amount := 0.5:
+	set(value):
+		fall_lip_bottom_amount = value
+		emit_changed()
+## Largo medio de las muescas o picos de este borde, en metros (varian entre ellos y con el tiempo). Las muescas no
+## pasan del grosor de la franja. En vivo.
+@export_range(0.0, 6.0, 0.01, "suffix:m") var fall_lip_bottom_size := 0.9:
+	set(value):
+		fall_lip_bottom_size = value
+		emit_changed()
+## Ancho medio de cada muesca o pico en su base, en metros. En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:m") var fall_lip_bottom_width := 0.4:
+	set(value):
+		fall_lip_bottom_width = value
+		emit_changed()
+
+@export_subgroup("Cascada · franja · borde de arriba")
+## Grosor de la franja por encima del borde, en metros sobre el rio. 0 = empieza en el borde. En vivo.
+@export_range(0.0, 6.0, 0.01, "suffix:m") var fall_lip_band_up := 0.25:
+	set(value):
+		fall_lip_band_up = value
+		emit_changed()
+## 0-1: irregularidad de este borde. 0 = recto. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_top_ragged := 0.6:
+	set(value):
+		fall_lip_top_ragged = value
+		emit_changed()
+## Forma de este borde: muescas de agua azul que entran en la franja, o picos blancos que salen hacia el rio. En vivo.
+@export_enum("Muescas hacia dentro", "Picos hacia fuera") var fall_lip_top_shape := 1:
+	set(value):
+		fall_lip_top_shape = value
+		emit_changed()
+## 0-1: cuantas muescas o picos tiene este borde. 0 = ninguno. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_lip_top_amount := 0.6:
+	set(value):
+		fall_lip_top_amount = value
+		emit_changed()
+## Largo medio de las muescas o picos de este borde, en metros. En vivo.
+@export_range(0.0, 6.0, 0.01, "suffix:m") var fall_lip_top_size := 0.8:
+	set(value):
+		fall_lip_top_size = value
+		emit_changed()
+## Ancho medio de cada muesca o pico en su base, en metros. En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:m") var fall_lip_top_width := 0.45:
+	set(value):
+		fall_lip_top_width = value
+		emit_changed()
+
+@export_subgroup("Cascada · franja del pie")
+## 0-1: opacidad de la franja blanca al pie de la cascada (la misma franja que la del borde, anclada abajo). Menor =
+## mezcla con Fall Color. 0 = sin franja. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foot_band := 0.85:
+	set(value):
+		fall_foot_band = value
+		emit_changed()
+## 0-1: transparencia real: deja ver el agua de debajo. 0 = opaca. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foot_band_transparency := 0.0:
+	set(value):
+		fall_foot_band_transparency = value
+		emit_changed()
+## Mueve la franja entera, en metros: positivo = mas arriba por la cortina; negativo = hacia el agua de abajo. En vivo.
+@export_range(-5.0, 10.0, 0.05, "suffix:m") var fall_foot_band_offset := 0.0:
+	set(value):
+		fall_foot_band_offset = value
+		emit_changed()
+## Color de la franja del pie. En vivo.
+@export var fall_foot_band_color := Color(0.86, 0.94, 1.0):
+	set(value):
+		fall_foot_band_color = value
+		emit_changed()
+## 0-1: suavidad de sus bordes y de sus muescas o picos. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foot_band_softness := 0.3:
+	set(value):
+		fall_foot_band_softness = value
+		emit_changed()
+## Tamano de las irregularidades de los bordes: mayor = ondulaciones mas pequenas y seguidas. En vivo.
+@export_range(0.2, 4.0, 0.05) var fall_foot_band_ragged_scale := 1.0:
+	set(value):
+		fall_foot_band_ragged_scale = value
+		emit_changed()
+## 0-1: cuanto respira el grosor con el tiempo. 0 = fijo. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foot_band_pulse := 0.25:
+	set(value):
+		fall_foot_band_pulse = value
+		emit_changed()
+## Velocidad con que cambia de forma. 0 = quieta. En vivo.
+@export_range(0.0, 5.0, 0.05) var fall_foot_band_speed := 0.8:
+	set(value):
+		fall_foot_band_speed = value
+		emit_changed()
+
+@export_subgroup("Cascada · franja del pie · borde de arriba")
+## Grosor de la franja por encima del pie, en metros sobre la cortina. En vivo.
+@export_range(0.0, 8.0, 0.01, "suffix:m") var fall_foot_band_up := 1.8:
+	set(value):
+		fall_foot_band_up = value
+		emit_changed()
+## 0-1: irregularidad de este borde. 0 = recto. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foot_top_ragged := 0.6:
+	set(value):
+		fall_foot_top_ragged = value
+		emit_changed()
+## Forma de este borde: muescas de agua azul que entran en la franja, o picos blancos que suben por la cortina.
+## En vivo.
+@export_enum("Muescas hacia dentro", "Picos hacia fuera") var fall_foot_top_shape := 1:
+	set(value):
+		fall_foot_top_shape = value
+		emit_changed()
+## 0-1: cuantas muescas o picos. 0 = ninguno. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foot_top_amount := 0.8:
+	set(value):
+		fall_foot_top_amount = value
+		emit_changed()
+## Largo medio de las muescas o picos, en metros. Las muescas no pasan del grosor. En vivo.
+@export_range(0.0, 8.0, 0.01, "suffix:m") var fall_foot_top_size := 1.8:
+	set(value):
+		fall_foot_top_size = value
+		emit_changed()
+## Ancho medio de cada muesca o pico en su base, en metros. En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:m") var fall_foot_top_width := 0.45:
+	set(value):
+		fall_foot_top_width = value
+		emit_changed()
+
+@export_subgroup("Cascada · franja del pie · borde de abajo")
+## Grosor de la franja por debajo del pie, en metros sobre el agua de abajo. 0 = acaba en el pie. En vivo.
+@export_range(0.0, 6.0, 0.01, "suffix:m") var fall_foot_band_down := 0.3:
+	set(value):
+		fall_foot_band_down = value
+		emit_changed()
+## 0-1: irregularidad de este borde. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foot_bottom_ragged := 0.6:
+	set(value):
+		fall_foot_bottom_ragged = value
+		emit_changed()
+## Forma de este borde: muescas que entran en la franja, o picos que salen hacia el agua. En vivo.
+@export_enum("Muescas hacia dentro", "Picos hacia fuera") var fall_foot_bottom_shape := 0:
+	set(value):
+		fall_foot_bottom_shape = value
+		emit_changed()
+## 0-1: cuantas muescas o picos. 0 = ninguno. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foot_bottom_amount := 0.0:
+	set(value):
+		fall_foot_bottom_amount = value
+		emit_changed()
+## Largo medio, en metros. En vivo.
+@export_range(0.0, 6.0, 0.01, "suffix:m") var fall_foot_bottom_size := 0.5:
+	set(value):
+		fall_foot_bottom_size = value
+		emit_changed()
+## Ancho medio en la base, en metros. En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:m") var fall_foot_bottom_width := 0.4:
+	set(value):
+		fall_foot_bottom_width = value
+		emit_changed()
+
+@export_subgroup("Cascada · lineas de arriba")
+## Lineas claras arriba: pinceladas blancas que cuelgan de la franja del borde hacia abajo, de largo y ancho variables, en punta y animadas.
+## En vivo.
+@export var fall_top_enabled := true:
+	set(value):
+		fall_top_enabled = value
+		emit_changed()
+## 0-1: opacidad de estas lineas. 0 = sin lineas. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_top_amount := 0.9:
+	set(value):
+		fall_top_amount = value
+		emit_changed()
+## Huecos por metro de ancho de la cortina; cada uno puede tener una linea (ver Chance). Mayor = mas lineas. En vivo.
+@export_range(0.1, 6.0, 0.05) var fall_top_density := 1.2:
+	set(value):
+		fall_top_density = value
+		emit_changed()
+## 0-1: probabilidad de que cada hueco tenga linea. Menor = lineas mas sueltas, con huecos entre ellas. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_top_chance := 0.8:
+	set(value):
+		fall_top_chance = value
+		emit_changed()
+## Largo medio como fraccion de la caida (0,3 = un 30 % de la altura). En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_top_length := 0.3:
+	set(value):
+		fall_top_length = value
+		emit_changed()
+## 0-1: cuanto varia el largo entre lineas: picos cortos y largos mezclados. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_top_length_variation := 0.8:
+	set(value):
+		fall_top_length_variation = value
+		emit_changed()
+## Ancho medio de cada linea en su parte gruesa, en metros. En vivo.
+@export_range(0.02, 2.0, 0.01, "suffix:m") var fall_top_width := 0.9:
+	set(value):
+		fall_top_width = value
+		emit_changed()
+## 0-1: cuanto varia el ancho entre lineas. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_top_width_variation := 0.6:
+	set(value):
+		fall_top_width_variation = value
+		emit_changed()
+## 0-1: cuanto se estrechan a lo largo. 1 = triangulos; 0 = rectas hasta la punta. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_top_taper := 0.45:
+	set(value):
+		fall_top_taper = value
+		emit_changed()
+## 0-1: largo de la punta como fraccion de cada linea (siempre acaban en punta). Mayor = mas afiladas. En vivo.
+@export_range(0.05, 1.0, 0.01) var fall_top_tip := 0.55:
+	set(value):
+		fall_top_tip = value
+		emit_changed()
+## 0-1: bordes irregulares (muescas y ensanches que se mueven). 0 = bordes lisos. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_top_ragged := 0.55:
+	set(value):
+		fall_top_ragged = value
+		emit_changed()
+## 0-1: cuanto crece y encoge cada linea con el tiempo, cada una a su ritmo (tambien respira de ancho). 0 = quietas.
+@export_range(0.0, 1.0, 0.01) var fall_top_pulse := 0.45:
+	set(value):
+		fall_top_pulse = value
+		emit_changed()
+## Velocidad de ese crecer y encoger (y del movimiento de los bordes). En vivo.
+@export_range(0.0, 6.0, 0.05) var fall_top_pulse_speed := 1.1:
+	set(value):
+		fall_top_pulse_speed = value
+		emit_changed()
+
+@export_subgroup("Cascada · lineas de abajo")
+## Lineas claras abajo: pinceladas blancas que suben desde la espuma de la base, de largo y ancho variables, en punta y animadas.
+## En vivo.
+@export var fall_bottom_enabled := true:
+	set(value):
+		fall_bottom_enabled = value
+		emit_changed()
+## 0-1: opacidad de estas lineas. 0 = sin lineas. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bottom_amount := 0.9:
+	set(value):
+		fall_bottom_amount = value
+		emit_changed()
+## Huecos por metro de ancho de la cortina; cada uno puede tener una linea (ver Chance). Mayor = mas lineas. En vivo.
+@export_range(0.1, 6.0, 0.05) var fall_bottom_density := 1.1:
+	set(value):
+		fall_bottom_density = value
+		emit_changed()
+## 0-1: probabilidad de que cada hueco tenga linea. Menor = lineas mas sueltas, con huecos entre ellas. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bottom_chance := 0.7:
+	set(value):
+		fall_bottom_chance = value
+		emit_changed()
+## Largo medio como fraccion de la caida (0,3 = un 30 % de la altura). En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bottom_length := 0.25:
+	set(value):
+		fall_bottom_length = value
+		emit_changed()
+## 0-1: cuanto varia el largo entre lineas: picos cortos y largos mezclados. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bottom_length_variation := 0.65:
+	set(value):
+		fall_bottom_length_variation = value
+		emit_changed()
+## Ancho medio de cada linea en su parte gruesa, en metros. En vivo.
+@export_range(0.02, 2.0, 0.01, "suffix:m") var fall_bottom_width := 0.9:
+	set(value):
+		fall_bottom_width = value
+		emit_changed()
+## 0-1: cuanto varia el ancho entre lineas. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bottom_width_variation := 0.5:
+	set(value):
+		fall_bottom_width_variation = value
+		emit_changed()
+## 0-1: cuanto se estrechan a lo largo. 1 = triangulos; 0 = rectas hasta la punta. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bottom_taper := 0.45:
+	set(value):
+		fall_bottom_taper = value
+		emit_changed()
+## 0-1: largo de la punta como fraccion de cada linea (siempre acaban en punta). Mayor = mas afiladas. En vivo.
+@export_range(0.05, 1.0, 0.01) var fall_bottom_tip := 0.5:
+	set(value):
+		fall_bottom_tip = value
+		emit_changed()
+## 0-1: bordes irregulares (muescas y ensanches que se mueven). 0 = bordes lisos. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bottom_ragged := 0.6:
+	set(value):
+		fall_bottom_ragged = value
+		emit_changed()
+## 0-1: cuanto crece y encoge cada linea con el tiempo, cada una a su ritmo (tambien respira de ancho). 0 = quietas.
+@export_range(0.0, 1.0, 0.01) var fall_bottom_pulse := 0.5:
+	set(value):
+		fall_bottom_pulse = value
+		emit_changed()
+## Velocidad de ese crecer y encoger (y del movimiento de los bordes). En vivo.
+@export_range(0.0, 6.0, 0.05) var fall_bottom_pulse_speed := 1.6:
+	set(value):
+		fall_bottom_pulse_speed = value
+		emit_changed()
+
+@export_subgroup("Cascada · lineas (comun)")
+## 0-1: el agua corre por dentro de franja y lineas (brillo que baja con Fall Speed). En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_streak_shimmer := 0.25:
+	set(value):
+		fall_streak_shimmer = value
+		emit_changed()
+## Cambia el reparto aleatorio de franja, muescas y lineas. En vivo.
+@export_range(0, 999, 1) var fall_streak_seed := 0:
+	set(value):
+		fall_streak_seed = value
+		emit_changed()
+
+@export_group("Cascada · efectos")
+## Espuma, lobulos, burbujas, gotas y neblina al pie de las cascadas de todos los rios que usan este estilo.
+## Espuma, neblina y salpicaduras en la base de cada cascada de cada rio. Solo visuales. Se colocan solas donde acaba cada
+## tramo empinado. En vivo.
+@export var fall_fx_enabled := true:
+	set(value):
+		fall_fx_enabled = value
+		emit_changed()
+## Espuma al pie de la cascada: franja de lobulos esponjosos que laten y lineas blancas curvas en el agua. En vivo.
+@export var fall_foam_enabled := true:
+	set(value):
+		fall_foam_enabled = value
+		emit_changed()
+## Tamano de la espuma respecto al ancho de la cortina. Mayor = la espuma se extiende mas por la poza. En vivo.
+@export_range(0.5, 5.0, 0.05) var fall_foam_size := 1.8:
+	set(value):
+		fall_foam_size = value
+		emit_changed()
+## Opacidad de las lineas de espuma del agua (0-1). En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foam_opacity := 0.65:
+	set(value):
+		fall_foam_opacity = value
+		emit_changed()
+## Radio de la mancha blanca solida bajo los lobulos (fraccion del tamano de la espuma). 0 = sin mancha. En vivo.
+@export_range(0.0, 0.5, 0.005) var fall_foam_patch := 0.19:
+	set(value):
+		fall_foam_patch = value
+		emit_changed()
+## Lineas de espuma que salen del impacto (mayor = mas lineas y mas juntas). En vivo.
+@export_range(0.5, 20.0, 0.1) var fall_foam_rings := 5.0:
+	set(value):
+		fall_foam_rings = value
+		emit_changed()
+## Velocidad con que las lineas se alejan del impacto. 0 = quietas. En vivo.
+@export_range(0.0, 5.0, 0.05) var fall_foam_ring_speed := 1.2:
+	set(value):
+		fall_foam_ring_speed = value
+		emit_changed()
+## 0-1: grosor de cada linea (fraccion del hueco entre lineas). En vivo.
+@export_range(0.02, 0.9, 0.01) var fall_foam_line_width := 0.16:
+	set(value):
+		fall_foam_line_width = value
+		emit_changed()
+## 0-1: cuanto se cortan las lineas en trazos. 0 = anillos enteros; 1 = trazos sueltos. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_foam_dashes := 0.5:
+	set(value):
+		fall_foam_dashes = value
+		emit_changed()
+## Hasta donde llegan las lineas antes de desvanecerse (fraccion del tamano de la espuma). En vivo.
+@export_range(0.1, 1.0, 0.01) var fall_foam_reach := 0.62:
+	set(value):
+		fall_foam_reach = value
+		emit_changed()
+## Ondulacion de la mancha y de las lineas. 0 = circulos perfectos. En vivo.
+@export_range(0.0, 0.3, 0.005) var fall_foam_wobble := 0.06:
+	set(value):
+		fall_foam_wobble = value
+		emit_changed()
+## Velocidad general de la animacion de la espuma (cortes, ondulacion y lineas). En vivo.
+@export_range(0.0, 3.0, 0.05) var fall_foam_drift := 0.6:
+	set(value):
+		fall_foam_drift = value
+		emit_changed()
+## Tamano de los lobulos de espuma, en metros (radio medio). En vivo.
+@export_range(0.1, 3.0, 0.01, "suffix:m") var fall_puff_size := 0.7:
+	set(value):
+		fall_puff_size = value
+		emit_changed()
+## Lobulos por metro de ancho de la cortina. En vivo.
+@export_range(0.5, 20.0, 0.05) var fall_puff_density := 4.0:
+	set(value):
+		fall_puff_density = value
+		emit_changed()
+## Cuanto laten los lobulos (0 = quietos). En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_pulse := 0.35:
+	set(value):
+		fall_puff_pulse = value
+		emit_changed()
+## Opacidad de los lobulos de espuma (0-1). Algo translucidos dejan ver el agua y la cortina detras. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_opacity := 0.85:
+	set(value):
+		fall_puff_opacity = value
+		emit_changed()
+## 0-1: cuanto varia el tamano entre lobulos. 0 = todos iguales; 1 = de pequenos a el doble. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_size_variation := 0.6:
+	set(value):
+		fall_puff_size_variation = value
+		emit_changed()
+## 0-1: cuanto varia la forma: unos mas aplastados, otros mas altos o alargados, girados al azar. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_shape_variation := 0.5:
+	set(value):
+		fall_puff_shape_variation = value
+		emit_changed()
+## 0-1: desorden de la colocacion: lobulos que se adelantan, se atrasan y suben o bajan. 0 = filas ordenadas.
+@export_range(0.0, 1.0, 0.01) var fall_puff_scatter := 0.5:
+	set(value):
+		fall_puff_scatter = value
+		emit_changed()
+## 0-1: lobulos pequenos extra repartidos entre los grandes y por delante, como espuma suelta. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_small_ratio := 0.35:
+	set(value):
+		fall_puff_small_ratio = value
+		emit_changed()
+## Hasta donde se alejan los lobulos pequenos sueltos, en tamanos de lobulo por delante de la franja de espuma (cada uno
+## a una distancia al azar entre la mitad y este valor). Menor = sueltos pegados al grupo. En vivo.
+@export_range(0.0, 8.0, 0.05) var fall_puff_small_distance := 3.0:
+	set(value):
+		fall_puff_small_distance = value
+		emit_changed()
+## Cambia el reparto aleatorio de los lobulos. En vivo.
+@export_range(0, 999, 1) var fall_puff_seed := 7:
+	set(value):
+		fall_puff_seed = value
+		emit_changed()
+## Ciclo de vida de los lobulos: cada uno surge, crece, encoge hasta desaparecer y vuelve a surgir en otro sitio y
+## con otro tamano. Apagado = lobulos fijos (solo laten). En vivo.
+@export var fall_puff_life_enabled := true:
+	set(value):
+		fall_puff_life_enabled = value
+		emit_changed()
+## Ciclos por segundo de media (0,45 = cada lobulo vive unos 2 s). Mayor = espuma mas agitada. En vivo.
+@export_range(0.0, 3.0, 0.01) var fall_puff_life_speed := 0.45:
+	set(value):
+		fall_puff_life_speed = value
+		emit_changed()
+## 0-1: cuanto difiere el ritmo entre lobulos (0 = todos a la vez; 1 = muy desacompasados). En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_life_speed_variation := 0.6:
+	set(value):
+		fall_puff_life_speed_variation = value
+		emit_changed()
+## 0-1: cuanto cambia el tamano de una aparicion a la siguiente. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_life_size_variation := 0.5:
+	set(value):
+		fall_puff_life_size_variation = value
+		emit_changed()
+## Cuanto se mueve un lobulo de una aparicion a otra, en radios de lobulo. 0 = siempre en el mismo sitio. En vivo.
+@export_range(0.0, 3.0, 0.01) var fall_puff_wander := 0.8:
+	set(value):
+		fall_puff_wander = value
+		emit_changed()
+## 0-1: tamano minimo del ciclo. 0 = desaparece del todo; mayor = solo encoge. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_min_size := 0.0:
+	set(value):
+		fall_puff_min_size = value
+		emit_changed()
+## 0-1: parte del ciclo que pasa a tamano completo. 0 = siempre creciendo o encogiendo; mayor = aparece, se
+## queda y se va rapido. En vivo.
+@export_range(0.0, 0.95, 0.01) var fall_puff_hold := 0.3:
+	set(value):
+		fall_puff_hold = value
+		emit_changed()
+## 0-1: sombra de los lobulos de espuma: cuanto se ve su lado oscuro (FX Shadow Color). 0 = sin sombra, todo del color
+## claro (FX Color); 1 = dos tonos completos. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_puff_shading := 1.0:
+	set(value):
+		fall_puff_shading = value
+		emit_changed()
+## Color en sombra de los lobulos y las gotas (el claro es FX Color). En vivo.
+@export var fall_fx_shadow_color := Color(0.56, 0.8, 0.95):
+	set(value):
+		fall_fx_shadow_color = value
+		emit_changed()
+## Neblina: nubecillas blancas que suben y se dispersan desde la base. En vivo.
+@export var fall_mist_enabled := false:
+	set(value):
+		fall_mist_enabled = value
+		emit_changed()
+## Nubecillas de neblina vivas a la vez. Coste: particulas de CPU (pocas). En vivo.
+@export_range(0, 200, 1) var fall_mist_amount := 40:
+	set(value):
+		fall_mist_amount = value
+		emit_changed()
+## Tamano de cada nubecilla, en metros. En vivo.
+@export_range(0.1, 6.0, 0.05, "suffix:m") var fall_mist_size := 2.0:
+	set(value):
+		fall_mist_size = value
+		emit_changed()
+## Altura en metros a la que sube la neblina antes de desvanecerse. En vivo.
+@export_range(0.2, 15.0, 0.1, "suffix:m") var fall_mist_height := 3.0:
+	set(value):
+		fall_mist_height = value
+		emit_changed()
+## Opacidad de la neblina (0-1). En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_mist_opacity := 0.5:
+	set(value):
+		fall_mist_opacity = value
+		emit_changed()
+## Gotas que saltan al chocar el agua con la poza. En vivo.
+@export var fall_splash_enabled := true:
+	set(value):
+		fall_splash_enabled = value
+		emit_changed()
+## Gotas vivas a la vez. En vivo.
+@export_range(0, 300, 1) var fall_splash_amount := 140:
+	set(value):
+		fall_splash_amount = value
+		emit_changed()
+## Altura en metros que alcanzan las gotas. En vivo.
+@export_range(0.2, 8.0, 0.05, "suffix:m") var fall_splash_height := 1.8:
+	set(value):
+		fall_splash_height = value
+		emit_changed()
+## Particulas de espuma: burbujitas blancas que aparecen sobre la espuma de la base, se alejan con el agua y se
+## deshacen. En vivo.
+@export var fall_bubbles_enabled := true:
+	set(value):
+		fall_bubbles_enabled = value
+		emit_changed()
+## Burbujitas vivas a la vez. Coste: particulas de CPU (pocas). En vivo.
+@export_range(0, 300, 1) var fall_bubbles_amount := 70:
+	set(value):
+		fall_bubbles_amount = value
+		emit_changed()
+## Tamano medio de cada burbujita, en metros. En vivo.
+@export_range(0.02, 0.6, 0.01, "suffix:m") var fall_bubbles_size := 0.12:
+	set(value):
+		fall_bubbles_size = value
+		emit_changed()
+## Hasta donde se alejan de la cortina, respecto al ancho de la cascada. En vivo.
+@export_range(0.2, 4.0, 0.05) var fall_bubbles_spread := 1.2:
+	set(value):
+		fall_bubbles_spread = value
+		emit_changed()
+## Tamano de las gotas (1 = como las del chapuzon del jugador). En vivo.
+@export_range(0.2, 3.0, 0.05) var fall_splash_size := 1.0:
+	set(value):
+		fall_splash_size = value
+		emit_changed()
+## 0-1: opacidad de las burbujitas de espuma. Menor = mas transparentes. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bubbles_opacity := 0.85:
+	set(value):
+		fall_bubbles_opacity = value
+		emit_changed()
+## 0-1: sombra de las burbujitas (su lado oscuro, FX Shadow Color). 0 = un solo tono claro. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_bubbles_shading := 1.0:
+	set(value):
+		fall_bubbles_shading = value
+		emit_changed()
+## 0-1: opacidad de las gotas. Menor = mas transparentes. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_splash_opacity := 1.0:
+	set(value):
+		fall_splash_opacity = value
+		emit_changed()
+## 0-1: cuanto se oscurecen las gotas al caer (hacia FX Shadow Color). 0 = siempre del color claro. En vivo.
+@export_range(0.0, 1.0, 0.01) var fall_splash_shading := 0.6:
+	set(value):
+		fall_splash_shading = value
+		emit_changed()
+## Color de espuma, neblina y gotas. En vivo.
+@export var fall_fx_color := Color(0.84, 0.95, 1.0):
+	set(value):
+		fall_fx_color = value
 		emit_changed()
 
 @export_group("Reflejo")
@@ -352,6 +1064,80 @@ extends Resource
 		underwater_window = value
 		emit_changed()
 
+@export_group("Movimiento de la superficie")
+## La superficie sube y baja de verdad: oleaje suave de fondo y las ondas del jugador levantan el agua (se ve a ras de
+## agua y en la orilla). Apagado = superficie plana (solo cambian reflejos). Al cambiarlo las mallas se rehacen mas
+## densas o vuelven a ser ligeras. Coste: mas vertices en lagos y rios. Apagado por defecto (experimental). En vivo.
+@export var surface_motion_enabled := false:
+	set(value):
+		surface_motion_enabled = value
+		emit_changed()
+## Separacion en metros entre vertices de la malla con movimiento. Menor = ondas mas suaves y redondas; coste: muchos mas
+## vertices (a 0,3 m un lago de 35 m tiene unos 15.000). Rehace las mallas. En vivo.
+@export_range(0.1, 2.0, 0.05, "suffix:m") var surface_resolution := 0.3:
+	set(value):
+		surface_resolution = value
+		emit_changed()
+## Altura del oleaje de fondo, en metros (de valle a cresta aprox. el doble). 0 = sin oleaje, solo ondas del jugador.
+## En vivo.
+@export_range(0.0, 0.5, 0.005, "suffix:m") var swell_height := 0.1:
+	set(value):
+		swell_height = value
+		emit_changed()
+## Tamano de las olas de fondo, en metros. Mayor = ondulacion larga y lenta. En vivo.
+@export_range(0.5, 30.0, 0.1, "suffix:m") var swell_scale := 4.0:
+	set(value):
+		swell_scale = value
+		emit_changed()
+## Velocidad del oleaje de fondo, en ciclos por segundo de la ola mayor. En vivo.
+@export_range(0.0, 3.0, 0.01) var swell_speed := 0.25:
+	set(value):
+		swell_speed = value
+		emit_changed()
+## Altura que levanta una onda del jugador de fuerza 1, en metros. En vivo.
+@export_range(0.0, 0.5, 0.005, "suffix:m") var player_wave_height := 0.14:
+	set(value):
+		player_wave_height = value
+		emit_changed()
+
+@export_group("Ondas del jugador")
+## Ondas reales que el jugador crea al caer, nadar o caminar por el agua: anillos que se expanden por la superficie, se
+## cruzan y se apagan, doblando reflejos, crestas y refraccion. Se activan en el nodo Swimming (Real Waves Enabled). En vivo.
+@export_range(0.05, 3.0, 0.01, "suffix:m") var player_wave_length := 0.45:
+	set(value):
+		player_wave_length = value
+		emit_changed()
+## Velocidad a la que se expanden los anillos, en m/s. En vivo.
+@export_range(0.1, 10.0, 0.05, "suffix:m/s") var player_wave_speed := 1.4:
+	set(value):
+		player_wave_speed = value
+		emit_changed()
+## Cuanto doblan la superficie (inclinacion de las ondas). Mayor = ondas mas marcadas. En vivo.
+@export_range(0.0, 3.0, 0.01) var player_wave_strength := 1.8:
+	set(value):
+		player_wave_strength = value
+		emit_changed()
+## Ondas por anillo: ancho del tren de ondas en longitudes de onda. Mayor = mas ondulaciones concentricas. En vivo.
+@export_range(0.3, 6.0, 0.05) var player_wave_rings := 1.6:
+	set(value):
+		player_wave_rings = value
+		emit_changed()
+## Rapidez con que se apagan, por segundo. Mayor = desaparecen antes. En vivo.
+@export_range(0.05, 5.0, 0.01) var player_wave_damping := 0.9:
+	set(value):
+		player_wave_damping = value
+		emit_changed()
+## Cuanto se apagan al alejarse del origen. Mayor = solo cerca del jugador. En vivo.
+@export_range(0.0, 3.0, 0.01) var player_wave_falloff := 0.25:
+	set(value):
+		player_wave_falloff = value
+		emit_changed()
+## Brillo en las crestas de las ondas (0 = solo cambian los reflejos). En vivo.
+@export_range(0.0, 2.0, 0.01) var player_wave_highlight := 0.5:
+	set(value):
+		player_wave_highlight = value
+		emit_changed()
+
 @export_group("Buceador visible")
 ## Solo afecta al jugador mientras bucea (el resto del agua no cambia): metros de agua a traves de los que aun se le ve
 ## claro desde fuera. Mayor = se ve nitido aunque bucee hondo; menor = se pierde enseguida. La camara lo activa con Reveal
@@ -383,12 +1169,60 @@ func apply(material: ShaderMaterial) -> void:
 		"foam_noise_scale": foam_noise_scale, "foam_breakup": foam_breakup, "foam_strength": foam_strength,
 		"rapids_start": rapids_start_angle / 90.0, "rapids_full": maxf(rapids_full_angle, rapids_start_angle + 0.5) / 90.0,
 		"fall_start": fall_start_angle / 90.0, "fall_full": maxf(fall_full_angle, fall_start_angle + 0.5) / 90.0,
-		"fall_color": fall_color, "fall_streak_scale": fall_streak_scale, "fall_speed": fall_speed,
+		"fall_color": fall_color, "fall_streak_scale": fall_streak_scale, "fall_speed": fall_speed, 
+		"fall_streak_color": fall_streak_color, "fall_shadow_color": fall_shadow_color, 
+		"fall_streak_length": fall_streak_length,
+		"fall_transparency": fall_transparency, "fall_reflection": fall_reflection,
+		"fall_color_mix": fall_color_mix, "fall_crests": fall_crests, "river_edge_light": river_edge_light,
+		"shore_line_strength": shore_line_strength, "shore_line_depth": shore_line_depth, "shore_line_width": shore_line_width, "fall_streak_wave": fall_streak_wave,
+		"fall_streak_softness": fall_streak_softness,
+		"fall_foot_band": fall_foot_band, "fall_foot_band_transparency": fall_foot_band_transparency,
+		"fall_foot_band_offset": fall_foot_band_offset, "fall_foot_band_color": fall_foot_band_color,
+		"fall_foot_band_softness": fall_foot_band_softness,
+		"fall_foot_band_ragged_scale": fall_foot_band_ragged_scale, "fall_foot_band_pulse": fall_foot_band_pulse,
+		"fall_foot_band_speed": fall_foot_band_speed, "fall_foot_band_up": fall_foot_band_up,
+		"fall_foot_top_ragged": fall_foot_top_ragged, "fall_foot_top_shape": fall_foot_top_shape,
+		"fall_foot_top_amount": fall_foot_top_amount, "fall_foot_top_size": fall_foot_top_size,
+		"fall_foot_top_width": fall_foot_top_width, "fall_foot_band_down": fall_foot_band_down,
+		"fall_foot_bottom_ragged": fall_foot_bottom_ragged, "fall_foot_bottom_shape": fall_foot_bottom_shape,
+		"fall_foot_bottom_amount": fall_foot_bottom_amount, "fall_foot_bottom_size": fall_foot_bottom_size,
+		"fall_foot_bottom_width": fall_foot_bottom_width,
+		"fall_lip_band": fall_lip_band, "fall_lip_band_transparency": fall_lip_band_transparency, "fall_lip_band_offset": fall_lip_band_offset, "fall_lip_opaque": fall_lip_opaque, "fall_lip_band_color": fall_lip_band_color,
+		"fall_marks_light": fall_marks_light, "fall_lip_band_softness": fall_lip_band_softness,
+		"fall_lip_band_ragged_scale": fall_lip_band_ragged_scale, "fall_lip_band_pulse": fall_lip_band_pulse,
+		"fall_lip_band_speed": fall_lip_band_speed, "fall_lip_band_height": fall_lip_band_height, "fall_lip_band_ragged": fall_lip_band_ragged,
+		"fall_lip_bottom_shape": fall_lip_bottom_shape, "fall_lip_bottom_amount": fall_lip_bottom_amount,
+		"fall_lip_bottom_size": fall_lip_bottom_size, "fall_lip_bottom_width": fall_lip_bottom_width,
+		"fall_lip_band_up": fall_lip_band_up, "fall_lip_top_ragged": fall_lip_top_ragged,
+		"fall_lip_top_shape": fall_lip_top_shape, "fall_lip_top_amount": fall_lip_top_amount,
+		"fall_lip_top_size": fall_lip_top_size, "fall_lip_top_width": fall_lip_top_width, "fall_streak_shimmer": fall_streak_shimmer,
+		"fall_top_enabled": fall_top_enabled, "fall_top_amount": fall_top_amount, "fall_top_density": fall_top_density,
+		"fall_top_chance": fall_top_chance, "fall_top_length": fall_top_length,
+		"fall_top_length_variation": fall_top_length_variation, "fall_top_width": fall_top_width,
+		"fall_top_width_variation": fall_top_width_variation, "fall_top_taper": fall_top_taper,
+		"fall_top_tip": fall_top_tip, "fall_top_ragged": fall_top_ragged, "fall_top_pulse": fall_top_pulse,
+		"fall_top_pulse_speed": fall_top_pulse_speed, "fall_bottom_enabled": fall_bottom_enabled,
+		"fall_bottom_amount": fall_bottom_amount, "fall_bottom_density": fall_bottom_density,
+		"fall_bottom_chance": fall_bottom_chance, "fall_bottom_length": fall_bottom_length,
+		"fall_bottom_length_variation": fall_bottom_length_variation, "fall_bottom_width": fall_bottom_width,
+		"fall_bottom_width_variation": fall_bottom_width_variation, "fall_bottom_taper": fall_bottom_taper,
+		"fall_bottom_tip": fall_bottom_tip, "fall_bottom_ragged": fall_bottom_ragged,
+		"fall_bottom_pulse": fall_bottom_pulse, "fall_bottom_pulse_speed": fall_bottom_pulse_speed,
+		"fall_streak_seed": float(fall_streak_seed),
 		"rapids_foam": rapids_foam, "break_foam": break_foam, "sky_color": sky_color,
 		"fresnel_strength": fresnel_strength, "fresnel_power": fresnel_power, "specular_amount": specular,
 		"roughness_amount": roughness, "caustic_color": caustic_color, "caustic_scale": caustic_scale,
 		"caustic_speed": caustic_speed, "caustic_strength": caustic_strength, "far_distance": far_distance,
 		"under_surface_color": underwater_surface_color, "under_window": underwater_window,
+		"pw_length": player_wave_length, "pw_speed": player_wave_speed, "pw_strength": player_wave_strength,
+		"pw_rings": player_wave_rings, "pw_damping": player_wave_damping, "pw_falloff": player_wave_falloff,
+		"pw_highlight": player_wave_highlight,
+		"motion_enabled": surface_motion_enabled, "swell_height": swell_height, "swell_scale": swell_scale,
+		"swell_speed": swell_speed, "pw_height": player_wave_height,
 	}
 	for parameter: String in values:
 		material.set_shader_parameter(parameter, values[parameter])
+
+## Values of the fall effects (Cascada · efectos); a river rebuilds its foam, lumps, bubbles and drops when they change.
+func fall_fx_key() -> Array:
+	return [fall_fx_enabled, fall_foam_enabled, fall_foam_size, fall_foam_opacity, fall_foam_patch, fall_foam_rings, fall_foam_ring_speed, fall_foam_line_width, fall_foam_dashes, fall_foam_reach, fall_foam_wobble, fall_foam_drift, fall_puff_size, fall_puff_density, fall_puff_pulse, fall_puff_opacity, fall_puff_size_variation, fall_puff_shape_variation, fall_puff_scatter, fall_puff_small_ratio, fall_puff_small_distance, fall_puff_seed, fall_puff_life_enabled, fall_puff_life_speed, fall_puff_life_speed_variation, fall_puff_life_size_variation, fall_puff_wander, fall_puff_min_size, fall_puff_hold, fall_puff_shading, fall_fx_shadow_color, fall_mist_enabled, fall_mist_amount, fall_mist_size, fall_mist_height, fall_mist_opacity, fall_splash_enabled, fall_splash_amount, fall_splash_height, fall_bubbles_enabled, fall_bubbles_amount, fall_bubbles_size, fall_bubbles_spread, fall_splash_size, fall_bubbles_opacity, fall_bubbles_shading, fall_splash_opacity, fall_splash_shading, fall_fx_color]

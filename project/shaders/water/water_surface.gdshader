@@ -57,10 +57,93 @@ uniform float rapids_start = 0.04;
 uniform float rapids_full = 0.17;
 uniform float fall_start = 0.39;
 uniform float fall_full = 0.67;
-uniform vec4 fall_color : source_color = vec4(0.78, 0.90, 0.98, 1.0);
-uniform float fall_streak_scale = 3.0;
+uniform vec4 fall_color : source_color = vec4(0.45, 0.67, 0.88, 1.0);
+uniform vec4 fall_streak_color : source_color = vec4(0.86, 0.94, 1.0, 1.0);
+uniform vec4 fall_shadow_color : source_color = vec4(0.3, 0.52, 0.78, 1.0);
+uniform float fall_streak_length = 0.07;
+uniform float fall_transparency = 0.3;
+uniform float fall_reflection = 1.0;
+uniform float fall_foot_band = 0.85;
+uniform float fall_foot_band_transparency = 0.0;
+uniform float fall_foot_band_offset = 0.0;
+uniform vec4 fall_foot_band_color : source_color = vec4(0.86, 0.94, 1.0, 1.0);
+uniform float fall_foot_band_softness = 0.3;
+uniform float fall_foot_band_ragged_scale = 1.0;
+uniform float fall_foot_band_pulse = 0.25;
+uniform float fall_foot_band_speed = 0.8;
+uniform float fall_foot_band_up = 1.8;
+uniform float fall_foot_top_ragged = 0.6;
+uniform int fall_foot_top_shape = 1;
+uniform float fall_foot_top_amount = 0.8;
+uniform float fall_foot_top_size = 1.8;
+uniform float fall_foot_top_width = 0.45;
+uniform float fall_foot_band_down = 0.3;
+uniform float fall_foot_bottom_ragged = 0.6;
+uniform int fall_foot_bottom_shape = 0;
+uniform float fall_foot_bottom_amount = 0.0;
+uniform float fall_foot_bottom_size = 0.5;
+uniform float fall_foot_bottom_width = 0.4;
+uniform float fall_lip_band = 0.85;
+uniform float fall_lip_band_offset = 0.0;
+uniform float fall_lip_band_transparency = 0.0;
+uniform float fall_lip_opaque = 1.5;
+uniform vec4 fall_lip_band_color : source_color = vec4(0.86, 0.94, 1.0, 1.0);
+uniform float fall_lip_band_softness = 0.3;
+uniform float fall_lip_band_ragged_scale = 1.0;
+uniform float fall_lip_band_pulse = 0.25;
+uniform float fall_lip_band_speed = 0.8;
+uniform float fall_lip_band_height = 1.2;
+uniform int fall_lip_bottom_shape = 0;
+uniform float fall_lip_bottom_amount = 0.5;
+uniform float fall_lip_bottom_size = 0.9;
+uniform float fall_lip_bottom_width = 0.4;
+uniform int fall_lip_top_shape = 1;
+uniform float fall_lip_top_amount = 0.6;
+uniform float fall_lip_top_size = 0.8;
+uniform float fall_lip_top_width = 0.45;
+uniform float fall_lip_band_ragged = 0.6;
+uniform float fall_lip_band_up = 0.25;
+uniform float fall_lip_top_ragged = 0.6;
+uniform float fall_marks_light = 1.15;
+uniform float fall_streak_shimmer = 0.25;
+uniform float fall_streak_seed = 0.0;
+uniform bool fall_top_enabled = true;
+uniform float fall_top_amount = 0.9;
+uniform float fall_top_density = 1.2;
+uniform float fall_top_chance = 0.8;
+uniform float fall_top_length = 0.3;
+uniform float fall_top_length_variation = 0.8;
+uniform float fall_top_width = 0.9;
+uniform float fall_top_width_variation = 0.6;
+uniform float fall_top_taper = 0.45;
+uniform float fall_top_tip = 0.55;
+uniform float fall_top_ragged = 0.55;
+uniform float fall_top_pulse = 0.45;
+uniform float fall_top_pulse_speed = 1.1;
+uniform bool fall_bottom_enabled = true;
+uniform float fall_bottom_amount = 0.9;
+uniform float fall_bottom_density = 1.1;
+uniform float fall_bottom_chance = 0.7;
+uniform float fall_bottom_length = 0.25;
+uniform float fall_bottom_length_variation = 0.65;
+uniform float fall_bottom_width = 0.9;
+uniform float fall_bottom_width_variation = 0.5;
+uniform float fall_bottom_taper = 0.45;
+uniform float fall_bottom_tip = 0.5;
+uniform float fall_bottom_ragged = 0.6;
+uniform float fall_bottom_pulse = 0.5;
+uniform float fall_bottom_pulse_speed = 1.6;
+uniform float fall_color_mix = 0.25;
+uniform float fall_crests = 0.6;
+uniform float river_edge_light = 0.35;
+uniform float shore_line_strength = 0.7;
+uniform float shore_line_depth = 0.35;
+uniform float shore_line_width = 0.05;
+uniform float fall_streak_wave = 0.3;
+uniform float fall_streak_softness = 0.35;
+uniform float fall_streak_scale = 1.5;
 uniform float fall_speed = 6.0;
-uniform float rapids_foam = 0.6;
+uniform float rapids_foam = 0.2;
 uniform float break_foam = 1.0;
 group_uniforms reflection;
 uniform vec4 sky_color : source_color = vec4(0.75, 0.88, 1.0, 1.0);
@@ -75,6 +158,26 @@ uniform float caustic_speed = 0.6;
 uniform float caustic_strength = 0.35;
 group_uniforms distance;
 uniform float far_distance = 40.0;
+group_uniforms surface_motion;
+uniform bool motion_enabled = false;
+uniform float swell_height = 0.1;
+uniform float swell_scale = 4.0;
+uniform float swell_speed = 0.25;
+// Seconds, from WaterBody (shared with the CPU so floating matches the swell).
+uniform float motion_time = 0.0;
+uniform float pw_height = 0.14;
+group_uniforms player_waves;
+// Wave sources from WaterBody.add_wave: xyz = point on the surface, w = strength; ages in seconds.
+uniform int wave_count = 0;
+uniform vec4 wave_points[16];
+uniform float wave_ages[16];
+uniform float pw_length = 0.45;
+uniform float pw_speed = 1.4;
+uniform float pw_strength = 1.8;
+uniform float pw_rings = 1.6;
+uniform float pw_damping = 0.9;
+uniform float pw_falloff = 0.25;
+uniform float pw_highlight = 0.5;
 group_uniforms underwater;
 uniform vec4 under_surface_color : source_color = vec4(0.30, 0.62, 0.80, 1.0);
 uniform float under_window = 0.6;
@@ -86,16 +189,75 @@ varying vec3 flow_dir;
 varying vec4 body;
 // River mouth fade (UV2.x): 0 = opaque, 1 = gone. Lakes leave it at 0.
 varying float mouth;
-// River sides fade (UV2.y): 0 outside lakes, 1 from 1.5 m past the shore.
+// Metres to the lip of a fall: 0 on the curtain, up to 6 on the river just above it, large elsewhere.
+// Signed metres across the lip of a fall: negative up the river, positive down the curtain surface. lip_valid is 1 where
+// that distance is known (near a lip), so interpolation with unmarked rows never draws a false band.
+varying float lip_s;
+// Signed metres from the foot of a fall (> 0 up the curtain, < 0 out over the water below); foot_valid 1 where known.
+varying float foot_s;
+varying float foot_valid;
+varying float lip_valid;
+// River sides fade (UV2.y > 0): 0 outside lakes, 1 from 1.5 m past the shore. Negative UV2.y marks the lip of a fall.
 varying float mouth_sides;
+varying float lip;
+// 1 on the curtain rows of a fall (from the lip down), 0 elsewhere.
+varying float curtain;
+
+// Background swell: three crossing sine swells in world space (same for rivers and lakes, so their surfaces meet at the
+// mouths). WaterBody.swell_at() computes the same height on the CPU so the swimmer floats on it. xyz = height and slope.
+vec3 swell_at(vec2 xz, float time) {
+	vec2 dirs[3] = vec2[3](normalize(vec2(1.0, 0.3)), normalize(vec2(-0.45, 1.0)), normalize(vec2(0.8, -0.7)));
+	float sizes[3] = float[3](1.0, 0.63, 0.41);
+	float weights[3] = float[3](0.5, 0.3, 0.2);
+	float speeds[3] = float[3](1.0, 1.27, 1.61);
+	vec3 result = vec3(0.0);
+	for (int i = 0; i < 3; i++) {
+		float k = 6.2831 / max(swell_scale * sizes[i], 0.05);
+		float phase = dot(xz, dirs[i]) * k + time * speeds[i] * 6.2831;
+		result.x += sin(phase) * weights[i];
+		result.yz += dirs[i] * cos(phase) * k * weights[i];
+	}
+	return result;
+}
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	// Moving surface: lift the vertex with the swell and the player waves (not on falls).
+	float vertex_fall = smoothstep(fall_start, fall_full, COLOR.r);
+	if (motion_enabled && vertex_fall < 0.99) {
+		float lift = swell_at(world_pos.xz, motion_time * swell_speed).x * swell_height;
+		if (wave_count > 0) {
+			float k = 6.2831 / max(pw_length, 0.02);
+			float packet = max(pw_length * pw_rings, 0.02);
+			for (int i = 0; i < wave_count; i++) {
+				vec4 source = wave_points[i];
+				if (abs(world_pos.y - source.y) > 0.75) {
+					continue;
+				}
+				float r = length(world_pos.xz - source.xz);
+				float x = r - wave_ages[i] * pw_speed;
+				float env = source.w * exp(-wave_ages[i] * pw_damping) * exp(-(x * x) / (packet * packet)) / (1.0 + r * pw_falloff);
+				lift += sin(k * x) * env * pw_height;
+			}
+		}
+		lift *= 1.0 - vertex_fall;
+		world_pos.y += lift;
+		VERTEX = (inverse(MODEL_MATRIX) * vec4(world_pos, 1.0)).xyz;
+	}
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	flow_dir = normalize((MODEL_MATRIX * vec4(TANGENT, 0.0)).xyz);
 	body = COLOR;
-	mouth = UV2.x;
-	mouth_sides = UV2.y;
+	mouth = max(UV2.x, 0.0);
+	foot_s = CUSTOM0.x;
+	foot_valid = CUSTOM0.z;
+	float across_code = -UV2.x;
+	lip_valid = across_code >= 0.5 ? 1.0 : 0.0;
+	lip_s = across_code >= 100.5 ? across_code - 101.0 : (across_code >= 0.5 ? 1.0 - across_code : 0.0);
+	mouth_sides = max(UV2.y, 0.0);
+	// UV2.y <= -2 marks a curtain row (lip = -UV2.y - 2 there); between 0 and -1 it is the highlight just above a lip.
+	float lip_code = max(-UV2.y, 0.0);
+	curtain = lip_code >= 1.5 ? 1.0 : 0.0;
+	lip = lip_code >= 1.5 ? lip_code - 2.0 : lip_code;
 }
 
 float hash(vec2 p) {
@@ -175,6 +337,98 @@ float view_depth(vec2 uv, mat4 inverse_projection) {
 	return -position.z / position.w;
 }
 
+// Height of one edge of the lip band at x: Base metres or fraction, uneven across the width at two scales and breathing
+// over time.
+float lip_edge(float x, float base, float ragged, float bt, float seed_off, float ragged_scale, float pulse) {
+	float sx = x * ragged_scale;
+	float h = base * (1.0 + (value_noise(vec2(sx * 1.3 + seed_off, bt)) - 0.5) * 1.6 * ragged);
+	h *= 1.0 + (value_noise(vec2(sx * 4.0 + seed_off + 5.0, bt * 1.7 + 3.0)) - 0.5) * 0.6 * ragged;
+	h *= 1.0 + pulse * 0.5 * sin(bt * 1.3 + sx * 0.7 + seed_off);
+	return max(h, 0.0);
+}
+
+// Pointed shapes on one edge of the lip band, all with the same look and motion: dist is the distance from that edge
+// (into the band for notches, out of it for spikes), size the mean length in metres.
+float lip_points(float x, float dist, float size, float amount, float width, float seed_off, float bt, float softness) {
+	float result = 0.0;
+	float density = 1.0 / max(width * 2.5, 0.05);
+	float base_cell = floor(x * density);
+	for (int k = -1; k <= 1; k++) {
+		float cell = base_cell + float(k);
+		vec2 s = vec2(cell, fall_streak_seed + seed_off);
+		if (hash(s) >= amount) {
+			continue;
+		}
+		float phase = hash(s + 3.7) * 6.2831;
+		float len = size * (0.45 + 0.55 * hash(s + 1.1)) * (1.0 + 0.35 * sin(bt * 2.0 + phase));
+		float r = dist / max(len, 0.0005);
+		if (r < 0.0 || r > 1.0) {
+			continue;
+		}
+		// Each point stays inside its own cell (base at most 90 % of it), so neighbours never overlap.
+		float cell_w = 1.0 / density;
+		float base_w = min(0.5 * width * (0.6 + 0.8 * hash(s + 4.4)), 0.45 * cell_w);
+		float centre = (cell + 0.5) * cell_w + (hash(s + 2.9) - 0.5) * (cell_w - 2.0 * base_w);
+		float w = base_w * (1.0 - r);
+		float soft = max(w * (0.15 + softness), 0.004);
+		result = max(result, 1.0 - smoothstep(w - soft, w, abs(x - centre)));
+	}
+	return result;
+}
+
+// One edge of the lip band at signed distance out (beyond the edge: > 0, inside the band: < 0): the plain edge, then
+// notches cut into it or spikes added out of it.
+float lip_band_edge(float x, float out_dist, float edge_h, int shape, float amount, float size, float width, float seed_off,
+		float bt, float softness) {
+	float soft = max(edge_h * (0.05 + softness * 0.4), 0.01);
+	float inside = 1.0 - smoothstep(-soft, 0.0, out_dist);
+	if (amount <= 0.0 || size <= 0.0) {
+		return inside;
+	}
+	if (shape == 0) {
+		return inside * (1.0 - lip_points(x, -out_dist, min(size, edge_h), amount, width, seed_off, bt, softness));
+	}
+	// Spikes start inside the band's soft edge, so band and spike merge with no lighter or darker line at the base.
+	return max(inside, lip_points(x, out_dist + soft, size + soft, amount, width, seed_off, bt, softness));
+}
+
+// Light marks on a waterfall curtain: pointed, uneven strokes anchored at one end (along = 0 there, in fractions of the
+// drop), each with its own length, width and rhythm, growing and shrinking over time. Returns 0-1 coverage.
+float fall_marks(float x, float uv_y, float along_anchor, float t, float seed_base, float density, float chance,
+		float len_mean, float len_var, float width, float width_var, float taper, float tip_len, float ragged_amount,
+		float pulse, float pulse_speed, float sway_amount, float softness) {
+	float result = 0.0;
+	float base_cell = floor(x * density);
+	for (int k = -1; k <= 1; k++) {
+		float cell = base_cell + float(k);
+		vec2 s = vec2(cell, seed_base);
+		if (hash(s + 5.9) >= chance) {
+			continue;
+		}
+		float phase = hash(s + 3.3) * 6.2831;
+		float rate = 0.6 + 0.8 * hash(s + 9.2);
+		// Two beats per stroke so it never repeats plainly: it grows, shrinks, flickers.
+		float beat = sin(t * pulse_speed * rate + phase) * 0.7 + sin(t * pulse_speed * rate * 2.3 + phase * 1.7) * 0.3;
+		float len = len_mean * (1.0 - len_var * hash(s + 7.7)) * max(1.0 + pulse * beat, 0.05);
+		float along = along_anchor / max(len, 0.001);
+		if (along >= 1.0) {
+			continue;
+		}
+		float centre = (cell + 0.2 + 0.6 * hash(s + 1.7)) / density;
+		float sway = sin(along_anchor * 7.0 + hash(s + 4.1) * 6.2831 + t * 0.8) * 0.12 * sway_amount;
+		float dx = abs(x - centre - sway);
+		float half_w = 0.5 * width * (1.0 + (hash(s + 2.3) - 0.5) * 2.0 * width_var)
+			* (1.0 + 0.25 * pulse * sin(t * pulse_speed * rate * 0.7 + phase * 2.0));
+		// Uneven edges that slide along the stroke.
+		float rag = 1.0 + (value_noise(vec2(cell * 3.1 + seed_base, uv_y * 2.5 - t * pulse_speed * 0.8)) - 0.5) * 1.2 * ragged_amount;
+		float tip = sqrt(clamp((1.0 - along) / max(tip_len, 0.01), 0.0, 1.0));
+		float w = half_w * rag * (1.0 - taper * along) * tip;
+		float edge_soft = max(w * (0.15 + softness), 0.005);
+		result = max(result, 1.0 - smoothstep(w - edge_soft, w, dx));
+	}
+	return result;
+}
+
 void fragment() {
 	float flow = body.a;
 	float slope = body.r;
@@ -183,8 +437,9 @@ void fragment() {
 	float distance_to_camera = length(VERTEX);
 	float far = smoothstep(far_distance, far_distance * 1.5, distance_to_camera);
 
-	// Flow space: rivers scroll downstream (faster in rapids and falls) and stretch along the flow.
-	float speed = flow_speed * flow * (1.0 + rapids * 1.5);
+	// Flow space: rivers scroll downstream and stretch along the flow. Rapids and falls run faster through their UV.y, which
+	// the mesh squeezes there (same scroll everywhere, so no shear stripes where the slope changes).
+	float speed = flow_speed * flow;
 	vec2 p = UV / max(wave_scale, 0.01);
 	p.y /= mix(1.0, max(flow_stretch, 0.1), flow);
 	float time = TIME * wave_speed;
@@ -205,6 +460,32 @@ void fragment() {
 	vec3 across = cross(along, base_n);
 	float strength = wave_strength * (1.0 + rapids) * (1.0 - far * 0.6);
 	vec3 n = normalize(base_n - (across * (hx - h) + along * (hy - h)) / e * strength * 0.25);
+	// The swell tilts the surface too, so its slopes catch the light and read as moving water.
+	if (motion_enabled && fall < 0.5) {
+		vec2 slope = swell_at(world_pos.xz, motion_time * swell_speed).yz * swell_height;
+		n = normalize(n - vec3(slope.x, 0.0, slope.y) * (1.0 - fall) * (1.0 - far * 0.7));
+	}
+	// Player waves: expanding ring trains (a Gaussian packet of sine ripples) that fade with age and distance.
+	float wave_height = 0.0;
+	if (wave_count > 0 && fall < 0.5) {
+		vec2 grad = vec2(0.0);
+		float k = 6.2831 / max(pw_length, 0.02);
+		float packet = max(pw_length * pw_rings, 0.02);
+		for (int i = 0; i < wave_count; i++) {
+			vec4 source = wave_points[i];
+			if (abs(world_pos.y - source.y) > 0.75) {
+				continue;
+			}
+			vec2 d = world_pos.xz - source.xz;
+			float r = length(d);
+			float x = r - wave_ages[i] * pw_speed;
+			float env = source.w * exp(-wave_ages[i] * pw_damping) * exp(-(x * x) / (packet * packet)) / (1.0 + r * pw_falloff);
+			float phase = k * x;
+			wave_height += sin(phase) * env;
+			grad += (d / max(r, 0.001)) * cos(phase) * env;
+		}
+		n = normalize(n - vec3(grad.x, 0.0, grad.y) * pw_strength * 0.35 * (1.0 - fall) * (1.0 - far));
+	}
 	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
 
 	// Scene behind the surface: vertical water depth (horizontal surfaces) or thickness along the view (falls).
@@ -234,19 +515,35 @@ void fragment() {
 	// Body colour: shallow to deep with depth; the bed fades out with clarity.
 	float deep_amount = 1.0 - exp(-tone_depth / max(depth_scale, 0.01));
 	vec3 water = mix(shallow_color.rgb, deep_color.rgb, deep_amount);
+	// Rivers: lighter towards the banks, bluer in the middle of the channel (flow = 1 on rivers, 0 on lakes).
+	water = mix(water, shallow_color.rgb * 1.08, (1.0 - smoothstep(0.0, 0.7, body.b)) * river_edge_light * flow * (1.0 - fall));
 	// Around the diving player the water is clearer and tints it less (only on calm water, not on falls).
 	float visible = exp(-tone_depth / max(clarity, 0.01)) * (1.0 - far * 0.7) * (1.0 - fall * 0.85);
-	// The sides of a fall thin out so the sheet does not end in a hard edge.
-	visible = mix(visible, 0.85, fall * (1.0 - smoothstep(0.0, 0.35, body.b)));
+	// A fall is a curtain: the cliff behind shows a little when seen face on, tinted by the falling water; at grazing
+	// angles (the rounded sides, a side view) it turns solid, so the far side never shows through as a second sheet.
+	float facing = abs(dot(n, normalize(CAMERA_POSITION_WORLD - world_pos)));
+	visible = mix(visible, fall_transparency * smoothstep(0.35, 0.8, facing), fall);
+	// Just before a lip the water turns opaque (fast, full of air), so the cliff edge under it never shows as a dark line.
+	if (lip_valid > 0.999 && lip_s < 0.0) {
+		visible *= smoothstep(0.0, max(fall_lip_opaque, 0.001), -lip_s);
+	}
 	vec3 bed = (behind + caustic_color.rgb * caustics) * mix(vec3(1.0), water, bed_tint);
 
 	// Foam: where anything crosses the surface (banks, stones, the player), plus rapids and the lip/base of falls.
 	vec2 fp = UV / max(foam_noise_scale, 0.01) - scroll * wave_scale / max(foam_noise_scale, 0.01);
 	float foam_noise = value_noise(fp + time * 0.5) * 0.65 + value_noise(fp * 2.3 - time * 0.3) * 0.35;
-	float shore = 1.0 - smoothstep(0.0, max(foam_width, 0.001), min(vertical, thickness));
-	float churn = max(rapids * rapids_foam, body.g * break_foam);
+	// Not on falls: the cliff right behind the curtain would read as a shore everywhere and paint it white.
+	float shore = (1.0 - smoothstep(0.0, max(foam_width, 0.001), min(vertical, thickness))) * (1.0 - fall);
+	// Rapids foam stops where the slope becomes a fall: the curtain has its own streaks.
+	// Not on the lip of a fall: there the river just bends over, without a strip of rapids foam.
+	float churn = max(rapids * (1.0 - fall) * rapids_foam * (1.0 - smoothstep(0.05, 0.3, lip)), body.g * break_foam);
 	float foam_mask = max(shore, churn) * (1.0 + foam_breakup) - foam_noise * foam_breakup;
 	float foam = smoothstep(0.5 - foam_softness * 0.5, 0.5 + foam_softness * 0.5, foam_mask) * foam_strength;
+	// A second thin dashed line a little further into the water, like the reference's bank lines.
+	float shore_depth = min(vertical, thickness);
+	float second_line = (1.0 - smoothstep(0.0, max(shore_line_width, 0.001), abs(shore_depth - shore_line_depth)))
+		* smoothstep(0.35, 0.6, foam_noise) * shore_line_strength * (1.0 - fall);
+	foam = max(foam, second_line * foam_strength);
 
 	// Sparkles: stylized glints where two drifting noise fields peak together.
 	vec2 sp = UV / max(sparkle_scale, 0.01) - scroll * wave_scale / max(sparkle_scale, 0.01);
@@ -261,28 +558,133 @@ void fragment() {
 	vec2 crest_a = crest_layer(UV, crest_scale, scroll_m, crest_time);
 	vec2 crest_b = crest_layer(UV + 17.0, crest_scale * 0.55, scroll_m * 1.15, crest_time * 1.3);
 	float crest = clamp(crest_a.x + crest_b.x * 0.8 * (1.0 - far), 0.0, 1.0) * crest_strength * (1.0 - fall) * (1.0 - foam) * (1.0 - far * 0.5);
+	// Light on the crests of the player waves.
+	crest = clamp(crest + smoothstep(0.15, 0.6, wave_height) * pw_highlight, 0.0, 1.0);
 	water *= 1.0 - trough_shade * (1.0 - smoothstep(0.2, 0.8, crest_a.y)) * (1.0 - fall);
 
-	// Waterfall sheet: streaks falling along the flow.
-	float streak = value_noise(vec2(UV.x * fall_streak_scale, (UV.y - TIME * fall_speed) * 0.15)) * 0.65
-		+ value_noise(vec2(UV.x * fall_streak_scale * 2.7 + 3.0, (UV.y - TIME * fall_speed * 1.3) * 0.3)) * 0.35;
-	vec3 fall_tone = fall_color.rgb * mix(0.72, 1.15, smoothstep(0.2, 0.8, streak));
+	// Waterfall sheet, cartoon style: long vertical streaks in flat tones (light, base, dark) falling with the water, and
+	// darker towards the sides so the curtain reads rounded.
+	// Streaks wobble sideways and bend into Vs (flames pointing up), like water sheeting over a rounded lip.
+	float fall_y = UV.y - TIME * fall_speed;
+	float chevron = abs(fract(UV.x * fall_streak_scale * 0.35) - 0.5) * 2.0;
+	vec2 fall_p = vec2(UV.x * fall_streak_scale + sin(UV.y * 0.9 + value_noise(vec2(UV.x * 0.7, fall_y * 0.05)) * 4.0) * 0.35 * fall_streak_wave,
+		(fall_y + chevron * 1.6 * fall_streak_wave) * fall_streak_length);
+	float streak = value_noise(fall_p) * 0.6 + value_noise(fall_p * vec2(2.3, 1.6) + 3.0) * 0.4;
+	float soft = 0.02 + fall_streak_softness * 0.2;
+	float dark_band = 1.0 - smoothstep(0.24 - soft * 0.5, 0.24 + soft * 0.5, streak);
+	// The curtain is the river's own water falling: its colours, darker lower down, and its crests stretched by the drop.
+	float progress = 1.0 - sqrt(clamp(lip, 0.0, 1.0));
+	// Light marks that stay put while the water runs through them: the lip band (lower edge on the curtain, with blue notches
+	// rising into it) and the strokes hanging from it and rising from the foam at the foot.
+	float drop = progress * progress;
+	float lines_curtain = 0.0;
+	float shimmer = 1.0 - fall_streak_shimmer * value_noise(vec2(UV.x * 3.0, (UV.y - TIME * fall_speed) * 0.8));
+	if (curtain > 0.001) {
+		float soft_marks = fall_streak_softness;
+		if (fall_top_enabled) {
+			lines_curtain = max(lines_curtain, fall_top_amount * fall_marks(UV.x, UV.y, drop, TIME, fall_streak_seed,
+				fall_top_density, fall_top_chance, fall_top_length, fall_top_length_variation, fall_top_width,
+				fall_top_width_variation, fall_top_taper, fall_top_tip, fall_top_ragged, fall_top_pulse, fall_top_pulse_speed,
+				fall_streak_wave, soft_marks));
+		}
+		if (fall_bottom_enabled) {
+			lines_curtain = max(lines_curtain, fall_bottom_amount * fall_marks(UV.x, UV.y, 1.0 - drop, TIME, fall_streak_seed + 17.3,
+				fall_bottom_density, fall_bottom_chance, fall_bottom_length, fall_bottom_length_variation, fall_bottom_width,
+				fall_bottom_width_variation, fall_bottom_taper, fall_bottom_tip, fall_bottom_ragged, fall_bottom_pulse,
+				fall_bottom_pulse_speed, fall_streak_wave, soft_marks));
+		}
+	}
+	vec3 river_tone = mix(shallow_color.rgb, deep_color.rgb, 0.35 + 0.4 * progress);
+	vec3 fall_tone = mix(river_tone, fall_color.rgb, fall_color_mix);
+	fall_tone = mix(fall_tone, fall_shadow_color.rgb, dark_band * 0.3);
+	vec2 falling_crest = crest_layer(UV * vec2(1.0, 0.3), crest_scale, vec2(0.0, TIME * fall_speed * 0.3), crest_time);
+	// Right below the lip it is the river's own crest pattern, which stretches into the falling one lower down.
+	float curtain_crest = mix(crest_a.x, falling_crest.x, smoothstep(0.15, 0.7, progress));
+	fall_tone = mix(fall_tone, crest_color.rgb, clamp(curtain_crest * fall_crests, 0.0, 1.0));
+	fall_tone = mix(fall_shadow_color.rgb, fall_tone, 0.55 + 0.45 * smoothstep(0.0, 0.4, body.b));
+	// Light lines on top of the side shading, so they stay white up to the edges.
+	// Soft horizontal ripples sliding down the curtain.
+	fall_tone *= 0.94 + 0.06 * sin(fall_y * 2.2 + value_noise(vec2(UV.x * 1.3, fall_y * 0.4)) * 3.0);
+	// A lighter translucent rim right at the sides.
+	fall_tone = mix(fall_tone, fall_streak_color.rgb, (1.0 - smoothstep(0.0, 0.12, body.b)) * 0.35);
 
 	float fresnel = pow(1.0 - clamp(dot(n, normalize(CAMERA_POSITION_WORLD - world_pos)), 0.0, 1.0), max(fresnel_power, 0.1)) * fresnel_strength;
+	// Just before a lip (and on the band) the fast water shows its own colour instead of mirroring the sky, so the band's
+	// spikes over the river read as clearly as its notches over the curtain.
+	if (lip_valid > 0.999) {
+		fresnel *= lip_s < 0.0 ? smoothstep(0.0, max(fall_lip_opaque, 0.001), -lip_s) : 1.0;
+	}
+	// On the curtain the sky reflection is its own amount (it shows as a glossy sheen just below the lip, where the
+	// curtain is still nearly flat and seen at a grazing angle).
+	fresnel *= mix(1.0, fall_reflection, fall);
 
 	vec3 lit = mix(water, fall_tone, fall);
 	lit = mix(lit, foam_color.rgb, foam);
+	// The lip band: one strip across the lip, measured in one signed distance (up the river < 0 < down the curtain), so it
+	// has no seam at the fold. Each edge is uneven (same noise, pulse and speed) and carries notches or spikes.
+	float band_mark = 0.0;
+	if (fall_lip_band > 0.0 && lip_valid > 0.999) {
+		float bt = TIME * fall_lip_band_speed;
+		float down_h = lip_edge(UV.x, fall_lip_band_height, fall_lip_band_ragged, bt, fall_streak_seed, fall_lip_band_ragged_scale,
+			fall_lip_band_pulse);
+		float up_h = lip_edge(UV.x, fall_lip_band_up, fall_lip_top_ragged, bt, fall_streak_seed + 7.0, fall_lip_band_ragged_scale,
+			fall_lip_band_pulse);
+		// Band Offset slides the whole band along the surface: down the curtain (> 0) or up the river (< 0).
+		float band_s = lip_s - fall_lip_band_offset;
+		float lower = lip_band_edge(UV.x, band_s - down_h, down_h, fall_lip_bottom_shape, fall_lip_bottom_amount,
+			fall_lip_bottom_size, fall_lip_bottom_width, 31.0, bt, fall_lip_band_softness);
+		float upper = lip_band_edge(UV.x, -band_s - up_h, up_h, fall_lip_top_shape, fall_lip_top_amount, fall_lip_top_size,
+			fall_lip_top_width, 47.0, bt, fall_lip_band_softness);
+		band_mark = min(lower, upper);
+	}
+	// The foot band: the same band anchored at the foot of the fall (up the curtain > 0 > out over the water below).
+	float foot_mark = 0.0;
+	if (fall_foot_band > 0.0 && foot_valid > 0.999) {
+		float ft = TIME * fall_foot_band_speed;
+		float up_h = lip_edge(UV.x, fall_foot_band_up, fall_foot_top_ragged, ft, fall_streak_seed + 61.0,
+			fall_foot_band_ragged_scale, fall_foot_band_pulse);
+		float down_h = lip_edge(UV.x, fall_foot_band_down, fall_foot_bottom_ragged, ft, fall_streak_seed + 67.0,
+			fall_foot_band_ragged_scale, fall_foot_band_pulse);
+		float fs = foot_s - fall_foot_band_offset;
+		float top_edge = lip_band_edge(UV.x, fs - up_h, up_h, fall_foot_top_shape, fall_foot_top_amount, fall_foot_top_size,
+			fall_foot_top_width, 71.0, ft, fall_foot_band_softness);
+		float bottom_edge = lip_band_edge(UV.x, -fs - down_h, down_h, fall_foot_bottom_shape, fall_foot_bottom_amount,
+			fall_foot_bottom_size, fall_foot_bottom_width, 73.0, ft, fall_foot_band_softness);
+		foot_mark = min(top_edge, bottom_edge);
+	}
+	float line_mark = lines_curtain * curtain * shimmer;
+	// Band Transparency lets the real water show through the band (its crests and motion), unlike Fall Lip Band.
+	float lip_share = band_mark * (1.0 - fall_lip_band_transparency);
+	float foot_share = foot_mark * (1.0 - fall_foot_band_transparency);
+	float flat_amount = max(max(lip_share, foot_share), line_mark);
+	// The band is see-through (Fall Lip Band < 1) onto one even colour (Fall Color), not onto the water under it, which
+	// differs on each side of the fold and would show the fold as a line through the band.
+	vec3 lip_colour = mix(fall_color.rgb, fall_lip_band_color.rgb, fall_lip_band * shimmer);
+	vec3 foot_colour = mix(fall_color.rgb, fall_foot_band_color.rgb, fall_foot_band * shimmer);
+	float band_share = max(lip_share, foot_share);
+	vec3 band_colour = (lip_colour * lip_share + foot_colour * foot_share) / max(lip_share + foot_share, 0.001);
+	vec3 flat_colour = mix(fall_streak_color.rgb, band_colour, clamp(band_share / max(flat_amount, 0.001), 0.0, 1.0));
+	// The marks are opaque like foam, however see-through the curtain is.
 	float body_amount = max(1.0 - visible, foam);
 	vec3 albedo = lit * body_amount * (1.0 - crest);
-	ALBEDO = albedo;
-	EMISSION = bed * visible * (1.0 - foam) * (1.0 - crest) + sky_color.rgb * fresnel + sparkle_color.rgb * sparkle
-		+ crest_color.rgb * crest + albedo * self_light;
-	SPECULAR = specular_amount;
+	// The lip band and curtain strokes are flat colour, like drawn foam: no light, sky reflection or highlight on them, so
+	// the band looks the same on the river side and the curtain side of the lip fold.
+	float flat_marks = clamp(flat_amount, 0.0, 1.0);
+	ALBEDO = albedo * (1.0 - flat_marks);
+	// The water underneath is faded once (by flat_marks below), not twice: a double fade left a dark outline round the band.
+	EMISSION = (bed * visible * (1.0 - foam) * (1.0 - crest) + sky_color.rgb * fresnel + sparkle_color.rgb * sparkle
+		+ crest_color.rgb * crest + albedo * self_light) * (1.0 - flat_marks) + flat_colour * fall_marks_light * flat_marks;
+	SPECULAR = specular_amount * (1.0 - flat_marks) * mix(1.0, fall_reflection, fall);
 	ROUGHNESS = roughness_amount;
 	// A river entering a lake fades out over it (rivers draw after lakes), so both surfaces cross-dissolve.
 	// Inside the lake its sides fade too, so it spreads as a soft plume instead of a strip with straight edges.
 	float plume = mix(1.0, smoothstep(0.0, 0.85, body.b), mouth_sides);
 	ALPHA = (1.0 - smoothstep(0.0, 1.0, mouth)) * plume;
+	// Falls: solid sides with a crisp edge at the width of the water (the extra mesh under the banks is cut off). The
+	// sides wave in the vertex shader (Fall Edge Waves), never dissolve.
+	if (fall > 0.01) {
+		ALPHA *= mix(1.0, smoothstep(0.0, 0.015, body.b), fall);
+	}
 
 	// Seen from below (diving): a bright ceiling with the sky only inside a cone looking up (Snell's window).
 	// The camera height decides the side: the winding of lakes and rivers is not reliable for FRONT_FACING.

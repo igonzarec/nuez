@@ -42,7 +42,8 @@ Todos los valores se aplican en vivo. Los de la escena del jugador se guardan en
 Brincar otra vez en el aire pone a la ardilla de cabeza, con los brazos estirados, hasta entrar al agua. Entra limpia
 (salpicadura × **Dive Jump Splash Scale**, 0,45), frena menos (**Dive Jump Entry Drag Scale**, 0,45) y sigue bajando
 **Dive Jump Plunge Time** (0,7 s) antes de flotar. **Dive Jump Forward Boost** (1,5 m/s) la impulsa hacia delante al
-lanzarse. Durante el tiempo de coyote, Brincar sigue siendo un salto normal.
+lanzarse. Durante el tiempo de coyote, Brincar sigue siendo un salto normal. Si el clavado acaba en suelo, siempre hay
+pansazo, caiga de la altura que caiga (**Dive Jump Splat On Ground**).
 
 | Grupo | Controles | Notas |
 |---|---|---|
@@ -52,12 +53,31 @@ lanzarse. Durante el tiempo de coyote, Brincar sigue siendo un salto normal.
 | Nado · entrada y salida | Entry Drag, Jump Velocity, Reentry Delay | `Entry Drag` decide cuánto se hunde al caer al agua. Dentro del agua nunca hay pansazo. |
 | Buceo | Dive Enabled, Dive Speed, Dive Swim Speed, Rise Speed, Swim Up Speed, Up Stroke Impulse, Vertical Response, Key Hold Time | |
 | Buceo · aire | Air Enabled, Air Seconds, Air Refill Time | Al quedarse sin aire sube sola a respirar, sin daño. Aún no hay indicador en pantalla (`air_ratio` está listo para una interfaz). |
-| Salpicaduras y ondas | Effects Enabled, Splash Min / Full Speed, Splash Scale, Splash Droplets, Splash Color, Ripple Interval / Radius / Lifetime / Opacity, Bubbles Enabled | Salpicadura al caer o saltar. Ondas en la superficie al nadar, más seguidas cuanto más rápido. Burbujas al bucear. |
-| Empapado | Drip Enabled, Drip Duration, Drip Rate, Drip Size, Drip Spread, Drip Height, Drip Color | Al salir del agua (saltando o caminando) gotea **Drip Duration** (2,5 s), cada vez menos, de forma irregular. Se corta al volver al agua. |
+| Ondas reales (apagado) | Real Waves Enabled, Real Wave Entry / Swim / Wade / Idle Strength, Real Wave Interval, Real Wave Min Speed | Ondas en la propia superficie al caer, nadar y caminar por agua poco honda. Su aspecto, en WaterStyle › Ondas del jugador. Desactívalo si va lento. |
+| Salpicaduras y ondas | Effects Enabled, Ripples Enabled, Splash Min / Full Speed, Splash Scale, Splash Droplets, Splash Color, Ripple Interval / Radius / Lifetime / Opacity, Bubbles Enabled | Salpicadura al caer o saltar. Ondas en la superficie al nadar, más seguidas cuanto más rápido. Burbujas al bucear. |
+| Mojado | Wet Enabled, Wet Color, Wet Wade Amount, Wet In / Hold / Dry Time | Al mojarse el modelo se oscurece (multiplica su color por **Wet Color**); caminando por agua poco honda, sólo en parte (**Wet Wade Amount**). Tras salir sigue igual **Wet Hold Time** (1,5 s) y vuelve a su color en **Wet Dry Time** (3,5 s). Duplica los materiales de este personaje al empezar, así no afecta a otros. |
+| Empapado | Drip Enabled, Drip While Wet, Drip Duration, Drip Rate, Drip Size, Drip Spread, Drip Height, Drip Color | Al salir del agua gotea mientras se seca (grupo Mojado), cada vez menos, haga lo que haga: caminar, correr, planear. Con **Drip While Wet** apagado gotea sólo **Drip Duration** (2,5 s). Se corta al volver al agua. |
 | Audio del agua | Splash Sound, Splash Volume Db, Stroke Sounds, Stroke Order, Stroke Max Repeats, Stroke Sound Each Arm, Stroke Volume Db, Stroke Pitch Variation, Stroke Voices | Ver "Sonidos" abajo. Bus SFX. |
 | Audio del buceo | Dive Stroke Sounds Enabled, Dive Start Sound / Volume Db, Dive Start From Surface Only, Dive Start Cooldown, Dive Stroke Sounds, Dive Stroke Order, Dive Stroke Max Repeats, Dive Stroke Volume Db, Dive Stroke Pitch Variation, Dive Stroke Speed Variation, Dive Stroke Rhythm Variation | Ver "Sonidos" abajo. Bus SFX. |
 | Audio del buceo · efecto | Underwater Effect Enabled, Dive Stroke Effect Amount, Dive Start Effect Enabled / Amount, Underwater Cutoff Hz, Underwater Resonance, Underwater Pitch, Underwater Reverb, Underwater Reverb Size | Filtro, tono y eco que hacen sonar bajo el agua las brazadas de buceo. Ver "Sonidos". |
 | Ambiente submarino | Underwater Ambience Enabled, Underwater Ambience, Volume Db, Fade In / Fade Out, Random Start | Bucle de ambiente mientras el jugador está bajo el agua. Ver "Sonidos". |
+
+### Ondas reales
+
+Cada caída, brazada o paso en el agua deja un «golpe»: un anillo de ondas que se expande por la superficie, se cruza con
+los demás y se apaga. No mueve la malla: dobla los reflejos, la refracción y las crestas, así que se lee como ondas de
+verdad desde la cámara de juego (a ras de agua no se ve subir la superficie).
+
+- **Swimming › Ondas reales:** **Real Waves Enabled** (apagado por defecto: en pruebas los anillos bastaban; enciéndelo para probarlas),
+  fuerza al caer, al nadar, al caminar por agua y flotando quieto, y cada cuánto deja ondas al moverse.
+- **WaterStyle › Ondas del jugador:** largo de onda, velocidad, fuerza, número de ondas por anillo, cuánto tardan en
+  apagarse, cuánto se apagan con la distancia y brillo de las crestas.
+- **Coste:** hasta 16 ondas a la vez, calculadas en el shader del agua. Sin ondas activas no se calcula nada.
+- **Superficie que se mueve:** con WaterStyle › Movimiento de la superficie encendido, las ondas además levantan el agua
+  (Player Wave Height). Ver [water.md](water.md).
+- Los anillos dibujados (Salpicaduras y ondas › **Ripples Enabled**) son el efecto por defecto; apágalos con esa casilla.
+- **Técnico:** `WaterBody.add_wave()` guarda los golpes en un registro compartido por todos los cuerpos de agua, que los
+  envía cada frame a su material (`wave_points`, `wave_ages`).
 
 ### Sonidos (Swimming › Audio del agua)
 

@@ -66,6 +66,34 @@ const DEFAULT_STYLE := "res://assets/water/water_style_default.tres"
 @export_storage var carved_controls := PackedInt64Array()
 
 var _material: ShaderMaterial
+
+## Ondas reales: golpes en el agua (caidas, brazadas, pasos) compartidos por todos los cuerpos de agua. Cada golpe es un
+## anillo de ondas que se expande y se apaga en el shader (WaterStyle › Ondas del jugador).
+const MAX_WAVES := 16
+const WAVE_MAX_AGE := 6.0
+static var _wave_points: Array[Vector4] = []
+static var _wave_ages: Array[float] = []
+static var _wave_frame := -1
+static var _wave_packed_points := PackedVector4Array()
+static var _wave_packed_ages := PackedFloat32Array()
+## Clock of the surface motion, shared by the shader (motion_time) and swell_at().
+static var _motion_clock := 0.0
+const SWELL_DIRS := [Vector2(0.957826, 0.287348), Vector2(-0.410365, 0.911922), Vector2(0.752577, -0.658505)]
+const SWELL_SIZES := [1.0, 0.63, 0.41]
+const SWELL_WEIGHTS := [0.5, 0.3, 0.2]
+const SWELL_SPEEDS := [1.0, 1.27, 1.61]
+
+## Height of the background swell (metres, around 0) at a world XZ point, the same the shader draws. 0 when the style
+## has no surface motion.
+static func swell_at(xz: Vector2, water_style: WaterStyle) -> float:
+	if water_style == null or not water_style.surface_motion_enabled:
+		return 0.0
+	var height := 0.0
+	var time := _motion_clock * water_style.swell_speed
+	for i in 3:
+		var k := TAU / maxf(water_style.swell_scale * SWELL_SIZES[i], 0.05)
+		height += sin(xz.dot(SWELL_DIRS[i]) * k + time * SWELL_SPEEDS[i] * TAU) * SWELL_WEIGHTS[i]
+	return height * water_style.swell_height
 var _surface: MeshInstance3D
 var _rebuild_queued := false
 
@@ -114,6 +142,49 @@ func water_at(point: Vector3, above := 0.5) -> Dictionary:
 
 ## Water under or around a world point among all water bodies, or {}. Where bodies overlap (a river entering a lake) the
 ## lowest surface that still covers the point wins, so a diver belongs to the water they are actually in.
+## Adds a wave source at a point of a water surface. Strength 1 = a big plunge. The oldest one is replaced when full.
+static func add_wave(point: Vector3, strength: float) -> void:
+	if strength <= 0.0:
+		return
+	if _wave_points.size() >= MAX_WAVES:
+		var oldest := 0
+		for i in _wave_ages.size():
+			if _wave_ages[i] > _wave_ages[oldest]:
+				oldest = i
+		_wave_points.remove_at(oldest)
+		_wave_ages.remove_at(oldest)
+	_wave_points.append(Vector4(point.x, point.y, point.z, strength))
+	_wave_ages.append(0.0)
+
+## Ages the shared waves once per frame (whichever body runs first) and drops the faded ones.
+static func _advance_waves(delta: float) -> void:
+	var frame := Engine.get_process_frames()
+	if frame == _wave_frame:
+		return
+	_wave_frame = frame
+	_motion_clock = fmod(_motion_clock + delta, 3600.0)
+	for i in range(_wave_ages.size() - 1, -1, -1):
+		_wave_ages[i] += delta
+		if _wave_ages[i] > WAVE_MAX_AGE:
+			_wave_points.remove_at(i)
+			_wave_ages.remove_at(i)
+	_wave_packed_points.resize(MAX_WAVES)
+	_wave_packed_ages.resize(MAX_WAVES)
+	for i in MAX_WAVES:
+		_wave_packed_points[i] = _wave_points[i] if i < _wave_points.size() else Vector4.ZERO
+		_wave_packed_ages[i] = _wave_ages[i] if i < _wave_ages.size() else 0.0
+
+func _process(delta: float) -> void:
+	if Engine.is_editor_hint() or _material == null:
+		return
+	_advance_waves(delta)
+	var count := _wave_points.size()
+	_material.set_shader_parameter("motion_time", _motion_clock)
+	_material.set_shader_parameter("wave_count", count)
+	if count > 0:
+		_material.set_shader_parameter("wave_points", _wave_packed_points)
+		_material.set_shader_parameter("wave_ages", _wave_packed_ages)
+
 static func find_water(tree: SceneTree, point: Vector3, above := 0.5) -> Dictionary:
 	var best := {}
 	for body in tree.get_nodes_in_group("water_bodies"):
@@ -149,28 +220,126 @@ func _rebuild() -> void:
 		_material.shader = SHADER
 		# After the camera's distant blur (-128), which repaints the screen with opaque geometry only.
 		_material.render_priority = _render_priority()
+	_built_motion_key = _motion_key()
 	_apply_style()
 	var mesh := _build_mesh() if curve != null else null
 	if mesh != null and mesh.get_surface_count() > 0:
 		mesh.surface_set_material(0, _material)
 	_surface.mesh = mesh
+	_after_rebuild()
+
+## Hook for subclasses: runs after the surface mesh is rebuilt (rivers place their bed pebbles here).
+func _after_rebuild() -> void:
+	pass
+
+## Hook for subclasses: runs after carving or restoring the terrain changed the bed.
+func _terrain_changed() -> void:
+	pass
 
 func _apply_style() -> void:
 	if style != null and _material != null:
 		style.apply(_material)
+		# Surface motion needs a denser mesh: rebuild when it is switched or its resolution changes.
+		if _motion_key() != _built_motion_key and _surface != null and _surface.mesh != null:
+			_queue_rebuild()
+	_after_style()
+
+## Hook after the style is applied (rivers rebuild their fall effects when those values change).
+func _after_style() -> void:
+	pass
+
+var _built_motion_key := Vector2(-1.0, -1.0)
+
+func _motion_key() -> Vector2:
+	if style == null or not style.surface_motion_enabled:
+		return Vector2.ZERO
+	return Vector2(1.0, style.surface_resolution)
+
+## Mesh spacing in metres when the surface moves, 0 when it stays flat.
+func _motion_spacing() -> float:
+	return style.surface_resolution if style != null and style.surface_motion_enabled else 0.0
 
 ## Terrain profile of a bank above the waterline at a horizontal distance outside the water.
 func _bank_height(waterline: float, outside: float, angle: float) -> float:
 	return waterline + outside * tan(deg_to_rad(angle))
+
+## Is a world point (x, z) at a fall of any river: in front of the cliff between the lip and the foot (Side Margin metres
+## past its sides and foot), or up to Back Margin metres behind the lip when the water there (Below Y) is lower than the
+## lip (the pool or the river below, whose banks would cut into the cliff). Used so carving never cuts the cliff there.
+static func under_fall(tree: SceneTree, q: Vector2, side_margin := 1.0, back_margin := 0.0, below_y := -INF) -> bool:
+	for body in tree.get_nodes_in_group("water_bodies"):
+		var zones = body.get("_fall_zones")
+		if zones == null:
+			continue
+		for zone in zones:
+			var p: Vector2 = q - zone[0]
+			var along: float = p.dot(zone[1])
+			if absf(p.cross(zone[1])) >= zone[3] + side_margin:
+				continue
+			if along > 0.0 and along < zone[2] + side_margin:
+				return true
+			if along <= 0.0 and along > -back_margin and below_y < zone[4] - 0.5:
+				return true
+	return false
+
+## Terrain targets of this body ({cell: Vector3(height, water surface, bank angle)}), without banks that would cut into the
+## cliff under or behind a fall (beds below the water are still carved there).
+func _carve_targets() -> Dictionary:
+	var targets := {}
+	if not is_instance_valid(terrain) or terrain.data == null:
+		return targets
+	_collect_targets(targets)
+	if not is_inside_tree():
+		return targets
+	var spacing := terrain.vertex_spacing
+	for cell: Vector2i in targets.keys():
+		var target: Vector3 = targets[cell]
+		if target.x > target.y - 0.1 and under_fall(get_tree(), Vector2(cell.x * spacing, cell.y * spacing), 1.0,
+				bank_reach + 1.0, target.y):
+			targets.erase(cell)
+	return targets
 
 func carve() -> void:
 	if not is_instance_valid(terrain) or terrain.data == null:
 		push_warning("%s: asigna un Terrain3D con datos para tallar el cauce." % name)
 		return
 	var start := Time.get_ticks_msec()
-	var targets := {}
-	_collect_targets(targets)
+	var targets := _carve_targets()
 	var spacing := terrain.vertex_spacing
+	var sheltered := 0
+	if is_inside_tree():
+		# Cells this node cut around a fall before are carved again from their original height (or put back when no longer
+		# needed), so older cuts into the cliff go away. What the other water on the same terrain carves there is kept, so
+		# the order in which the bodies are carved does not matter.
+		var margin := bank_reach + 1.0
+		var others := {}
+		for body in get_tree().get_nodes_in_group("water_bodies"):
+			if body != self and body is WaterBody and body.terrain == terrain:
+				var theirs: Dictionary = body._carve_targets()
+				for cell: Vector2i in theirs:
+					if not others.has(cell) or theirs[cell].x < others[cell]:
+						others[cell] = theirs[cell].x
+		var keep_cells := PackedInt32Array()
+		var keep_heights := PackedFloat32Array()
+		var keep_controls := PackedInt64Array()
+		for i in carved_heights.size():
+			var cell := Vector2i(carved_cells[i * 2], carved_cells[i * 2 + 1])
+			var p := Vector3(cell.x * spacing, 0.0, cell.y * spacing)
+			if under_fall(get_tree(), Vector2(p.x, p.z), margin, margin):
+				var base := maxf(carved_heights[i], terrain.data.get_height(p))
+				if others.has(cell):
+					base = minf(base, others[cell])
+				terrain.data.set_height(p, base)
+				terrain.data.set_control(p, carved_controls[i])
+				if not targets.has(cell):
+					sheltered += 1
+					continue
+			keep_cells.append_array(PackedInt32Array([cell.x, cell.y]))
+			keep_heights.append(carved_heights[i])
+			keep_controls.append(carved_controls[i])
+		carved_cells = keep_cells
+		carved_heights = keep_heights
+		carved_controls = keep_controls
 	var known := {}
 	for i in carved_heights.size():
 		known[Vector2i(carved_cells[i * 2], carved_cells[i * 2 + 1])] = true
@@ -212,7 +381,7 @@ func carve() -> void:
 			terrain.data.set_control_blend(p, 1.0 - sand)
 			painted += 1
 	_refresh_terrain()
-	print("%s: cauce tallado, %d celdas bajadas, %d pintadas, %d ms." % [name, lowered, painted, Time.get_ticks_msec() - start])
+	print("%s: cauce tallado, %d celdas bajadas, %d pintadas, %d restauradas bajo cascadas, %d ms." % [name, lowered, painted, sheltered, Time.get_ticks_msec() - start])
 	if flooded > 0:
 		push_warning("%s: en %d celdas de la orilla el terreno queda por debajo del agua y el agua flotaria sobre el borde. Baja la curva o sube esa orilla." % [name, flooded])
 
@@ -242,6 +411,7 @@ func _refresh_terrain() -> void:
 	terrain.data.calc_height_range(true)
 	if terrain.get_collision() != null:
 		terrain.get_collision().build()
+	_terrain_changed()
 	if Engine.is_editor_hint() and Engine.has_singleton("EditorInterface"):
 		var editor := Engine.get_singleton("EditorInterface")
 		if editor != null:

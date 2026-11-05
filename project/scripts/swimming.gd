@@ -82,6 +82,8 @@ signal swimming_changed(active: bool)
 @export_range(0.05, 2.0, 0.05) var dive_jump_entry_drag_scale := 0.45
 ## Tamano de la salpicadura de un clavado respecto a una caida normal. Menor = entrada mas limpia. En vivo.
 @export_range(0.0, 2.0, 0.05) var dive_jump_splash_scale := 0.45
+## Si el clavado acaba en suelo en vez de agua, siempre hay pansazo (Splat del jugador), sin importar la altura. En vivo.
+@export var dive_jump_splat_on_ground := true
 
 @export_group("Buceo")
 ## Permite bucear manteniendo Planear (R1). Apagado, Planear no hace nada en el agua. En vivo.
@@ -110,9 +112,31 @@ signal swimming_changed(active: bool)
 ## Segundos en superficie para recuperar todo el aire. En vivo.
 @export_range(0.1, 10.0, 0.1, "suffix:s") var air_refill_time := 1.5
 
+@export_group("Ondas reales")
+## El jugador crea ondas en la superficie del agua al caer, nadar y caminar por agua poco honda (su aspecto se ajusta en
+## WaterStyle › Ondas del jugador). Desactivalo si hay problemas de rendimiento: sin ondas activas el agua no las calcula.
+## Coste: hasta 16 ondas a la vez por pixel de agua. Apagado por defecto (en pruebas los anillos bastan). En vivo.
+@export var real_waves_enabled := false
+## Fuerza de las ondas al caer al agua (multiplica la del impacto, que crece con la velocidad de caida). En vivo.
+@export_range(0.0, 3.0, 0.01) var real_wave_entry_strength := 1.0
+## Fuerza de cada onda al nadar en superficie. En vivo.
+@export_range(0.0, 2.0, 0.01) var real_wave_swim_strength := 0.55
+## Fuerza de cada onda al caminar por agua poco honda. En vivo.
+@export_range(0.0, 2.0, 0.01) var real_wave_wade_strength := 0.4
+## Segundos entre ondas al moverse a velocidad maxima; mas despacio salen mas espaciadas. Menor = estela mas continua
+## (usa mas de las 16 ondas disponibles). En vivo.
+@export_range(0.05, 2.0, 0.01, "suffix:s") var real_wave_interval := 0.28
+## Velocidad minima, en m/s, para dejar ondas al moverse. En vivo.
+@export_range(0.0, 3.0, 0.05, "suffix:m/s") var real_wave_min_speed := 0.4
+## Onda pequena tambien flotando quieto (al ritmo del balanceo). 0 = sin ondas en reposo. En vivo.
+@export_range(0.0, 1.0, 0.01) var real_wave_idle_strength := 0.08
+
 @export_group("Salpicaduras y ondas")
 ## Activa salpicaduras, ondas y burbujas. Apagado no crea efectos. En vivo.
 @export var effects_enabled := true
+## Anillos dibujados en la superficie al nadar y al salpicar. Apagado = sin anillos (las salpicaduras y burbujas siguen).
+## En vivo.
+@export var ripples_enabled := true
 ## Velocidad vertical minima al entrar en el agua para salpicar, en m/s. En vivo.
 @export_range(0.0, 20.0, 0.1, "suffix:m/s") var splash_min_speed := 2.0
 ## Velocidad de entrada con la que la salpicadura alcanza su tamano maximo, en m/s. En vivo.
@@ -134,10 +158,29 @@ signal swimming_changed(active: bool)
 ## Burbujas bajo el agua mientras bucea. En vivo.
 @export var bubbles_enabled := true
 
+@export_group("Mojado")
+## Al mojarse el jugador se oscurece (pelaje mojado) y vuelve a su color poco a poco despues de salir. Afecta solo a
+## este personaje: sus materiales se duplican al empezar. En vivo.
+@export var wet_enabled := true
+## Color por el que se multiplica el del modelo cuando esta empapado. Mas oscuro = pelaje mas mojado; puede llevar un
+## leve tono (azulado, frio...). Blanco = sin cambio. En vivo.
+@export var wet_color := Color(0.62, 0.6, 0.62)
+## 0-1: cuanto se oscurece caminando por agua poco honda (1 = como nadando). En vivo.
+@export_range(0.0, 1.0, 0.01) var wet_wade_amount := 0.45
+## Segundos en oscurecerse al entrar al agua. En vivo.
+@export_range(0.0, 3.0, 0.05, "suffix:s") var wet_in_time := 0.3
+## Segundos que sigue igual de mojado tras salir, antes de empezar a secarse. En vivo.
+@export_range(0.0, 10.0, 0.1, "suffix:s") var wet_hold_time := 1.5
+## Segundos en volver a su color normal una vez empieza a secarse. En vivo.
+@export_range(0.1, 20.0, 0.1, "suffix:s") var wet_dry_time := 3.5
+
 @export_group("Empapado")
 ## Al salir del agua el jugador gotea un rato: gotitas que caen del cuerpo y se van espaciando hasta parar. En vivo.
 @export var drip_enabled := true
-## Segundos que sigue goteando tras salir del agua. Mayor = queda empapado mas tiempo. En vivo.
+## Encendido (por defecto): gotea mientras dure el secado del grupo Mojado, cada vez menos segun se seca, haga lo que
+## haga (caminar, correr, planear...). Apagado: gotea solo Drip Duration segundos al salir. En vivo.
+@export var drip_while_wet := true
+## Segundos que sigue goteando tras salir del agua, si Drip While Wet esta apagado (o Mojado desactivado). En vivo.
 @export_range(0.2, 10.0, 0.1, "suffix:s") var drip_duration := 2.5
 ## Gotas por segundo justo al salir; bajan hasta 0 al final de Drip Duration. Coste: particulas de CPU, muy pocas.
 ## En vivo.
@@ -312,8 +355,16 @@ var _ambience_level := 0.0
 var _next_dive_voice := 0
 var _was_diving := false
 var _drips: CPUParticles3D
+## 0-1: cuanto de mojado esta el pelaje ahora.
+var wetness := 0.0
+var _wet_target := 0.0
+var _wet_hold_left := 0.0
+var _wet_materials: Array[BaseMaterial3D] = []
+var _wet_base_colors: Array[Color] = []
+var _wet_applied := -1.0
 var _drip_left := 0.0
 var _plunge_left := 0.0
+var _wave_left := 0.0
 var _air_tap_time := -1.0
 var _dive_start_left := 0.0
 var _fallback_splash: AudioStreamWAV
@@ -331,6 +382,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_tick_ripples(delta)
 	_tick_drips(delta)
+	_tick_wet(delta)
 	_tick_ambience(delta)
 
 ## Underwater ambience loop: fades in while the player is under the surface and out when it comes up, then stops.
@@ -448,6 +500,8 @@ func tick(delta: float) -> bool:
 	if not active:
 		if depth < enter_depth or (_reentry_left > 0.0 and actor.velocity.y > 0.0):
 			_refill_air(delta)
+			if depth > 0.03 and actor.is_on_floor():
+				_wade_waves(Vector3(feet.x, surface_y, feet.z), delta)
 			return false
 		_enter()
 	elif actor.is_on_floor() and depth < exit_depth and not diving:
@@ -483,6 +537,9 @@ func tick(delta: float) -> bool:
 	planar = relative + flow
 
 	var float_y := surface_y - float_depth + sin(_clock * TAU * bob_speed) * bob_height
+	# Ride the swell when the water surface moves (WaterStyle › Movimiento de la superficie).
+	if is_instance_valid(water_body):
+		float_y += WaterBody.swell_at(Vector2(feet.x, feet.z), water_body.style)
 	var vy := actor.velocity.y
 	var target_vy: float
 	if diving:
@@ -527,6 +584,10 @@ func _enter() -> void:
 	_shared_press = false
 	_dive_hold = false
 	_plunge_left = dive_jump_plunge_time if headfirst else 0.0
+	if real_waves_enabled:
+		var wave := clampf(impact / maxf(splash_full_speed, 0.1), 0.2, 1.0) * real_wave_entry_strength * (0.75 if headfirst else 1.0)
+		WaterBody.add_wave(Vector3(actor.global_position.x, surface_y, actor.global_position.z), wave)
+		_wave_left = 0.35
 	if impact >= splash_min_speed:
 		var strength := clampf(impact / splash_full_speed, 0.15, 1.0) * (dive_jump_splash_scale if headfirst else 1.0)
 		_splash(Vector3(actor.global_position.x, surface_y, actor.global_position.z), strength)
@@ -573,6 +634,8 @@ func _leap() -> void:
 	actor.feedback.emit("jump")
 	actor.animator.jump_started()
 	_splash(Vector3(feet.x, surface_y, feet.z), 0.35)
+	if real_waves_enabled:
+		WaterBody.add_wave(Vector3(feet.x, surface_y, feet.z), 0.5 * real_wave_entry_strength)
 	_play(_splash_stream(), splash_volume_db - 8.0, 1.25)
 
 ## Reads Brincar / Planear. Returns true on a jump request (tap). Keeps _dive_hold for a held Planear.
@@ -702,12 +765,74 @@ func _ensure_effects() -> bool:
 	_effects.add_child(_bubbles)
 	return true
 
+## Pelaje mojado: oscurece los materiales del modelo mientras esta en el agua y los devuelve a su color al secarse.
+func _tick_wet(delta: float) -> void:
+	if actor == null or actor.model == null:
+		return
+	var soaking := 0.0
+	if wet_enabled:
+		if active:
+			soaking = 1.0
+		elif is_in_water_at(actor.global_position + Vector3.UP * 0.05):
+			soaking = wet_wade_amount
+	if soaking > 0.0:
+		wetness = move_toward(wetness, maxf(wetness, soaking), delta / maxf(wet_in_time, 0.01))
+		_wet_hold_left = wet_hold_time
+	elif _wet_hold_left > 0.0:
+		_wet_hold_left -= delta
+	else:
+		wetness = move_toward(wetness, 0.0, delta / maxf(wet_dry_time, 0.01))
+	if not wet_enabled:
+		wetness = 0.0
+	if absf(wetness - _wet_applied) < 0.002 and wetness > 0.0:
+		return
+	if wetness <= 0.0 and _wet_applied <= 0.0:
+		return
+	_ensure_wet_materials()
+	for i in _wet_materials.size():
+		var base := _wet_base_colors[i]
+		var tint := Color.WHITE.lerp(wet_color, wetness)
+		_wet_materials[i].albedo_color = Color(base.r * tint.r, base.g * tint.g, base.b * tint.b, base.a)
+	_wet_applied = wetness
+
+## Duplicates the model's materials once, so darkening this character never changes others that share them.
+func _ensure_wet_materials() -> void:
+	if not _wet_materials.is_empty():
+		return
+	for mesh in actor.model.find_children("*", "MeshInstance3D", true, false):
+		var instance := mesh as MeshInstance3D
+		if instance.mesh == null:
+			continue
+		if instance.material_override is BaseMaterial3D:
+			var own := (instance.material_override as BaseMaterial3D).duplicate() as BaseMaterial3D
+			instance.material_override = own
+			_wet_materials.append(own)
+			_wet_base_colors.append(own.albedo_color)
+			continue
+		for surface in instance.mesh.get_surface_count():
+			var material := instance.get_active_material(surface) as BaseMaterial3D
+			if material == null:
+				continue
+			var own := material.duplicate() as BaseMaterial3D
+			instance.set_surface_override_material(surface, own)
+			_wet_materials.append(own)
+			_wet_base_colors.append(own.albedo_color)
+
 ## Goteo tras salir del agua: emite desde el cuerpo, cada vez menos, durante Drip Duration. Se corta al volver al agua.
 func _tick_drips(delta: float) -> void:
 	if active or not drip_enabled:
 		_drip_left = 0.0
 	_drip_left = maxf(0.0, _drip_left - delta)
-	if _drip_left <= 0.0:
+	# Tied to drying: drips keep falling while the fur is wet, fewer as it dries.
+	var by_wetness := drip_while_wet and wet_enabled
+	var ratio := 0.0
+	if active or not drip_enabled:
+		ratio = 0.0
+	elif by_wetness:
+		ratio = wetness
+	else:
+		ratio = clampf(_drip_left / maxf(drip_duration, 0.01), 0.0, 1.0)
+	if ratio <= 0.0:
 		if is_instance_valid(_drips):
 			_drips.emitting = false
 		return
@@ -753,7 +878,6 @@ func _tick_drips(delta: float) -> void:
 		_drips.amount = wanted
 	# Cada vez menos gotas hasta parar: el emisor se enciende en una fraccion de los frames que baja con el tiempo, lo que
 	# ademas da el goteo irregular de un pelaje mojado. Las gotas ya sueltas terminan su caida.
-	var ratio := clampf(_drip_left / maxf(drip_duration, 0.01), 0.0, 1.0)
 	_drips.emitting = randf() < ratio
 
 func _droplet_material(alpha: float) -> StandardMaterial3D:
@@ -769,6 +893,17 @@ func _tick_effects(motion: Vector3, delta: float) -> void:
 		return
 	var feet := actor.global_position
 	var at_surface := not submerged
+	if at_surface and real_waves_enabled:
+		_wave_left -= delta
+		var speed := motion.length()
+		if _wave_left <= 0.0:
+			var ratio := clampf(speed / maxf(swim_speed, 0.1), 0.0, 1.0)
+			if speed >= real_wave_min_speed:
+				WaterBody.add_wave(Vector3(feet.x, surface_y, feet.z), real_wave_swim_strength * lerpf(0.6, 1.0, ratio))
+				_wave_left = real_wave_interval * lerpf(2.0, 1.0, ratio)
+			elif real_wave_idle_strength > 0.0:
+				WaterBody.add_wave(Vector3(feet.x, surface_y, feet.z), real_wave_idle_strength)
+				_wave_left = 1.0 / maxf(bob_speed, 0.1)
 	if at_surface and ripple_interval > 0.0:
 		var speed_ratio := clampf(motion.length() / maxf(swim_speed, 0.1), 0.0, 1.0)
 		_ripple_left -= delta
@@ -781,6 +916,17 @@ func _tick_effects(motion: Vector3, delta: float) -> void:
 		_bubbles.global_position = head
 		_bubbles.emitting = bubbles_enabled and submerged
 
+## Waves while walking through shallow water (not swimming).
+func _wade_waves(point: Vector3, delta: float) -> void:
+	if not real_waves_enabled:
+		return
+	_wave_left -= delta
+	var speed := Vector2(actor.velocity.x, actor.velocity.z).length()
+	if _wave_left <= 0.0 and speed >= real_wave_min_speed:
+		var ratio := clampf(speed / maxf(actor.sprint_speed, 0.1), 0.0, 1.0)
+		WaterBody.add_wave(point, real_wave_wade_strength * lerpf(0.6, 1.0, ratio))
+		_wave_left = real_wave_interval * lerpf(2.0, 1.0, ratio)
+
 func _tick_ripples(delta: float) -> void:
 	for i in _ripples.size():
 		if _ripple_ages[i] >= 1.0:
@@ -791,7 +937,7 @@ func _tick_ripples(delta: float) -> void:
 		(ring.material_override as ShaderMaterial).set_shader_parameter("age", _ripple_ages[i])
 
 func _ripple(position: Vector3, size: float, opacity: float, fill := 0.0) -> void:
-	if not _ensure_effects():
+	if not ripples_enabled or not _ensure_effects():
 		return
 	var i := _next_ripple
 	_next_ripple = (_next_ripple + 1) % _ripples.size()

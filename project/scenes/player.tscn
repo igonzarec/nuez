@@ -26,6 +26,7 @@ slide_dust_min_speed = 0.1
 skate_high_speed_turn_multiplier = 0.7999999999999999
 skate_hold_fall_speed = 1.0
 skate_hold_fall_delay = 0.15
+climb_manual_arms = false
 climb_pull_distance = 1.5
 glide_landing_pose_delay = 0.0
 glide_landing_pose_blend_duration = 0.25
@@ -113,6 +114,7 @@ script = ExtResource("6_ice_reflection")
 [node name="Swimming" type="Node" parent="." unique_id=694358090]
 script = ExtResource("7_swimming")
 dive_jump_min_height = 0.5
+drip_size = 0.04999999999999999
 dive_stroke_sounds_enabled = false
 dive_stroke_order = 1
 dive_stroke_volume_db = -18.5
