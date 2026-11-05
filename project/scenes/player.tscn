@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://wlssk0a80v87" path="res://scripts/glide_membranes.gd" id="4_membranes"]
 [ext_resource type="Script" uid="uid://b1lgbruv7hft8" path="res://scripts/ice_skate_audio.gd" id="5_ice_audio"]
 [ext_resource type="Script" uid="uid://dr14kwro8cmrf" path="res://scripts/ice_reflection.gd" id="6_ice_reflection"]
+[ext_resource type="Script" uid="uid://cv01f2kcsxges" path="res://scripts/swimming.gd" id="7_swimming"]
 
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
@@ -108,3 +109,15 @@ script = ExtResource("5_ice_audio")
 
 [node name="IceReflection" type="Node3D" parent="." unique_id=929833593]
 script = ExtResource("6_ice_reflection")
+
+[node name="Swimming" type="Node" parent="." unique_id=694358090]
+script = ExtResource("7_swimming")
+dive_jump_min_height = 0.5
+dive_stroke_sounds_enabled = false
+dive_stroke_order = 1
+dive_stroke_volume_db = -18.5
+dive_stroke_pitch_variation = 0.0
+dive_stroke_speed_variation = 0.0
+dive_stroke_rhythm_variation = 0.1
+underwater_cutoff_hz = 440.0
+underwater_pitch = 0.6

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WaterStyle" format=3 uid="uid://3eiy0oku0lg5"]
+
+[ext_resource type="Script" uid="uid://dhqfol1gybdwe" path="res://scripts/water/water_style.gd" id="1_style"]
+
+[resource]
+script = ExtResource("1_style")
+clarity = 1.6
+depth_tone_amount = 0.0
+crest_width = 0.215
+crest_softness = 0.125
+crest_strength = 0.22
+crest_speed = 3.96
+foam_width = 0.4
+foam_softness = 0.0
+foam_breakup = 1.0
+specular = 1.0
+caustic_speed = 2.13
+swimmer_clarity = 2.8499999999999996
+swimmer_tint = 0.6

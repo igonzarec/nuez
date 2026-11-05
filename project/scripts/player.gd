@@ -664,6 +664,11 @@ var _snow_step_side := -1.0
 @export_range(0.0, 1.0, 0.01) var climb_torso_forward_lean_phase := 0.0
 
 var is_climbing := false
+## Nadando en un WaterRiver / WaterLake; lo gestiona el nodo Swimming (PlayerSwimming).
+var is_swimming := false
+## Clavado en el aire hacia el agua (PlayerSwimming › Clavado).
+var is_water_diving := false
+var swimming: PlayerSwimming
 var climb_motion := 0.0
 var climb_surface_normal := Vector3.BACK
 var climb_mantle_progress := -1.0
@@ -834,6 +839,13 @@ func _ready() -> void:
 	climbing = preload("res://scripts/climbing.gd").new()
 	climbing.actor = self
 	add_child(climbing)
+	# Ajustes de nado en el Inspector (nodo Swimming de player.tscn); se crea con valores por defecto si falta.
+	swimming = get_node_or_null("Swimming") as PlayerSwimming
+	if not swimming:
+		swimming = PlayerSwimming.new()
+		swimming.name = "Swimming"
+		add_child(swimming)
+	swimming.actor = self
 
 func react(kind: String) -> void:
 	reaction_kind = kind
@@ -915,6 +927,8 @@ func respawn() -> void:
 	reset_climb_arms()
 	if climbing:
 		climbing.reset()
+	if swimming:
+		swimming.reset()
 	model.end_climb()
 	global_position = spawn_position + Vector3.UP * 0.12
 	fall_peak_y = global_position.y
@@ -986,6 +1000,8 @@ func _physics_process(delta: float) -> void:
 	if not interaction_press_consumed and climbing.tick(delta):
 		fall_peak_y = global_position.y
 		return
+	if swimming and swimming.tick(delta):
+		return
 	var grounded := is_on_floor() and not _npc_bounce_airborne
 	var steep_normal := _steep_support()
 	is_sliding = steep_normal != Vector3.ZERO
@@ -1012,7 +1028,11 @@ func _physics_process(delta: float) -> void:
 	# convertir accidentalmente una caída en un salto de coyote.
 	if jump_pressed_this_frame and input_grace <= 0 and not glide_button_pressed_in_air:
 		buffer_left = jump_buffer
-	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and action_pressed("glide") and not interaction_press_consumed
+	# Clavado: Brincar otra vez en el aire sobre agua (no durante el coyote, que sigue siendo un salto).
+	if swimming:
+		var air_jump := jump_pressed_this_frame and input_grace <= 0 and (jump_consumed or coyote_left <= 0.0)
+		swimming.tick_air_dive(delta, grounded or is_sliding, air_jump, action_just_pressed("glide"))
+	is_gliding = glide_enabled and not grounded and not is_sliding and glide_button_pressed_in_air and action_pressed("glide") and not interaction_press_consumed and not is_water_diving
 	is_glide_sprinting = is_gliding and action_pressed("sprint")
 	if grounded:
 		velocity.y = 0
@@ -1723,6 +1743,9 @@ func _tick_glide_recoil(delta: float) -> bool:
 
 func _try_start_splat(impact_speed: float) -> bool:
 	var fall_height := maxf(0.0, fall_peak_y - global_position.y)
+	# Caer en agua poco honda frena la caida: nunca hay pansazo dentro del agua.
+	if swimming and swimming.is_in_water_at(global_position + Vector3.UP * 0.1):
+		return false
 	if not splat_enabled or impact_speed < splat_min_impact_speed or fall_height < splat_min_fall_height:
 		return false
 	is_splat = true

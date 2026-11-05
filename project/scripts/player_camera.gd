@@ -140,6 +140,28 @@ signal recenter_requested
 @export_range(15.0, 40.0) var blur_start := 18.0
 @export_range(1.0, 30.0) var blur_transition := 12.0
 @export_range(0.0, 6.0) var blur_strength := 3.0
+@export_group("Agua")
+## Evita que la camara quede cortada por la superficie del agua: se mantiene por encima de ella. Necesita WaterRiver /
+## WaterLake en la escena. En vivo.
+@export var water_line_enabled := true
+## Metros de separacion entre la camara y la superficie del agua. Mayor evita mejor ver media pantalla dentro y media
+## fuera; menor deja encuadres mas rasantes. En vivo.
+@export_range(0.05, 2.0, 0.05, "suffix:m") var water_line_margin := 0.35
+## Apagado (por defecto): al bucear la camara conserva la altura que tenia con el jugador flotando y lo ve a traves del
+## agua. Encendido: baja con el jugador bajo el agua (vista submarina con niebla). En vivo.
+@export var dive_camera_underwater := false
+## Con Dive Camera Underwater apagado: cuanto inclina la mirada hacia el jugador cuando bucea (0-1), sin mover la camara.
+## 0 = la mirada se queda en la superficie; 1 = apunta al jugador. En vivo.
+@export_range(0.0, 1.0, 0.01) var dive_look_follow := 0.4
+## Deja ver al jugador a traves del agua mientras bucea, solo a el (el fondo y las piedras no cambian). Cuanto se ve se
+## ajusta en el WaterStyle (grupo Buceador visible). Coste: el jugador se dibuja una vez mas mientras bucea. En vivo.
+@export var reveal_swimmer := true
+## Segundos que tarda la zona aclarada en aparecer al sumergirse y en desaparecer al salir a la superficie. Solo esta
+## activa mientras el jugador bucea (cabeza bajo el agua). En vivo.
+@export_range(0.0, 3.0, 0.05, "suffix:s") var reveal_swimmer_fade := 0.4
+## Niebla y color submarinos cuando la camara queda bajo el agua. Los colores y la distancia vienen del WaterStyle de esa
+## agua (grupo Bajo el agua). Coste: un quad a pantalla completa solo mientras esta sumergida. En vivo.
+@export var underwater_view_enabled := true
 @export_group("Colisión de cámara")
 ## Evita que la cámara entre en las superficies marcadas como Camera Blocker.
 @export var camera_collision_enabled := true
@@ -208,6 +230,13 @@ var blur_material: ShaderMaterial
 @export var depth_outline_color := Color(0.2, 0.3, 0.35)
 var _outline_mesh: MeshInstance3D
 var _outline_material: ShaderMaterial
+var _reveal_weight := 0.0
+var _reveal_owner: Node
+var _reveal_targets: Array[MeshInstance3D] = []
+var _reveal_applied := false
+var _reveal_material: ShaderMaterial
+var _underwater_mesh: MeshInstance3D
+var _underwater_material: ShaderMaterial
 var _last_camera_direction := Vector3.ZERO
 var _camera_clear_time := 0.0
 var _base_view_pitch := 0.0
@@ -259,6 +288,22 @@ func _ready() -> void:
 	_outline_material.render_priority = 101
 	_outline_mesh.material_override = _outline_material
 	camera.add_child(_outline_mesh)
+	_underwater_mesh = MeshInstance3D.new()
+	_underwater_mesh.mesh = quad
+	_underwater_mesh.position.z = -0.4
+	_underwater_mesh.extra_cull_margin = 16384
+	_underwater_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_underwater_material = ShaderMaterial.new()
+	_underwater_material.shader = preload("res://shaders/water/underwater_view.gdshader")
+	# Despues del agua (0) y antes del contorno (101).
+	_underwater_material.render_priority = 100
+	_underwater_mesh.material_override = _underwater_material
+	_underwater_mesh.visible = false
+	camera.add_child(_underwater_mesh)
+	_reveal_material = ShaderMaterial.new()
+	_reveal_material.shader = preload("res://shaders/water/swimmer_reveal.gdshader")
+	# Despues de lagos (0) y rios (1), antes de las ondas (3).
+	_reveal_material.render_priority = 2
 	if target:
 		snap()
 
@@ -455,7 +500,8 @@ func _clamp_glide_yaw(value: float) -> float:
 	return wrapf(value, -PI, PI)
 
 func _place_camera(delta := 0.0) -> void:
-	var anchor := target.global_position + Vector3.UP * 1.15
+	var body_anchor := target.global_position + Vector3.UP * 1.15
+	var anchor := _dive_anchor(body_anchor)
 	# El retraso posicional del rig no debe modificar la dirección solicitada.
 	var orbit_yaw := rotation.y
 	# rotation.x is already the smoothly blended normal/glide orbit angle.
@@ -470,7 +516,7 @@ func _place_camera(delta := 0.0) -> void:
 		yaw = rotation.y + clampf(wrapf(yaw - rotation.y, -PI, PI), -deg_to_rad(8.0), deg_to_rad(8.0))
 	_last_camera_direction = resolved
 	camera.global_position = anchor + resolved * distance
-	camera.look_at(anchor)
+	camera.look_at(_apply_water(anchor, body_anchor, resolved))
 	camera.fov = field_of_view
 	blur_mesh.visible = distant_blur_enabled and camera.is_current()
 	blur_material.set_shader_parameter("focus_distance", blur_start)
@@ -481,6 +527,98 @@ func _place_camera(delta := 0.0) -> void:
 	_outline_material.set_shader_parameter("line_width", depth_outline_width)
 	_outline_material.set_shader_parameter("depth_threshold", depth_outline_threshold)
 	_outline_material.set_shader_parameter("line_color", depth_outline_color)
+
+## Nadando con la camara fuera del agua, el encuadre no baja de la altura que tiene con el jugador flotando: al bucear la
+## camara no cambia y el jugador se ve a traves del agua.
+func _dive_anchor(body_anchor: Vector3) -> Vector3:
+	var swim := target.swimming
+	if dive_camera_underwater or not water_line_enabled or swim == null or not swim.active:
+		return body_anchor
+	var floating := swim.surface_y - swim.float_depth + (body_anchor.y - target.global_position.y)
+	return Vector3(body_anchor.x, maxf(body_anchor.y, floating), body_anchor.z)
+
+## Mientras el jugador bucea, repinta solo sus mallas encima del agua (material_overlay con swimmer_reveal.gdshader),
+## teñidas segun la profundidad; el resto del agua no cambia. Aparece y desaparece en Reveal Swimmer Fade.
+func _update_swimmer_reveal() -> void:
+	var swim := target.swimming
+	var diving := reveal_swimmer and swim != null and swim.active and swim.submerged
+	var step := get_physics_process_delta_time() / maxf(reveal_swimmer_fade, 0.001)
+	_reveal_weight = move_toward(_reveal_weight, 1.0 if diving else 0.0, step)
+	var style: WaterStyle = null
+	if swim != null and is_instance_valid(swim.water_body):
+		style = swim.water_body.get("style")
+	var on := _reveal_weight > 0.0 and style != null
+	if on != _reveal_applied or (on and _reveal_owner != target.model):
+		for mesh in _reveal_meshes():
+			if is_instance_valid(mesh):
+				mesh.material_overlay = _reveal_material if on else null
+		_reveal_applied = on
+	if not on:
+		return
+	_reveal_material.set_shader_parameter("weight", _reveal_weight)
+	_reveal_material.set_shader_parameter("surface_height", swim.surface_y)
+	_reveal_material.set_shader_parameter("clarity", style.swimmer_clarity)
+	_reveal_material.set_shader_parameter("tint", style.swimmer_tint)
+	_reveal_material.set_shader_parameter("shallow_color", style.shallow_color)
+	_reveal_material.set_shader_parameter("deep_color", style.deep_color)
+	_reveal_material.set_shader_parameter("depth_scale", style.depth_scale)
+
+## Mallas visibles del modelo del jugador (se buscan una vez; el rig no crea mallas nuevas al jugar).
+func _reveal_meshes() -> Array[MeshInstance3D]:
+	if _reveal_owner != target.model:
+		_reveal_owner = target.model
+		_reveal_targets.clear()
+		if target.model != null:
+			for node in target.model.find_children("*", "MeshInstance3D", true, false):
+				_reveal_targets.append(node)
+	return _reveal_targets
+
+## Mantiene la camara fuera de la linea del agua, aclara el agua alrededor del jugador y activa la niebla submarina
+## cuando la camara queda sumergida. Devuelve el punto al que mirar.
+func _apply_water(anchor: Vector3, body_anchor: Vector3, direction: Vector3) -> Vector3:
+	_underwater_mesh.visible = false
+	if not is_inside_tree() or not target:
+		return anchor
+	if camera.is_current():
+		_update_swimmer_reveal()
+	# Buceando con la camara arriba: la mirada baja una parte hacia el jugador, sin mover la camara.
+	var look := anchor.lerp(body_anchor, dive_look_follow) if not dive_camera_underwater else anchor
+	if water_line_enabled:
+		var swim := target.swimming
+		if dive_camera_underwater and swim and swim.active and swim.submerged:
+			# Buceando: mira y se coloca bajo la superficie, en horizontal si hace falta.
+			var surface := swim.surface_y
+			look.y = minf(anchor.y, surface - water_line_margin - 0.2)
+			var position := look + direction * distance
+			position.y = minf(position.y, surface - water_line_margin)
+			# Bajar la camara puede meterla en la orilla o el fondo: se acerca hasta el primer obstaculo.
+			var query := PhysicsRayQueryParameters3D.create(look, position, 1 | camera_collision_mask, [target.get_rid()])
+			var hit := get_world_3d().direct_space_state.intersect_ray(query)
+			if not hit.is_empty():
+				position = hit.position + (look - position).normalized() * 0.35
+			camera.global_position = position
+		else:
+			var position := camera.global_position
+			var water := WaterBody.find_water(get_tree(), position, water_line_margin + 0.05)
+			if not water.is_empty() and position.y < water.surface + water_line_margin:
+				position.y = water.surface + water_line_margin
+				camera.global_position = position
+	if not underwater_view_enabled or not camera.is_current():
+		return look
+	var under := WaterBody.find_water(get_tree(), camera.global_position, -0.02)
+	if under.is_empty():
+		return look
+	var style: WaterStyle = under.body.style
+	if style == null:
+		return look
+	_underwater_material.set_shader_parameter("fog_color", style.underwater_color)
+	_underwater_material.set_shader_parameter("light_color", style.underwater_light_color)
+	_underwater_material.set_shader_parameter("fog_distance", style.underwater_fog_distance)
+	_underwater_material.set_shader_parameter("min_tint", style.underwater_tint)
+	_underwater_material.set_shader_parameter("max_fog", style.underwater_max_fog)
+	_underwater_material.set_shader_parameter("surface_height", under.surface)
+	_underwater_mesh.visible = true
+	return look
 
 ## Conserva el radio completo. Si no existe un ángulo libre, conserva el último
 ## encuadre: un espacio cerrado menor que Distance no puede resolverse con zoom.

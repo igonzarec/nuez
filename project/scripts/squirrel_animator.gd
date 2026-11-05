@@ -364,8 +364,111 @@ extends Node
 ## Cabeceo de la cabeza al caer, en grados; positivo mira hacia los pies. En vivo.
 @export_range(-45.0, 45.0, 0.5, "suffix:°") var skate_fall_head_pitch_degrees := 18.0
 
+@export_group("Nado · postura")
+## Activa la pose procedural de nado y buceo. Apagado nada con la pose base del rig. En vivo.
+@export var swim_pose_enabled := true
+## Rapidez de mezcla hacia la pose de nado al entrar, salir y cambiar entre superficie y buceo, en s⁻¹. En vivo.
+@export_range(1.0, 40.0, 0.5) var swim_pose_response := 8.0
+## Inclinacion del cuerpo hacia delante nadando en superficie, en grados desde vertical. 90 = tumbado; menor = mas
+## erguido, con la cabeza fuera del agua. En vivo.
+@export_range(0.0, 110.0, 0.5, "suffix:°") var swim_body_pitch_degrees := 62.0
+## Altura visual del modelo en superficie respecto a la capsula, en metros. Sube o baja la cabeza respecto al agua sin
+## cambiar la flotacion fisica (Float Depth en Swimming). En vivo.
+@export_range(-1.0, 1.5, 0.005, "suffix:m") var swim_visual_height := 0.32
+## Cabeceo de la cabeza en grados; negativo la levanta. Se suma a la compensacion de Head Level. En vivo.
+@export_range(-60.0, 60.0, 0.5, "suffix:°") var swim_head_pitch_degrees := -6.0
+## 0-1: cuanto compensa la cabeza la inclinacion del cuerpo para mirar al frente. 1 = cabeza siempre nivelada. En vivo.
+@export_range(0.0, 1.0, 0.05) var swim_head_level := 0.85
+## Balanceo lateral del cuerpo con cada brazada, en grados. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var swim_roll_degrees := 6.0
+## Cabeceo del cuerpo con cada brazada (empuje), en grados. En vivo.
+@export_range(0.0, 20.0, 0.5, "suffix:°") var swim_surge_degrees := 3.0
+## Inclinacion lateral al girar nadando, en grados. En vivo.
+@export_range(0.0, 45.0, 0.5, "suffix:°") var swim_turn_roll_degrees := 14.0
+## Torsion de hombros con cada brazada en superficie, en grados. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var swim_shoulder_twist_degrees := 8.0
+## Ondulacion de la columna con cada brazada, en grados. En vivo.
+@export_range(0.0, 30.0, 0.5, "suffix:°") var swim_spine_wave_degrees := 5.0
+## Orejas hacia atras al nadar, en grados. En vivo.
+@export_range(0.0, 90.0, 0.5, "suffix:°") var swim_ear_back_degrees := 30.0
+@export_group("Nado · brazos (perrito)")
+## Angulo central de los brazos, en grados desde la pose colgando hacia el pecho: 90 apunta al frente del pecho, 150
+## hacia la cabeza. Con el cuerpo inclinado 62°, ~110 queda bajo el morro. En vivo.
+@export_range(0.0, 180.0, 0.5, "suffix:°") var swim_arm_forward_degrees := 112.0
+## Recorrido de cada brazada adelante-atras, en grados. Mayor = brazadas mas largas. En vivo.
+@export_range(0.0, 90.0, 0.5, "suffix:°") var swim_arm_reach_degrees := 38.0
+## Apertura de los brazos hacia los lados, en grados. En vivo.
+@export_range(-30.0, 90.0, 0.5, "suffix:°") var swim_arm_out_degrees := 18.0
+## Circulo lateral de cada brazada (la mano entra por dentro y vuelve por fuera), en grados. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var swim_arm_circle_degrees := 14.0
+## Fraccion de la amplitud de brazos y piernas al flotar sin moverse (pataleo suave). En vivo.
+@export_range(0.0, 1.0, 0.05) var swim_tread_amplitude := 0.45
+@export_group("Nado · piernas y cola")
+## Angulo central de las piernas, en grados hacia delante desde colgando. Negativo las lleva hacia atras. En vivo.
+@export_range(-90.0, 90.0, 0.5, "suffix:°") var swim_leg_forward_degrees := 12.0
+## Amplitud del pataleo, en grados. En vivo.
+@export_range(0.0, 80.0, 0.5, "suffix:°") var swim_kick_degrees := 28.0
+## Apertura de las piernas, en grados. En vivo.
+@export_range(-20.0, 60.0, 0.5, "suffix:°") var swim_leg_out_degrees := 10.0
+## Elevacion de la cola desde su base, en grados; negativo la estira hacia atras como timon. En vivo.
+@export_range(-90.0, 60.0, 0.5, "suffix:°") var swim_tail_lift_degrees := -40.0
+## Giro de la cola hacia el lado de la curva (timon), en grados a giro rapido. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var swim_tail_rudder_degrees := 30.0
+## Ondulacion lateral de la cola con cada brazada, en grados. En vivo.
+@export_range(0.0, 45.0, 0.5, "suffix:°") var swim_tail_wave_degrees := 12.0
+@export_group("Buceo · postura")
+## Inclinacion del cuerpo buceando, en grados desde vertical. 90 = horizontal. En vivo.
+@export_range(0.0, 120.0, 0.5, "suffix:°") var dive_body_pitch_degrees := 88.0
+## Inclinacion extra hacia abajo al bajar (y hacia arriba al subir) a la velocidad de buceo, en grados. En vivo.
+@export_range(0.0, 80.0, 0.5, "suffix:°") var dive_tilt_degrees := 35.0
+## Altura visual del modelo buceando respecto a la capsula, en metros. Centra el cuerpo tumbado en la capsula. En vivo.
+@export_range(-1.0, 1.5, 0.005, "suffix:m") var dive_visual_height := 0.55
+## Angulo central de los brazos buceando (braza: ambos a la vez), en grados. 170 = estirados hacia delante. En vivo.
+@export_range(0.0, 180.0, 0.5, "suffix:°") var dive_arm_forward_degrees := 128.0
+## Recorrido de la brazada de braza, en grados. En vivo.
+@export_range(0.0, 90.0, 0.5, "suffix:°") var dive_arm_sweep_degrees := 42.0
+## Apertura de los brazos buceando, en grados. En vivo.
+@export_range(-30.0, 90.0, 0.5, "suffix:°") var dive_arm_out_degrees := 30.0
+## Barrido lateral de la braza (abre al empujar y cierra al recoger), en grados. En vivo.
+@export_range(0.0, 80.0, 0.5, "suffix:°") var dive_arm_circle_degrees := 30.0
+## Angulo central de las piernas buceando, en grados. En vivo.
+@export_range(-90.0, 90.0, 0.5, "suffix:°") var dive_leg_forward_degrees := 0.0
+## Apertura de piernas buceando, en grados. En vivo.
+@export_range(-20.0, 60.0, 0.5, "suffix:°") var dive_leg_out_degrees := 14.0
+## Patada de rana: apertura y cierre extra de las piernas a la vez, en grados. En vivo.
+@export_range(0.0, 60.0, 0.5, "suffix:°") var dive_frog_kick_degrees := 18.0
+
+@export_group("Clavado · postura")
+## Pose procedural del clavado (PlayerSwimming › Clavado): cabeza abajo, brazos estirados juntos y piernas rectas. En vivo.
+@export var dive_jump_pose_enabled := true
+## Rapidez de entrada a la pose y de giro del cuerpo hacia la caida. Mayor = se pone de cabeza enseguida. En vivo.
+@export_range(1.0, 40.0, 0.5) var dive_jump_response := 9.0
+## Inclinacion minima del cuerpo al empezar el clavado, en grados desde vertical (90 = horizontal). En vivo.
+@export_range(0.0, 180.0, 0.5, "suffix:°") var dive_jump_start_pitch_degrees := 105.0
+## Inclinacion maxima cayendo en picado, en grados desde vertical (180 = cabeza abajo del todo). El cuerpo sigue la
+## direccion de la caida entre el minimo y este maximo. En vivo.
+@export_range(90.0, 200.0, 0.5, "suffix:°") var dive_jump_max_pitch_degrees := 172.0
+## Altura visual del modelo en el clavado respecto a la capsula, en metros. Mayor sube el cuerpo girado. En vivo.
+@export_range(-1.5, 1.5, 0.005, "suffix:m") var dive_jump_visual_height := 0.45
+## Brazos: angulo hacia la cabeza (180 = estirados por encima de la cabeza), en grados. En vivo.
+@export_range(0.0, 200.0, 0.5, "suffix:°") var dive_jump_arm_forward_degrees := 172.0
+## Apertura de los brazos, en grados. 0 = juntos, manos unidas. En vivo.
+@export_range(-30.0, 60.0, 0.5, "suffix:°") var dive_jump_arm_out_degrees := 6.0
+## Piernas: angulo respecto al cuerpo, en grados. 0 = rectas y juntas siguiendo el cuerpo. En vivo.
+@export_range(-60.0, 60.0, 0.5, "suffix:°") var dive_jump_leg_forward_degrees := -4.0
+## Apertura de las piernas, en grados. En vivo.
+@export_range(-20.0, 40.0, 0.5, "suffix:°") var dive_jump_leg_out_degrees := 3.0
+## Cabeza metida entre los brazos (positivo = barbilla al pecho), en grados. En vivo.
+@export_range(-60.0, 60.0, 0.5, "suffix:°") var dive_jump_head_degrees := 18.0
+## Cola: elevacion respecto a su reposo, en grados (negativo la estira siguiendo el cuerpo). En vivo.
+@export_range(-90.0, 60.0, 0.5, "suffix:°") var dive_jump_tail_degrees := -35.0
+## Orejas hacia atras, en grados. En vivo.
+@export_range(0.0, 90.0, 0.5, "suffix:°") var dive_jump_ear_back_degrees := 45.0
+
 var actor: ExplorerPlayer
 var glide_blend := 0.0
+## 0-1: mezcla suavizada entre nado en superficie y buceo.
+var swim_dive_blend := 0.0
 var clock := 0.0
 var gait_phase := 0.0
 var run_blend := 0.0
@@ -446,6 +549,7 @@ func jump_started() -> void:
 	landing_elapsed = -1.0
 
 func reset() -> void:
+	swim_dive_blend = 0.0
 	splat_tap_blend = 0.0
 	splat_tail_sway_phase = 0.0
 	splat_entry_rotation = Quaternion.IDENTITY
@@ -485,6 +589,14 @@ func skate_speed_pose() -> float:
 func tick(delta: float, speed: float) -> void:
 	clock += delta
 	actor.model.update_skate(actor.is_skating and not actor.is_splat and not actor.is_glide_recoiling and not actor.is_glide_landing)
+	actor.model.update_swim(actor.is_swimming and swim_pose_enabled)
+	actor.model.update_dive_jump(actor.is_water_diving and dive_jump_pose_enabled and not actor.is_swimming)
+	if actor.is_swimming:
+		_tick_swim(delta)
+		return
+	if actor.is_water_diving and dive_jump_pose_enabled:
+		_tick_dive_jump(delta)
+		return
 	if actor.is_splat:
 		_tick_splat(delta)
 		return
@@ -593,6 +705,61 @@ func tick(delta: float, speed: float) -> void:
 	actor.model.update_handmade_glide(glide_blend, handmade_glide_flutter_speed, handmade_glide_start_speed, handmade_glide_tremor_degrees, handmade_glide_tremor_speed)
 	_tick_air_pose(delta, grounded)
 
+
+## Cuerpo durante el nado: inclinacion, balanceo y altura visual. Los huesos los mueve SquirrelRig._apply_procedural_swim.
+func _tick_swim(delta: float) -> void:
+	var swim := actor.swimming
+	locomotion_state = "dive" if swim.submerged or swim.diving else "swim"
+	actor.animation_state = locomotion_state
+	was_glide_landing = false
+	glide_blend = 0.0
+	run_blend = 0.0
+	jump_start = 0.0
+	landing_elapsed = -1.0
+	air_was_airborne = false
+	air_elapsed = 0.0
+	actor.reaction_time = maxf(0.0, actor.reaction_time - delta)
+	actor.landing_time = 0.0
+	var blend := 1.0 - exp(-swim_pose_response * delta)
+	swim_dive_blend = lerpf(swim_dive_blend, 1.0 if swim.submerged or swim.diving else 0.0, blend)
+	var tilt := clampf(swim.vertical_speed / maxf(swim.dive_speed, 0.1), -1.0, 1.0) * dive_tilt_degrees * swim_dive_blend
+	var surge := sin(swim.stroke_phase * TAU * 2.0) * swim_surge_degrees * swim.stroke_weight
+	var pitch_degrees := lerpf(swim_body_pitch_degrees, dive_body_pitch_degrees, swim_dive_blend) - tilt + surge
+	body_pitch = lerp_angle(body_pitch, -deg_to_rad(pitch_degrees), blend)
+	var turn := clampf(-actor.angular_velocity / deg_to_rad(120.0), -1.0, 1.0) * deg_to_rad(swim_turn_roll_degrees)
+	var stroke_roll := sin(swim.stroke_phase * TAU) * deg_to_rad(swim_roll_degrees) * (1.0 - swim_dive_blend)
+	body_roll = lerp_angle(body_roll, turn + stroke_roll, blend)
+	body_bank = lerp_angle(body_bank, 0.0, blend)
+	actor.model.set_body_tilt(body_pitch, body_roll, body_bank)
+	actor.model.scale = actor.model.scale.lerp(Vector3.ONE, blend)
+	var height := lerpf(swim_visual_height, dive_visual_height, swim_dive_blend)
+	actor.model.position = actor.model.position.lerp(Vector3(0.0, height, 0.0), blend)
+	actor.model.glide_amount = 0.0
+	actor.model.update_handmade_glide(0.0, handmade_glide_flutter_speed)
+
+
+## Cuerpo durante el clavado: gira de la inclinacion inicial hacia la direccion de la caida, hasta cabeza abajo. Los
+## huesos los mueve SquirrelRig._apply_procedural_dive_jump.
+func _tick_dive_jump(delta: float) -> void:
+	locomotion_state = "dive_jump"
+	actor.animation_state = locomotion_state
+	was_glide_landing = false
+	glide_blend = 0.0
+	run_blend = 0.0
+	landing_elapsed = -1.0
+	var blend := 1.0 - exp(-dive_jump_response * delta)
+	var planar := Vector2(actor.velocity.x, actor.velocity.z).length()
+	# 0 grados = cayendo en horizontal, 90 = en vertical hacia abajo; subiendo cuenta como horizontal.
+	var fall_angle := rad_to_deg(atan2(maxf(-actor.velocity.y, 0.0), maxf(planar, 0.5)))
+	var pitch_degrees := clampf(90.0 + fall_angle, dive_jump_start_pitch_degrees, dive_jump_max_pitch_degrees)
+	body_pitch = lerp_angle(body_pitch, -deg_to_rad(pitch_degrees), blend)
+	body_roll = lerp_angle(body_roll, 0.0, blend)
+	body_bank = lerp_angle(body_bank, 0.0, blend)
+	actor.model.set_body_tilt(body_pitch, body_roll, body_bank)
+	actor.model.scale = actor.model.scale.lerp(Vector3.ONE, blend)
+	actor.model.position = actor.model.position.lerp(Vector3(0.0, dive_jump_visual_height, 0.0), blend)
+	actor.model.glide_amount = 0.0
+	actor.model.update_handmade_glide(0.0, handmade_glide_flutter_speed)
 
 func _tick_splat(delta: float) -> void:
 	locomotion_state = "splat"

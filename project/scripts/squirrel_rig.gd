@@ -48,6 +48,14 @@ var skate_active := false
 ## 0–1: mezcla suavizada hacia la pose de frenada sobre hielo.
 var skate_brake_weight := 0.0
 var skate_clock := 0.0
+## Nadando: pose procedural de SquirrelAnimator › Nado / Buceo.
+var swim_active := false
+## 0-1: mezcla suavizada entre perrito (superficie) y braza (buceo).
+var swim_dive_weight := 0.0
+var swim_clock := 0.0
+## Clavado hacia el agua: pose procedural de SquirrelAnimator › Clavado · postura.
+var dive_jump_active := false
+var dive_jump_clock := 0.0
 const GLIDE_TREMOR_BONES := [&"arm_left", &"arm_right", &"leg_left", &"leg_right"]
 
 func _ready() -> void:
@@ -86,7 +94,7 @@ func _ready() -> void:
 		playertest2_animation.pause()
 
 func update_handmade_run(speed: float, walk_member_speed: float, run_member_speed: float, sprint_requested: bool) -> void:
-	if glide_active or climb_active or air_active or skate_active:
+	if glide_active or climb_active or air_active or skate_active or swim_active or dive_jump_active:
 		return
 	if not playertest2_animation or playertest2_run.is_empty():
 		return
@@ -268,6 +276,12 @@ func _process(delta: float) -> void:
 		return
 	if climb_active:
 		_apply_procedural_climb(delta)
+		return
+	if swim_active:
+		_apply_procedural_swim(delta)
+		return
+	if dive_jump_active:
+		_apply_procedural_dive_jump(delta)
 		return
 	if skate_active:
 		_apply_procedural_skate(delta)
@@ -532,6 +546,143 @@ func _apply_procedural_skate(delta: float) -> void:
 		var rotation := previous.slerp(target, blend)
 		var before_position: Vector3 = air_pose_positions.get(index, rest.origin)
 		var bone_position := before_position.lerp(rest.origin, blend)
+		playertest2_skeleton.set_bone_pose_rotation(index, rotation)
+		playertest2_skeleton.set_bone_pose_position(index, bone_position)
+		air_pose_rotations[index] = rotation
+		air_pose_positions[index] = bone_position
+
+
+## Entra o sale de la pose de nado; la salida se mezcla como la de Climb y Skate.
+func update_swim(active: bool) -> void:
+	if active == swim_active:
+		return
+	swim_active = active
+	if active:
+		_capture_air_pose()
+		air_active = false
+		landing_pose_active = false
+		air_pose_releasing = false
+		idle_active = false
+		swim_dive_weight = 0.0
+		swim_clock = 0.0
+		if playertest2_animation:
+			playertest2_animation.pause()
+	else:
+		air_pose_releasing = true
+
+
+func update_dive_jump(active: bool) -> void:
+	if active == dive_jump_active:
+		return
+	dive_jump_active = active
+	if active:
+		_capture_air_pose()
+		air_active = false
+		landing_pose_active = false
+		air_pose_releasing = false
+		idle_active = false
+		dive_jump_clock = 0.0
+		if playertest2_animation:
+			playertest2_animation.pause()
+	elif not swim_active:
+		air_pose_releasing = true
+
+## Clavado: brazos juntos por encima de la cabeza, piernas rectas y juntas, cola estirada y orejas atras.
+func _apply_procedural_dive_jump(delta: float) -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor:
+		return
+	var anim := actor.animator
+	_reset_idle_pose()
+	dive_jump_clock += delta
+	var track := 1.0 - exp(-anim.dive_jump_response * delta)
+	var targets: Dictionary = {}
+	for side_name in ["left", "right"]:
+		var side := -1.0 if side_name == "left" else 1.0
+		_set_skate_limb(targets, "arm_" + side_name, side, anim.dive_jump_arm_out_degrees, anim.dive_jump_arm_forward_degrees, 0.0)
+		_set_skate_limb(targets, "leg_" + side_name, side, anim.dive_jump_leg_out_degrees, anim.dive_jump_leg_forward_degrees, 0.0)
+		var ear := playertest2_skeleton.find_bone("ear_" + side_name)
+		if ear >= 0:
+			targets[ear] = playertest2_skeleton.get_bone_rest(ear).basis.get_rotation_quaternion() * _climb_axis_rotation(ear, Vector3.RIGHT, -deg_to_rad(anim.dive_jump_ear_back_degrees))
+	var head := playertest2_skeleton.find_bone("head")
+	if head >= 0:
+		targets[head] = playertest2_skeleton.get_bone_rest(head).basis.get_rotation_quaternion() * _climb_axis_rotation(head, Vector3.RIGHT, deg_to_rad(anim.dive_jump_head_degrees))
+	var tail := playertest2_skeleton.find_bone("tail_base")
+	if tail >= 0:
+		targets[tail] = playertest2_skeleton.get_bone_rest(tail).basis.get_rotation_quaternion() * _climb_axis_rotation(tail, Vector3.RIGHT, deg_to_rad(anim.dive_jump_tail_degrees))
+	if body_pivot:
+		body_pivot.position.x = lerpf(body_pivot.position.x, 0.0, track)
+		body_pivot.position.y = lerpf(body_pivot.position.y, 0.0, track)
+	for index in playertest2_skeleton.get_bone_count():
+		var rest := playertest2_skeleton.get_bone_rest(index)
+		var target: Quaternion = targets.get(index, rest.basis.get_rotation_quaternion())
+		var previous: Quaternion = air_pose_rotations.get(index, playertest2_skeleton.get_bone_pose_rotation(index))
+		var rotation := previous.slerp(target, track)
+		var before_position: Vector3 = air_pose_positions.get(index, rest.origin)
+		var bone_position := before_position.lerp(rest.origin, track)
+		playertest2_skeleton.set_bone_pose_rotation(index, rotation)
+		playertest2_skeleton.set_bone_pose_position(index, bone_position)
+		air_pose_rotations[index] = rotation
+		air_pose_positions[index] = bone_position
+
+## Perrito en superficie (brazos y piernas alternos) y braza al bucear (ambos lados a la vez), con cola de timon.
+func _apply_procedural_swim(delta: float) -> void:
+	var actor := get_parent() as ExplorerPlayer
+	if not actor or not actor.swimming:
+		return
+	var anim := actor.animator
+	var swim := actor.swimming
+	_reset_idle_pose()
+	swim_clock += delta
+	var blend := 1.0 - exp(-anim.swim_pose_response * delta)
+	# Entrada suave con Pose Response; despues los miembros siguen el ciclo de brazadas sin perder amplitud.
+	var track := 1.0 - exp(-lerpf(anim.swim_pose_response, 30.0, smoothstep(0.3, 0.9, swim_clock)) * delta)
+	swim_dive_weight = lerpf(swim_dive_weight, 1.0 if swim.submerged or swim.diving else 0.0, blend)
+	var dive := swim_dive_weight
+	var energy := lerpf(anim.swim_tread_amplitude, 1.0, swim.stroke_weight)
+	var phase := swim.stroke_phase * TAU
+	var targets: Dictionary = {}
+	for side_name in ["left", "right"]:
+		var side := -1.0 if side_name == "left" else 1.0
+		# Perrito: cada lado a media vuelta del otro. Braza: ambos lados juntos.
+		var arm_phase := phase + (PI if side > 0.0 else 0.0) * (1.0 - dive)
+		var arm_forward := lerpf(anim.swim_arm_forward_degrees, anim.dive_arm_forward_degrees, dive) + sin(arm_phase) * lerpf(anim.swim_arm_reach_degrees, anim.dive_arm_sweep_degrees, dive) * energy
+		var arm_out := lerpf(anim.swim_arm_out_degrees, anim.dive_arm_out_degrees, dive) + cos(arm_phase) * lerpf(anim.swim_arm_circle_degrees, anim.dive_arm_circle_degrees, dive) * energy
+		_set_skate_limb(targets, "arm_" + side_name, side, arm_out, arm_forward, 0.0)
+		# Piernas: contrarias al brazo de su lado en superficie; patada de rana opuesta a la braza al bucear.
+		var leg_phase := arm_phase + PI
+		var leg_forward := lerpf(anim.swim_leg_forward_degrees, anim.dive_leg_forward_degrees, dive) + sin(leg_phase) * anim.swim_kick_degrees * energy * (1.0 - dive * 0.5)
+		var leg_out := lerpf(anim.swim_leg_out_degrees, anim.dive_leg_out_degrees, dive) + maxf(0.0, cos(leg_phase)) * anim.dive_frog_kick_degrees * dive * energy
+		_set_skate_limb(targets, "leg_" + side_name, side, leg_out, leg_forward, 0.0)
+		var ear := playertest2_skeleton.find_bone("ear_" + side_name)
+		if ear >= 0:
+			targets[ear] = playertest2_skeleton.get_bone_rest(ear).basis.get_rotation_quaternion() * _climb_axis_rotation(ear, Vector3.RIGHT, -deg_to_rad(anim.swim_ear_back_degrees + sin(phase * 2.0 + side) * 3.0 * energy))
+	var twist := sin(phase) * deg_to_rad(anim.swim_shoulder_twist_degrees) * energy * (1.0 - dive)
+	var wave := sin(phase * 2.0) * deg_to_rad(anim.swim_spine_wave_degrees) * energy
+	var spine := playertest2_skeleton.find_bone("spine")
+	if spine >= 0:
+		targets[spine] = playertest2_skeleton.get_bone_rest(spine).basis.get_rotation_quaternion() * _climb_axis_rotation(spine, Vector3.UP, twist) * _climb_axis_rotation(spine, Vector3.RIGHT, wave)
+	var head := playertest2_skeleton.find_bone("head")
+	if head >= 0:
+		# Igual que en patinaje: compensa la inclinacion del cuerpo para mirar al frente (menos al bucear).
+		var level := anim.swim_head_level * (1.0 - dive * 0.6)
+		var pitch := deg_to_rad(anim.swim_head_pitch_degrees) - (wave - anim.body_pitch) * level
+		targets[head] = playertest2_skeleton.get_bone_rest(head).basis.get_rotation_quaternion() * _climb_axis_rotation(head, Vector3.UP, -twist * level) * _climb_axis_rotation(head, Vector3.BACK, -anim.body_roll * level) * _climb_axis_rotation(head, Vector3.RIGHT, pitch)
+	var tail := playertest2_skeleton.find_bone("tail_base")
+	if tail >= 0:
+		var rudder := clampf(-actor.angular_velocity / deg_to_rad(120.0), -1.0, 1.0) * deg_to_rad(anim.swim_tail_rudder_degrees)
+		var tail_wave := sin(phase * 2.0 + 1.2) * deg_to_rad(anim.swim_tail_wave_degrees) * energy
+		targets[tail] = playertest2_skeleton.get_bone_rest(tail).basis.get_rotation_quaternion() * _climb_axis_rotation(tail, Vector3.RIGHT, deg_to_rad(anim.swim_tail_lift_degrees)) * _climb_axis_rotation(tail, Vector3.UP, rudder + tail_wave)
+	if body_pivot:
+		body_pivot.position.x = lerpf(body_pivot.position.x, 0.0, blend)
+		body_pivot.position.y = lerpf(body_pivot.position.y, 0.0, blend)
+	for index in playertest2_skeleton.get_bone_count():
+		var rest := playertest2_skeleton.get_bone_rest(index)
+		var target: Quaternion = targets.get(index, rest.basis.get_rotation_quaternion())
+		var previous: Quaternion = air_pose_rotations.get(index, playertest2_skeleton.get_bone_pose_rotation(index))
+		var rotation := previous.slerp(target, track)
+		var before_position: Vector3 = air_pose_positions.get(index, rest.origin)
+		var bone_position := before_position.lerp(rest.origin, track)
 		playertest2_skeleton.set_bone_pose_rotation(index, rotation)
 		playertest2_skeleton.set_bone_pose_position(index, bone_position)
 		air_pose_rotations[index] = rotation
@@ -827,6 +978,9 @@ func reset_interpolation() -> void:
 	idle_active = false
 	skate_active = false
 	skate_brake_weight = 0.0
+	swim_active = false
+	swim_dive_weight = 0.0
+	dive_jump_active = false
 	reset_body_tilt()
 	_set_membrane_amount(0.0)
 	_clear_glide_tremor()
