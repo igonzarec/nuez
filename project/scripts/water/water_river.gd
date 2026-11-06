@@ -773,6 +773,28 @@ func _after_rebuild() -> void:
 	_queue_pebbles()
 	_build_fall_fx()
 
+## Editor guides: the water's edges, Width (and Width Curve) to each side of the curve.
+func _guide_edges(lines: PackedVector3Array) -> void:
+	if curve == null or curve.point_count < 2 or curve.get_baked_length() < 0.01:
+		return
+	var s := _samples()
+	var points: PackedVector3Array = s.points
+	var halves: PackedFloat32Array = s.halves
+	var tangents: PackedVector3Array = s.tangents
+	var prev_l := Vector3.ZERO
+	var prev_r := Vector3.ZERO
+	for i in points.size():
+		var flat := Vector3(tangents[i].x, 0.0, tangents[i].z)
+		if flat.length() < 0.001:
+			flat = Vector3.FORWARD
+		var side := Vector3(-flat.z, 0.0, flat.x).normalized() * halves[i]
+		var l := points[i] + side
+		var r := points[i] - side
+		if i > 0:
+			lines.append_array(PackedVector3Array([prev_l, l, prev_r, r]))
+		prev_l = l
+		prev_r = r
+
 ## Bends each fall away from the cliff (Fall Bulge) and returns the width multiplier of every row (Fall Widen). Also
 ## records where each fall meets the water below, for the base effects. Mesh only: swimming uses the curve.
 func _shape_falls(points: PackedVector3Array, slopes: PackedFloat32Array, tangents: PackedVector3Array,

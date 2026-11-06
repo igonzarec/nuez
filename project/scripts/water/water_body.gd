@@ -60,6 +60,39 @@ const DEFAULT_STYLE := "res://assets/water/water_style_default.tres"
 ## tambien se pierde. Guarda la escena con Ctrl+S despues.
 @export_tool_button("Restaurar terreno") var restore_button: Callable = restore_terrain
 
+@export_group("Guias del editor")
+## Muestra la curva y sus puntos aunque el nodo no este seleccionado (p. ej. al esculpir con Terrain3D), con el numero y
+## la altura del agua de cada punto. Solo en el editor: no aparece en el juego. En vivo.
+@export var show_editor_guides := true:
+	set(value):
+		show_editor_guides = value
+		_update_guides()
+## Dibuja las guias por encima de todo, visibles a traves del terreno. Apagado, el terreno las tapa. En vivo.
+@export var guides_on_top := true:
+	set(value):
+		guides_on_top = value
+		_update_guides()
+## Color de la linea central, las marcas de los puntos y sus etiquetas. En vivo.
+@export var guide_color := Color(1.0, 0.55, 0.1):
+	set(value):
+		guide_color = value
+		_update_guides()
+## Color de los bordes del agua (rios: el ancho de Width a cada lado de la curva). En vivo.
+@export var guide_edge_color := Color(0.3, 0.8, 1.0):
+	set(value):
+		guide_edge_color = value
+		_update_guides()
+## Tamano en metros de la cruz de cada punto; la linea vertical baja el triple. Mayor = se ve de mas lejos. En vivo.
+@export_range(0.1, 5.0, 0.05, "suffix:m") var guide_point_size := 0.6:
+	set(value):
+		guide_point_size = value
+		_update_guides()
+## Muestra junto a cada punto su numero (como en Curve > Points) y la altura Y del agua. En vivo.
+@export var guide_labels := true:
+	set(value):
+		guide_labels = value
+		_update_guides()
+
 ## Celdas de Terrain3D (x, z en pixeles globales) que este nodo cambio, con su altura y control originales.
 @export_storage var carved_cells := PackedInt32Array()
 @export_storage var carved_heights := PackedFloat32Array()
@@ -96,6 +129,8 @@ static func swell_at(xz: Vector2, water_style: WaterStyle) -> float:
 	return height * water_style.swell_height
 var _surface: MeshInstance3D
 var _rebuild_queued := false
+var _guides: MeshInstance3D
+var _guide_labels: Array[Label3D] = []
 
 func _ready() -> void:
 	add_to_group("water_bodies")
@@ -227,6 +262,82 @@ func _rebuild() -> void:
 		mesh.surface_set_material(0, _material)
 	_surface.mesh = mesh
 	_after_rebuild()
+	_update_guides()
+
+## Editor-only lines and labels for the curve, drawn while the node is not selected too.
+func _update_guides() -> void:
+	if not Engine.is_editor_hint() or not is_inside_tree():
+		return
+	var on := show_editor_guides and curve != null and curve.point_count > 0
+	if not on:
+		if is_instance_valid(_guides):
+			_guides.queue_free()
+		_guides = null
+		for label in _guide_labels:
+			if is_instance_valid(label):
+				label.queue_free()
+		_guide_labels.clear()
+		return
+	if not is_instance_valid(_guides):
+		_guides = MeshInstance3D.new()
+		_guides.name = "EditorGuides"
+		_guides.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_guides, false, Node.INTERNAL_MODE_BACK)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.no_depth_test = guides_on_top
+	material.render_priority = 120
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES, material)
+	var edges := PackedVector3Array()
+	_guide_edges(edges)
+	mesh.surface_set_color(guide_edge_color)
+	for v in edges:
+		mesh.surface_add_vertex(v)
+	mesh.surface_set_color(guide_color)
+	var baked := curve.get_baked_points()
+	for i in baked.size() - 1:
+		mesh.surface_add_vertex(baked[i])
+		mesh.surface_add_vertex(baked[i + 1])
+	var r := guide_point_size
+	for i in curve.point_count:
+		var p := curve.get_point_position(i)
+		for axis in [Vector3(r, 0, 0), Vector3(0, 0, r), Vector3(0, r, 0)]:
+			mesh.surface_add_vertex(p - axis)
+			mesh.surface_add_vertex(p + axis)
+		mesh.surface_add_vertex(p)
+		mesh.surface_add_vertex(p - Vector3(0, r * 3.0, 0))
+	mesh.surface_end()
+	_guides.mesh = mesh
+	var count := curve.point_count if guide_labels else 0
+	while _guide_labels.size() > count:
+		var label: Label3D = _guide_labels.pop_back()
+		if is_instance_valid(label):
+			label.queue_free()
+	while _guide_labels.size() < count:
+		var label := Label3D.new()
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.fixed_size = true
+		label.pixel_size = 0.0012
+		label.font_size = 18
+		label.outline_size = 6
+		label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(label, false, Node.INTERNAL_MODE_BACK)
+		_guide_labels.append(label)
+	for i in count:
+		var label := _guide_labels[i]
+		var p := curve.get_point_position(i)
+		label.position = p + Vector3(0, r * 1.6, 0)
+		label.text = "%d   y %.2f" % [i, to_global(p).y]
+		label.modulate = guide_color
+		label.no_depth_test = guides_on_top
+		label.render_priority = 121
+		label.outline_render_priority = 120
+
+## Subclasses add pairs of local points (segments) for the water's edges to the editor guides.
+func _guide_edges(_lines: PackedVector3Array) -> void:
+	pass
 
 ## Hook for subclasses: runs after the surface mesh is rebuilt (rivers place their bed pebbles here).
 func _after_rebuild() -> void:
@@ -264,9 +375,12 @@ func _bank_height(waterline: float, outside: float, angle: float) -> float:
 	return waterline + outside * tan(deg_to_rad(angle))
 
 ## Is a world point (x, z) at a fall of any river: in front of the cliff between the lip and the foot (Side Margin metres
-## past its sides and foot), or up to Back Margin metres behind the lip when the water there (Below Y) is lower than the
-## lip (the pool or the river below, whose banks would cut into the cliff). Used so carving never cuts the cliff there.
-static func under_fall(tree: SceneTree, q: Vector2, side_margin := 1.0, back_margin := 0.0, below_y := -INF) -> bool:
+## past its sides, Foot Margin past its foot; negative = same as Side Margin), or up to Back Margin metres behind the lip
+## when the water there (Below Y) is lower than the lip (the pool or the river below, whose banks would cut into the
+## cliff). Used so carving never cuts the cliff there.
+static func under_fall(tree: SceneTree, q: Vector2, side_margin := 1.0, back_margin := 0.0, below_y := -INF,
+		foot_margin := -1.0) -> bool:
+	var past := side_margin if foot_margin < 0.0 else foot_margin
 	for body in tree.get_nodes_in_group("water_bodies"):
 		var zones = body.get("_fall_zones")
 		if zones == null:
@@ -276,7 +390,7 @@ static func under_fall(tree: SceneTree, q: Vector2, side_margin := 1.0, back_mar
 			var along: float = p.dot(zone[1])
 			if absf(p.cross(zone[1])) >= zone[3] + side_margin:
 				continue
-			if along > 0.0 and along < zone[2] + side_margin:
+			if along > 0.0 and along < zone[2] + past:
 				return true
 			if along <= 0.0 and along > -back_margin and below_y < zone[4] - 0.5:
 				return true
@@ -292,10 +406,13 @@ func _carve_targets() -> Dictionary:
 	if not is_inside_tree():
 		return targets
 	var spacing := terrain.vertex_spacing
+	# Banks reach Bank Reach metres out from the water: beside a fall that slope would bite into the cliff top and wall
+	# (notches on both sides of the lip), so they are left out across the whole reach. Past the foot they carve again.
+	var margin := bank_reach + 1.0
 	for cell: Vector2i in targets.keys():
 		var target: Vector3 = targets[cell]
-		if target.x > target.y - 0.1 and under_fall(get_tree(), Vector2(cell.x * spacing, cell.y * spacing), 1.0,
-				bank_reach + 1.0, target.y):
+		if target.x > target.y - 0.1 and under_fall(get_tree(), Vector2(cell.x * spacing, cell.y * spacing), margin,
+				margin, target.y, 1.0):
 			targets.erase(cell)
 	return targets
 

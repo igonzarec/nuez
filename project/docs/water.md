@@ -18,6 +18,41 @@ Archivos:
 | Lago o estanque | `scripts/water/water_lake.gd` |
 | Shader | `shaders/water/water_surface.gdshader` |
 
+## Qué hace cada pieza
+
+Las clases `WaterRiver` y `WaterLake` son propias del proyecto (`class_name`) y aparecen en **Agregar nodo**. Ambas
+heredan de `WaterBody` (un `Path3D`), que no se añade sola: no sabe si es río o lago. El recurso `WaterStyle` guarda la
+apariencia y lo comparten todos los cuerpos que lo usen. Un nodo padre como `Water` es sólo un `Node3D` para ordenar;
+déjalo en el origen, sin rotación ni escala, para que los puntos de la curva coincidan con las coordenadas del mundo.
+
+El agua hace tres cosas:
+
+1. **Apariencia:** genera la malla a partir de la curva, le pone el shader y crea los efectos de la cascada (espuma,
+   puffs, burbujas, gotas, bruma). Lo visual vive en el `WaterStyle`; la forma de cada cascada, en su río.
+2. **Terreno:** **Tallar cauce** excava lecho y orillas en Terrain3D; **Restaurar terreno** lo deshace.
+3. **Consulta de agua:** responde a quien pregunte por un punto.
+
+El agua **no tiene física propia** (ni colisión ni simulación). La física vive en quien consulta:
+
+- `scripts/swimming.gd`: flotar, nadar, bucear, corriente y ondas al chapotear. Ver [swimming.md](swimming.md).
+- `scripts/player_camera.gd`: detecta la cámara bajo el agua.
+
+**API para otros sistemas:**
+
+| Llamada | Qué hace |
+|---|---|
+| `WaterBody.find_water(get_tree(), punto, above)` | `{}` si no hay agua; si la hay: `surface` (altura Y), `flow` (corriente, Vector3 m/s ya multiplicada por `Current Strength`), `edge` (0 en la orilla, 1 en el centro del cauce) y `body`. `above` = cuánto por encima de la superficie aún cuenta. Las cascadas no cuentan como agua; si un río y un lago se solapan gana la superficie más baja. |
+| `WaterBody.add_wave(punto, fuerza)` | Añade una onda en la superficie (1 = zambullida grande). La comparten todos los cuerpos de agua. |
+
+Ejemplo, algo que flota y se deja llevar (una hoja, un tronco, un NPC):
+
+```gdscript
+var water := WaterBody.find_water(get_tree(), global_position, 0.5)
+if not water.is_empty():
+	global_position.y = lerpf(global_position.y, water.surface, 5.0 * delta)
+	global_position += water.flow * delta
+```
+
 ## Cómo se usa
 
 1. **Añade un nodo** `WaterRiver` o `WaterLake` (Agregar nodo → busca "Water"). Aparece con una curva
@@ -47,6 +82,13 @@ La malla del agua se rehace sola al editar la curva y no se guarda en la escena:
   tallaron superpuestos, restaura primero el último tallado.
 - **Los tramos empinados (cascadas) no tallan**: cuelgan delante de la pared. Tallarlos abriría una
   ranura en el cliff.
+  - Junto a una cascada tampoco se tallan orillas en todo `Bank Reach` hacia los lados: la pendiente de la orilla del río
+    de abajo mordería el filo y la pared (muescas a ambos lados del lip). El lecho sí se talla, y pasado el pie las
+    orillas vuelven a tallarse.
+  - Volver a pulsar **Tallar cauce** repara cortes antiguos junto a la cascada: esas celdas recuperan su altura original.
+- **Tallar es opcional.** Puedes esculpir el cauce a mano con Terrain3D y dejar la curva 0,2–0,4 m por debajo del suelo
+  esculpido; el agua, el nado y la cascada funcionan igual. Si mezclas los dos, talla primero y retoca después: volver a
+  tallar sólo baja, nunca sube lo que esculpiste.
 - **Orillas como en un río real:** en cada curva, la orilla interior es una playa suave y la exterior un corte empinado. En tramos rectos se usa `Bank Angle`.
 - **Pintura de orilla:** con `Bank Texture Id` ≥ 0 se pinta esa textura (arena) bajo el agua y
   hasta `Bank Paint Height` metros por encima. Se funde con el pasto a lo largo de
@@ -77,6 +119,7 @@ La malla del agua se rehace sola al editar la curva y no se guarda en la escena:
 | | Bed Flat (río) / Shore Width (lago) | Forma del fondo. |
 | | Bank Texture Id, Bank Paint Height, Bank Paint Blend | Pintura de orilla. |
 | | Tallar cauce / Restaurar terreno | Botones. |
+| Guías del editor | Show Editor Guides, Guides On Top, Guide Color, Guide Edge Color, Guide Point Size, Guide Labels | Sólo en el editor (no salen en el juego). Dibujan la curva, una cruz con línea vertical en cada punto, su número (el de **Curve → Points**) con la altura Y del agua y, en ríos, los bordes del agua (`Width`), **aunque el nodo no esté seleccionado**: sirven de plantilla para esculpir el cauce a mano con Terrain3D. `Guides On Top` las deja ver a través del terreno. En vivo. |
 
 ### WaterStyle (doble clic en el recurso Style)
 
