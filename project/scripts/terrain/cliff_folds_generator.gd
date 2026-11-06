@@ -32,9 +32,6 @@ extends Node3D
 ## Genera B y guarda malla/material/colision en Bake Path y los datos de Terrain3D. Guarda la escena con Ctrl+S despues para conservar la referencia.
 ## Coste de generacion y escritura solo en editor. Runtime carga el recurso sin reconstruir. No ejecuta optimizacion de colision.
 @export_tool_button("Hornear y guardar B") var bake_button: Callable = bake
-## Copia pliegues, resolucion y angulos de mezcla desde cliff_playground.tscn. Sobrescribe esos controles solo al pulsar este boton.
-## Coste bajo de lectura; requiere regenerar/hornear despues. Sirve para comparar con los ajustes exactos del B guardado.
-@export_tool_button("Copiar ajustes del B de referencia") var reference_button: Callable = copy_reference_settings
 ## Recurso horneado que carga el juego. Lo asigna Hornear y guardar B; sin bake no se genera geometria al iniciar el juego.
 ## Coste runtime de cargar/dibujar mallas y colision, sin ruido ni reconstruccion. Tras editar hay que hornear otra vez y guardar la escena.
 @export var baked_scene: PackedScene
@@ -564,19 +561,6 @@ func _prepare_contours() -> bool:
 		push_warning("Cliff B: %d columnas llegaron a Profile Search Distance antes de salir de la pendiente; su zona de cliff termina ahi." % builder.reach_hits)
 	_surface_candidate = builder
 	return true
-
-func copy_reference_settings() -> void:
-	var reference := load("res://scenes/cliff_playground.tscn") as PackedScene
-	if reference == null:
-		return
-	var node := reference.instantiate()
-	for property in ["pattern_seed", "fold_size", "indentation", "protrusion", "fold_sharpness",
-			"vertical_stretch", "minimum_slope", "slope_transition", "mesh_step", "rock_start_angle", "rock_blend_angle"]:
-		set(property, node.get(property))
-	edge_fade_meters = node.get("edge_fade")
-	node.free()
-	notify_property_list_changed()
-	update_configuration_warnings()
 
 func bake() -> void:
 	regenerate()

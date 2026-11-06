@@ -193,7 +193,6 @@ previa y **Hornear + Ctrl+S** para conservarlos en juego.
 | | Rebuild Stale Bake | Si el terreno guardado no coincide con el bake, reconstruye al iniciar el juego en lugar de mostrar huecos. Coste: una regeneración al cargar. |
 | | Regenerar / Hornear / Restaurar | Vista previa, guardado final y regreso a esculpir. |
 | | Adoptar agujeros bajo la cubierta | Regenera registrando como propios los agujeros sin registrar bajo la malla. No lo uses sobre agujeros pintados que quieras conservar. |
-| | Copiar ajustes del B de referencia | Copia pliegues, resolución y mezcla de `cliff_playground.tscn` solo al pulsarlo. |
 | | Baked Scene / Bake Path | Recurso de runtime y destino de escritura. |
 | Deteccion | Minimum Slope | Inicio de la zona de cliff; cada columna termina donde la escultura baja de este ángulo. |
 | | Slope Transition | Entrada de los pliegues; un collar se corta si la escultura vuelve a superar Minimum Slope + este valor (otra pared). |

@@ -13,6 +13,9 @@ Los controles están en el nodo `SquirrelExplorer`, Inspector > **Escalada**:
   que permite el agarre. El valor inicial de 65° a 89° deja 48°–65° como zona
   de deslizamiento y reserva las caras más verticales para escalar.
 
+Pulsa **F3** en juego para ver qué zonas son escalables coloreadas por
+pendiente; ver [climb_debug_view.md](climb_debug_view.md).
+
 El jugador debe estar cerca, mirar hacia la pared y mantener Brincar. Las
 zonas `climbable` existentes conservan sus propios límites y nunca se anulan
 por este modo.

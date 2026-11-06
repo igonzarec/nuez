@@ -233,7 +233,6 @@ carved_controls = PackedInt64Array(1, 1, 1, 1, 1, 268435456, 1, 1, 1, 1, 1, 1, 1
 [node name="LowerRiver" type="Path3D" parent="Water" unique_id=1388914292 node_paths=PackedStringArray("terrain")]
 curve = SubResource("Curve3D_0kk60")
 script = ExtResource("7_dhmh5")
-fall_lip_band_offset = null
 pebble_density = 3.0
 pebble_size_min = 0.335
 pebble_colors = SubResource("Gradient_86jug")

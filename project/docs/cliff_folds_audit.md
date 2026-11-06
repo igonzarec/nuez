@@ -89,7 +89,6 @@ nombres internos de Terrain3D.
 - `_amplitude`, `_positions` y `_subdivisions` sólo se declaran y se vacían.
 - `edge_fade_cells`, `max_subdivisions`, `reconstruct_surface` y `visibility_range` son de
   migración.
-- `copy_reference_settings` depende de que exista `cliff_playground.tscn`.
 - Recomendación: retirarlos tras confirmar que ninguna escena los necesita, y revisar los grupos
   del Inspector (66 exportaciones).
 

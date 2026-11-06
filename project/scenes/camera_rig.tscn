@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dmsqwf0yidaui" path="res://scripts/player_camera.gd" id="1"]
 [ext_resource type="Script" uid="uid://bjfu8u0istmqs" path="res://scripts/core/toon_look.gd" id="2_look"]
+[ext_resource type="Script" uid="uid://cxcg7flwdprok" path="res://scripts/debug/climb_debug_view.gd" id="3_climb_debug"]
 
 [sub_resource type="Resource" id="Resource_general_toon"]
 resource_local_to_scene = true
@@ -25,3 +26,6 @@ recenter_timed_duration = 0.6900000000000001
 recenter_timed_ease_power = 5.0
 blur_start = 35.0
 blur_strength = 4.0
+
+[node name="ClimbDebugView" type="Node3D" parent="." unique_id=1437394568]
+script = ExtResource("3_climb_debug")

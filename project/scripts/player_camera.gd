@@ -83,6 +83,22 @@ signal recenter_requested
 @export var orbit_smoothing := 10.0
 @export var field_of_view := 52.0
 @export var stick_speed := 1.8
+@export_group("Proyección")
+## Perspectiva: lo lejano se ve más pequeño (la cámara de siempre). Ortográfica: sin
+## perspectiva; el tamaño en pantalla no depende de la distancia y las líneas paralelas
+## siguen paralelas (look diorama). La órbita, R2, el planeo y la colisión funcionan igual.
+## Se actualiza en vivo.
+@export_enum("Perspectiva", "Ortográfica") var projection := 0
+## [Ortográfica] Alto visible del encuadre, en metros. Es el zoom en ortográfica: más valor
+## = se ve más mundo y el personaje más pequeño. Distance y Field Of View no hacen zoom en
+## este modo (Distance sólo aleja la cámara). Más valor = más objetos en pantalla a la vez.
+@export_range(1.0, 200.0, 0.5, "or_greater", "suffix:m") var ortho_size := 24.0
+## Plano de recorte cercano: lo que esté más cerca de la cámara no se dibuja.
+## Valores muy bajos reducen la precisión de profundidad (parpadeos a lo lejos).
+@export_range(0.01, 10.0, 0.01, "or_greater", "suffix:m") var near_clip := 0.12
+## Plano de recorte lejano: lo que esté más lejos no se dibuja. Menos = mejor rendimiento
+## y precisión, pero puede cortar el horizonte.
+@export_range(10.0, 8000.0, 10.0, "or_greater", "suffix:m") var far_clip := 4000.0
 @export_group("Vista durante planeo")
 ## Mantiene la órbita manual al planear sin alinearse automáticamente con el personaje. Ignora Glide Forward Enabled, pero admite la perspectiva inicial opcional Glide Initial Pitch Enabled. Respeta los límites de planeo si están activos. En vivo; conserva recentrado manual y protección contra obstáculos.
 @export var glide_free_camera_enabled := true
@@ -260,8 +276,7 @@ func _ready() -> void:
 	pitch = deg_to_rad(pitch_degrees)
 	# Fixed-radius orbit: a SpringArm would retract into the player near props.
 	camera = Camera3D.new()
-	camera.fov = field_of_view
-	camera.near = 0.12
+	_apply_projection()
 	add_child(camera)
 	blur_mesh = MeshInstance3D.new()
 	var quad := QuadMesh.new()
@@ -407,6 +422,24 @@ func _physics_process(delta: float) -> void:
 	_place_camera(delta)
 	_manual_orbit_pending = false
 
+func _apply_projection() -> void:
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL if projection == 1 else Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = field_of_view
+	camera.size = maxf(ortho_size, 0.01)
+	camera.near = maxf(near_clip, 0.001)
+	camera.far = maxf(far_clip, camera.near + 1.0)
+
+func _update_post_effects() -> void:
+	blur_mesh.visible = distant_blur_enabled and camera.is_current()
+	blur_material.set_shader_parameter("focus_distance", blur_start)
+	blur_material.set_shader_parameter("far_transition", blur_transition)
+	blur_material.set_shader_parameter("blur_radius", blur_strength)
+	_outline_mesh.visible = depth_outline_enabled and camera.is_current()
+	_outline_material.set_shader_parameter("line_opacity", depth_outline_opacity)
+	_outline_material.set_shader_parameter("line_width", depth_outline_width)
+	_outline_material.set_shader_parameter("depth_threshold", depth_outline_threshold)
+	_outline_material.set_shader_parameter("line_color", depth_outline_color)
+
 func _pause_front_follow() -> void:
 	manual_pause_left = forward_manual_pause
 	recenter_active = false
@@ -517,16 +550,8 @@ func _place_camera(delta := 0.0) -> void:
 	_last_camera_direction = resolved
 	camera.global_position = anchor + resolved * distance
 	camera.look_at(_apply_water(anchor, body_anchor, resolved))
-	camera.fov = field_of_view
-	blur_mesh.visible = distant_blur_enabled and camera.is_current()
-	blur_material.set_shader_parameter("focus_distance", blur_start)
-	blur_material.set_shader_parameter("far_transition", blur_transition)
-	blur_material.set_shader_parameter("blur_radius", blur_strength)
-	_outline_mesh.visible = depth_outline_enabled and camera.is_current()
-	_outline_material.set_shader_parameter("line_opacity", depth_outline_opacity)
-	_outline_material.set_shader_parameter("line_width", depth_outline_width)
-	_outline_material.set_shader_parameter("depth_threshold", depth_outline_threshold)
-	_outline_material.set_shader_parameter("line_color", depth_outline_color)
+	_apply_projection()
+	_update_post_effects()
 
 ## Nadando con la camara fuera del agua, el encuadre no baja de la altura que tiene con el jugador flotando: al bucear la
 ## camara no cambia y el jugador se ve a traves del agua.
