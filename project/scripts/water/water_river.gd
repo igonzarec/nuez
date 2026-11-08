@@ -43,6 +43,36 @@ extends WaterBody
 		break_foam_length = value
 		_queue_rebuild()
 
+@export_group("Alturas (terreno)")
+## Pone la altura del agua de cada punto nuevo de la curva (Add Point) sobre el terreno que tiene debajo, Snap Depth por
+## debajo del suelo. Solo afecta a puntos recien anadidos: las alturas que ya ajustaste se conservan. Necesita Terrain
+## (grupo Cauce) o un Terrain3D en la escena. Solo en el editor.
+@export var auto_height_new_points := true
+## Igual, pero tambien al mover un punto en planta (x o z) con el gizmo: su altura se recalcula. Apagado por defecto para
+## no pisar alturas ajustadas a mano al recolocar un punto. Solo en el editor.
+@export var auto_height_moved_points := false
+## Metros que el agua queda por debajo del suelo. Mayor = orillas mas altas (menos riesgo de que el agua asome sobre la
+## orilla con el LOD lejano de Terrain3D); 0,5-0,8 es seguro. Se aplica al calcular.
+@export_range(0.0, 5.0, 0.05, "suffix:m") var snap_depth := 0.6
+## Donde se mide el suelo. Orillas = el mas bajo de los dos bordes del agua (Width / 2 + Snap Edge Margin a cada lado):
+## sirve aunque el cauce ya este cavado y garantiza orillas por encima del agua. Centro = justo bajo el punto (solo
+## terreno sin cavar). Se aplica al calcular.
+@export_enum("Orillas", "Centro") var snap_sample := 0
+## Metros por fuera del borde del agua donde se mide la orilla (modo Orillas). Mayor = mide mas lejos del cauce.
+@export_range(0.0, 10.0, 0.05, "suffix:m") var snap_edge_margin := 0.5
+## Modo Orillas: un borde mas bajo que el centro en mas de estos metros se ignora (cae fuera de un acantilado, p. ej. un
+## lip junto a una curva del filo) y se usa el otro borde o el centro. Menor = ignora antes; mayor = acepta orillas bajas.
+@export_range(0.5, 20.0, 0.1, "suffix:m") var snap_cliff_ignore := 2.5
+## El agua nunca sube rio abajo: cada punto queda como mucho a la altura del anterior (evita baches como un punto mas
+## bajo entre dos altos). Se aplica al calcular.
+@export var snap_never_rise := true
+## Puntos que ajusta el boton, con los numeros de Curve > Points (y de las guias): "2", "0-3", "1, 4-6". Vacio = todos.
+## Los demas conservan su altura. Se aplica al pulsar.
+@export var snap_points := ""
+## Recalcula la altura de los puntos de Snap Points (vacio = todos) con las reglas de arriba (puntos de cascada incluidos:
+## el pie toma el suelo de abajo). Se puede deshacer con Ctrl+Z. Guarda la escena despues.
+@export_tool_button("Ajustar alturas al terreno") var snap_button: Callable = snap_heights_to_terrain
+
 @export_group("Cascada · forma")
 ## La cortina sigue la trayectoria de un chorro: sale horizontal del borde y la gravedad la curva hasta la poza. Este
 ## valor son los metros extra que el agua cae mas lejos del acantilado que la curva del rio: mayor = sale con mas
@@ -258,6 +288,12 @@ extends WaterBody
 
 var _pebbles: Node3D
 var _fall_fx: Node3D
+# Seconds to the next distance check of the fall effects (WaterStyle › Distancia › Fall FX Distance).
+const FALL_FX_CHECK_INTERVAL := 0.25
+var _fall_fx_check := 0.0
+# Curve point positions at the last edit, to spot points the editor just added or moved (automatic heights).
+var _known_points := PackedVector3Array()
+var _snapping := false
 # 0 at the lip to 1 at the base for rows on a fall, -1 elsewhere (from the last mesh build).
 var _fall_progress := PackedFloat32Array()
 # Bases of the falls found by the last mesh build: [position (local), width, flow direction (local, flat)].
@@ -420,6 +456,156 @@ func _ready() -> void:
 	if pebble_colors != null and not pebble_colors.changed.is_connected(_queue_pebbles):
 		pebble_colors.changed.connect(_queue_pebbles)
 	super()
+	if Engine.is_editor_hint():
+		_known_points = _point_positions()
+		if not curve_changed.is_connected(_on_curve_edited):
+			curve_changed.connect(_on_curve_edited)
+
+func _point_positions() -> PackedVector3Array:
+	var out := PackedVector3Array()
+	if curve != null:
+		for i in curve.point_count:
+			out.append(curve.get_point_position(i))
+	return out
+
+## Editor: gives points just added (or moved in plan, if enabled) the height of the ground under them.
+func _on_curve_edited() -> void:
+	if _snapping or curve == null:
+		return
+	var now := _point_positions()
+	var before := _known_points
+	_known_points = now
+	var targets: Array[int] = []
+	if auto_height_new_points and now.size() == before.size() + 1:
+		# The new point is the first one that no longer matches the old list (Add Point appends or inserts).
+		var added := now.size() - 1
+		for i in before.size():
+			if not now[i].is_equal_approx(before[i]):
+				added = i
+				break
+		targets.append(added)
+	elif auto_height_moved_points and now.size() == before.size():
+		for i in now.size():
+			var moved := Vector2(now[i].x - before[i].x, now[i].z - before[i].z).length() > 0.001
+			if moved and is_equal_approx(now[i].y, before[i].y):
+				targets.append(i)
+	if targets.is_empty():
+		return
+	var ground := _find_terrain()
+	if ground == null:
+		return
+	_snapping = true
+	for i in targets:
+		var y := _snap_height(ground, i)
+		if not is_nan(y):
+			var p := curve.get_point_position(i)
+			curve.set_point_position(i, Vector3(p.x, y, p.z))
+	_snapping = false
+	_known_points = _point_positions()
+
+## Button: every point on the ground under it (Snap Depth below), with undo.
+func snap_heights_to_terrain() -> void:
+	var ground := _find_terrain()
+	if ground == null or curve == null:
+		push_warning("%s: asigna Terrain en Cauce (Terrain3D) o anade un Terrain3D a la escena." % name)
+		return
+	var old := _point_positions()
+	var fresh := old.duplicate()
+	var chosen := _parse_points(snap_points, fresh.size())
+	if chosen.is_empty():
+		push_warning("%s: Snap Points (\"%s\") no nombra ningun punto entre 0 y %d." % [name, snap_points, fresh.size() - 1])
+		return
+	var skipped := 0
+	for i in chosen:
+		var y := _snap_height(ground, i, fresh)
+		if is_nan(y):
+			skipped += 1
+		else:
+			fresh[i].y = y
+	var undo = Engine.get_singleton("EditorInterface").get_editor_undo_redo() if Engine.is_editor_hint() else null
+	if undo != null:
+		undo.create_action("Ajustar alturas al terreno")
+		undo.add_do_method(self, "_set_point_positions", fresh)
+		undo.add_undo_method(self, "_set_point_positions", old)
+		undo.commit_action()
+	else:
+		_set_point_positions(fresh)
+	print("%s: %d puntos ajustados al terreno%s." % [name, chosen.size() - skipped,
+		(", %d sin suelo debajo (sin cambios)" % skipped) if skipped > 0 else ""])
+
+## Point indices from text like "2", "0-3", "1, 4-6" (sorted, within 0..Count-1). Empty text = every point.
+static func _parse_points(text: String, count: int) -> Array[int]:
+	var out: Array[int] = []
+	if text.strip_edges().is_empty():
+		for i in count:
+			out.append(i)
+		return out
+	for part in text.replace(";", ",").split(",", false):
+		var bounds := part.strip_edges().split("-", false)
+		if bounds.is_empty() or not bounds[0].strip_edges().is_valid_int():
+			continue
+		var first := bounds[0].strip_edges().to_int()
+		var last := first
+		if bounds.size() > 1 and bounds[1].strip_edges().is_valid_int():
+			last = bounds[1].strip_edges().to_int()
+		for i in range(mini(first, last), maxi(first, last) + 1):
+			if i >= 0 and i < count and not out.has(i):
+				out.append(i)
+	out.sort()
+	return out
+
+func _set_point_positions(points: PackedVector3Array) -> void:
+	_snapping = true
+	for i in mini(points.size(), curve.point_count):
+		curve.set_point_position(i, points[i])
+	_snapping = false
+	_known_points = _point_positions()
+
+func _find_terrain() -> Terrain3D:
+	if is_instance_valid(terrain):
+		return terrain
+	var root := get_tree().edited_scene_root if Engine.is_editor_hint() and is_inside_tree() else owner
+	if root == null:
+		return null
+	var found := root.find_children("*", "Terrain3D", true, false)
+	return found[0] as Terrain3D if not found.is_empty() else null
+
+## Water height (local Y) for point Index: the ground at the banks (or the centre) minus Snap Depth, no higher than the
+## previous point when Snap Never Rise is on (Points lets the button use the heights it already computed). NAN = no ground.
+func _snap_height(ground: Terrain3D, index: int, points := PackedVector3Array()) -> float:
+	if points.is_empty():
+		points = _point_positions()
+	var local := points[index]
+	var p := to_global(local)
+	var before := points[maxi(index - 1, 0)]
+	var after := points[mini(index + 1, points.size() - 1)]
+	var dir := Vector3(after.x - before.x, 0.0, after.z - before.z)
+	if dir.length() < 0.001:
+		dir = Vector3.FORWARD
+	dir = (global_transform.basis * dir.normalized())
+	dir.y = 0.0
+	var side := Vector3(-dir.z, 0.0, dir.x).normalized()
+	var factor := 1.0
+	if width_curve != null and curve.get_baked_length() > 0.01:
+		factor = width_curve.sample_baked(curve.get_closest_offset(local) / curve.get_baked_length())
+	var reach := maxf(width * factor, 0.1) * 0.5 + snap_edge_margin
+	var centre := ground.data.get_height(p)
+	var level := NAN
+	if snap_sample == 0:
+		for toward in [-1.0, 1.0]:
+			var h := ground.data.get_height(p + side * reach * toward)
+			if is_nan(h) or (not is_nan(centre) and h < centre - snap_cliff_ignore):
+				continue
+			if is_nan(level) or h < level:
+				level = h
+	if is_nan(level):
+		level = centre
+	if is_nan(level):
+		return NAN
+	var y := to_local(Vector3(p.x, level - snap_depth, p.z)).y
+	if snap_never_rise and index > 0:
+		y = minf(y, points[index - 1].y)
+	return y
 
 ## Grey, ochre, brown, slate and pale river stones.
 static func _default_pebble_colors() -> Gradient:
@@ -943,7 +1129,39 @@ func _after_style() -> void:
 		_built_fx_key = key
 		_build_fall_fx()
 
+func _process(delta: float) -> void:
+	super(delta)
+	if Engine.is_editor_hint():
+		return
+	_fall_fx_check -= delta
+	if _fall_fx_check > 0.0:
+		return
+	_fall_fx_check = FALL_FX_CHECK_INTERVAL
+	_update_fall_fx_distance()
+
+## Hides and stops the effects of each fall farther from the camera than Fall FX Distance (with a 5 % margin each way so
+## they do not flicker at the limit). Particles restart filled (their preprocess) when they wake up again.
+func _update_fall_fx_distance() -> void:
+	if not is_instance_valid(_fall_fx):
+		return
+	var limit := style.fall_fx_distance if style != null else 0.0
+	var camera := get_viewport().get_camera_3d()
+	for holder: Node3D in _fall_fx.get_children():
+		var awake := true
+		if limit > 0.0 and camera != null:
+			var distance := camera.global_position.distance_to(holder.global_position)
+			awake = distance < limit * (1.05 if holder.visible else 0.95)
+		if awake == holder.visible:
+			continue
+		holder.visible = awake
+		holder.process_mode = Node.PROCESS_MODE_INHERIT if awake else Node.PROCESS_MODE_DISABLED
+		if awake:
+			for child in holder.get_children():
+				if child is CPUParticles3D:
+					child.restart()
+
 func _build_fall_fx() -> void:
+	_fall_fx_check = 0.0
 	if is_instance_valid(_fall_fx):
 		for child in _fall_fx.get_children():
 			_fall_fx.remove_child(child)

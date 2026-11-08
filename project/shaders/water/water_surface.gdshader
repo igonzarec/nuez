@@ -133,6 +133,9 @@ uniform float caustic_speed = 0.6;
 uniform float caustic_strength = 0.35;
 group_uniforms distance;
 uniform float far_distance = 40.0;
+// Fade caustics, sparkles and the second crest layer out up to 1.5 x far_distance and skip them (plus refraction and
+// player waves) beyond it.
+uniform bool far_simplify = true;
 group_uniforms surface_motion;
 uniform bool motion_enabled = false;
 uniform float swell_height = 0.1;
@@ -374,6 +377,10 @@ void fragment() {
 	float fall = smoothstep(fall_start, fall_full, slope);
 	float distance_to_camera = length(VERTEX);
 	float far = smoothstep(far_distance, far_distance * 1.5, distance_to_camera);
+	// Distance optimisation: detail fades with far and the costly blocks are skipped once it is gone. Whole screen regions
+	// take the same branch (far water is far everywhere around it), so the skipped work is really saved.
+	float detail = far_simplify ? 1.0 - far : 1.0;
+	bool skip_detail = detail <= 0.001;
 
 	// Flow space: rivers scroll downstream and stretch along the flow. Rapids and falls run faster through their UV.y, which
 	// the mesh squeezes there (same scroll everywhere, so no shear stripes where the slope changes).
@@ -405,7 +412,7 @@ void fragment() {
 	}
 	// Player waves: expanding ring trains (a Gaussian packet of sine ripples) that fade with age and distance.
 	float wave_height = 0.0;
-	if (wave_count > 0 && fall < 0.5) {
+	if (wave_count > 0 && fall < 0.5 && !skip_detail) {
 		vec2 grad = vec2(0.0);
 		float k = 6.2831 / max(pw_length, 0.02);
 		float packet = max(pw_length * pw_rings, 0.02);
@@ -436,19 +443,26 @@ void fragment() {
 
 	// Refraction: bend the screen lookup with the waves, but never pick something in front of the water.
 	vec2 offset = (n.xz - base_n.xz) * refraction * min(depth, 1.0) * (1.0 - far);
-	vec2 refracted_uv = clamp(SCREEN_UV + offset, vec2(0.001), vec2(0.999));
-	if (view_depth(refracted_uv, INV_PROJECTION_MATRIX) < -VERTEX.z) {
-		refracted_uv = SCREEN_UV;
+	vec2 refracted_uv = SCREEN_UV;
+	if (!skip_detail) {
+		refracted_uv = clamp(SCREEN_UV + offset, vec2(0.001), vec2(0.999));
+		if (view_depth(refracted_uv, INV_PROJECTION_MATRIX) < -VERTEX.z) {
+			refracted_uv = SCREEN_UV;
+		}
 	}
 	vec3 behind = texture(screen_texture, refracted_uv).rgb;
 
 	// Caustics on the bed: bright moving cell edges, fading with depth.
-	vec2 cp = bed_world.xz / max(caustic_scale, 0.01);
-	float c1 = cells(cp, TIME * caustic_speed);
-	float c2 = cells(cp * 1.37 + 3.1, TIME * caustic_speed * 1.3);
 	// Depth that drives the tone: real depth, or uniform_depth everywhere (falls always keep their own thickness).
 	float tone_depth = mix(mix(uniform_depth, depth, depth_tone_amount), depth, fall);
-	float caustics = pow(clamp(1.0 - min(c1, c2) * 1.6, 0.0, 1.0), 3.0) * caustic_strength * exp(-tone_depth * 0.6) * (1.0 - fall);
+	float caustics = 0.0;
+	if (!skip_detail && caustic_strength > 0.0 && fall < 0.999) {
+		vec2 cp = bed_world.xz / max(caustic_scale, 0.01);
+		float c1 = cells(cp, TIME * caustic_speed);
+		float c2 = cells(cp * 1.37 + 3.1, TIME * caustic_speed * 1.3);
+		caustics = pow(clamp(1.0 - min(c1, c2) * 1.6, 0.0, 1.0), 3.0) * caustic_strength * exp(-tone_depth * 0.6) * (1.0 - fall)
+			* detail;
+	}
 
 	// Body colour: shallow to deep with depth; the bed fades out with clarity.
 	float deep_amount = 1.0 - exp(-tone_depth / max(depth_scale, 0.01));
@@ -484,18 +498,26 @@ void fragment() {
 	foam = max(foam, second_line * foam_strength);
 
 	// Sparkles: stylized glints where two drifting noise fields peak together.
-	vec2 sp = UV / max(sparkle_scale, 0.01) - scroll * wave_scale / max(sparkle_scale, 0.01);
-	float glint = value_noise(sp + vec2(time * 0.6, 0.0)) * value_noise(sp * 1.7 + vec2(-time * 0.4, time * 0.2) + 5.0);
-	glint *= 0.75 + 0.25 * sin(TIME * sparkle_twinkle + hash(floor(sp)) * 6.2831);
-	float threshold = 1.0 - clamp(sparkle_amount, 0.0, 1.0);
-	float sparkle = smoothstep(threshold, threshold + max(sparkle_softness, 0.001), sqrt(glint)) * sparkle_strength * (1.0 - fall);
+	float sparkle = 0.0;
+	if (!skip_detail && sparkle_strength > 0.0) {
+		vec2 sp = UV / max(sparkle_scale, 0.01) - scroll * wave_scale / max(sparkle_scale, 0.01);
+		float glint = value_noise(sp + vec2(time * 0.6, 0.0)) * value_noise(sp * 1.7 + vec2(-time * 0.4, time * 0.2) + 5.0);
+		glint *= 0.75 + 0.25 * sin(TIME * sparkle_twinkle + hash(floor(sp)) * 6.2831);
+		float threshold = 1.0 - clamp(sparkle_amount, 0.0, 1.0);
+		sparkle = smoothstep(threshold, threshold + max(sparkle_softness, 0.001), sqrt(glint)) * sparkle_strength * (1.0 - fall)
+			* detail;
+	}
 
 	// Crests: the dense network of bright wavy lines that drifts with the flow, plus darker cell centres.
 	vec2 scroll_m = vec2(0.0, TIME * speed);
 	float crest_time = TIME * crest_speed;
 	vec2 crest_a = crest_layer(UV, crest_scale, scroll_m, crest_time);
-	vec2 crest_b = crest_layer(UV + 17.0, crest_scale * 0.55, scroll_m * 1.15, crest_time * 1.3);
-	float crest = clamp(crest_a.x + crest_b.x * 0.8 * (1.0 - far), 0.0, 1.0) * crest_strength * (1.0 - fall) * (1.0 - foam) * (1.0 - far * 0.5);
+	// The second, finer layer already fades with far; it is not computed once gone (far = 1 without far_simplify too).
+	float crest_b = 0.0;
+	if (far < 0.999) {
+		crest_b = crest_layer(UV + 17.0, crest_scale * 0.55, scroll_m * 1.15, crest_time * 1.3).x;
+	}
+	float crest = clamp(crest_a.x + crest_b * 0.8 * (1.0 - far), 0.0, 1.0) * crest_strength * (1.0 - fall) * (1.0 - foam) * (1.0 - far * 0.5);
 	// Light on the crests of the player waves.
 	crest = clamp(crest + smoothstep(0.15, 0.6, wave_height) * pw_highlight, 0.0, 1.0);
 	water *= 1.0 - trough_shade * (1.0 - smoothstep(0.2, 0.8, crest_a.y)) * (1.0 - fall);
@@ -517,9 +539,13 @@ void fragment() {
 	vec3 river_tone = mix(shallow_color.rgb, deep_color.rgb, 0.35 + 0.4 * progress);
 	vec3 fall_tone = mix(river_tone, fall_color.rgb, fall_color_mix);
 	fall_tone = mix(fall_tone, fall_shadow_color.rgb, dark_band * 0.3);
-	vec2 falling_crest = crest_layer(UV * vec2(1.0, 0.3), crest_scale, vec2(0.0, TIME * fall_speed * 0.3), crest_time);
-	// Right below the lip it is the river's own crest pattern, which stretches into the falling one lower down.
-	float curtain_crest = mix(crest_a.x, falling_crest.x, smoothstep(0.15, 0.7, progress));
+	// Right below the lip it is the river's own crest pattern, which stretches into the falling one lower down. Only
+	// computed on falls (elsewhere fall_tone is not used).
+	float curtain_crest = crest_a.x;
+	if (fall > 0.001) {
+		vec2 falling_crest = crest_layer(UV * vec2(1.0, 0.3), crest_scale, vec2(0.0, TIME * fall_speed * 0.3), crest_time);
+		curtain_crest = mix(crest_a.x, falling_crest.x, smoothstep(0.15, 0.7, progress));
+	}
 	fall_tone = mix(fall_tone, crest_color.rgb, clamp(curtain_crest * fall_crests, 0.0, 1.0));
 	fall_tone = mix(fall_shadow_color.rgb, fall_tone, 0.55 + 0.45 * smoothstep(0.0, 0.4, body.b));
 	// Light lines on top of the side shading, so they stay white up to the edges.

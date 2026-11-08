@@ -62,5 +62,6 @@ fall_bubbles_opacity = 1.0
 fall_splash_opacity = 0.37
 specular = 1.0
 caustic_speed = 2.13
+fall_fx_distance = 50.0
 swimmer_clarity = 2.8499999999999996
 swimmer_tint = 0.6

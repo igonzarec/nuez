@@ -99,7 +99,7 @@ func tick(delta: float) -> bool:
 	cooldown = maxf(0.0, cooldown - delta)
 	mantle_retry_left = maxf(0.0, mantle_retry_left - delta)
 	var grab_held := actor.action_pressed("climb")
-	if actor.is_splat or actor.is_glide_recoiling or not actor.climb_enabled or not grab_held:
+	if actor.is_splat or actor.is_glide_recoiling or not actor.climb_enabled or not grab_held or actor.in_water_for_climb():
 		if actor.is_climbing:
 			_release()
 		return false

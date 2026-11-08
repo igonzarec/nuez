@@ -63,6 +63,19 @@ extends Node3D
 @export_flags_3d_physics var body_layer := 16
 ## Capas con las que colisiona; 1 es terreno. En vivo.
 @export_flags_3d_physics var body_mask := 1
+@export_group("Reposo")
+## Congela el cuerpo cuando se queda quieto en el suelo: deja de deslizar en pendientes y la cola deja de
+## simular. Vuelve a ser dinámico al devolverlo al origen o al reactivarlo. Si cambias Body Layer para que
+## el jugador lo empuje, desactívalo. En vivo.
+@export var freeze_when_settled := true
+## Velocidad (m/s lineal y rad/s angular) por debajo de la cual cuenta como quieto. Mayor congela antes,
+## aunque aún resbale un poco. En vivo.
+@export_range(0.005, 1.0, 0.005, "suffix:m/s") var settle_speed := 0.08
+## Segundos que debe seguir quieto antes de congelarse. Menor lo fija antes. En vivo.
+@export_range(0.05, 5.0, 0.05, "suffix:s") var settle_time := 0.4
+## Duerme la simulación de la cola cuando el gorro y la tela están quietos (sin coste ni temblor).
+## Despierta sola si el gorro se mueve. En vivo.
+@export var tail_sleep := true
 @export_group("Interacción")
 ## Distancia máxima al jugador en metros. Mayor permite recoger desde más lejos. En vivo.
 @export_range(0.5, 8, 0.1) var interaction_distance := 2.8
@@ -81,6 +94,9 @@ var _origin := ""
 var _active := false
 var _settling := false
 var _editor_visual: Node3D
+var _rested := false
+var _rest_clock := 0.0
+var _physics_signature: Array = []
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
@@ -133,7 +149,8 @@ func _sync() -> void:
 	if not active: _interaction.show_prompt(false, false)
 	_body.collision_layer = body_layer if active else 0
 	_body.collision_mask = body_mask if active else 0
-	_body.freeze = not active or not physics_enabled
+	if active and not _active: _rested = false
+	_body.freeze = not active or not physics_enabled or _rested
 	if active and not _active: _restore.call_deferred()
 	_active = active
 
@@ -161,6 +178,13 @@ func _process(_delta: float) -> void:
 
 func _apply_physics() -> void:
 	_apply_look(_visual)
+	_visual.set("sleep_when_still", tail_sleep)
+	if not freeze_when_settled: _rested = false
+	# Sólo cuando algo cambia: reasignar la forma cada tick despierta el cuerpo y lo hace reptar en pendientes.
+	var signature := [collision_radius, collision_height, mass, linear_damping, angular_damping, keep_upright, friction,
+		bounce, body_layer, body_mask, _active, _settling, _rested, physics_enabled, interaction_distance, prompt_height]
+	if signature == _physics_signature: return
+	_physics_signature = signature
 	_shape.radius = collision_radius
 	_shape.height = collision_height
 	_body.mass = mass
@@ -172,20 +196,34 @@ func _apply_physics() -> void:
 	_body.physics_material_override.bounce = bounce
 	_body.collision_layer = body_layer if _active else 0
 	_body.collision_mask = body_mask if _active else 0
-	_body.freeze = not _active or _settling or not physics_enabled
+	_body.freeze = not _active or _settling or _rested or not physics_enabled
 	_interaction.interaction_reach = interaction_distance
 	_interaction.prompt_pin.set("height", prompt_height)
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if Engine.is_editor_hint() or not is_instance_valid(_body): return
 	var active := enabled and TrailWardrobe.pickup_is_authorized("christmas_hat", self, _origin) and not TrailWardrobe.is_equipped("christmas_hat")
 	if active != _active: _sync()
+	_update_rest(delta)
 	_apply_physics()
 	if _active and not _settling and _body.global_position.y < global_position.y - recovery_depth: _restore()
+
+## Congela el cuerpo tras Settle Time quieto en el suelo: el gorro tirado queda fijo como un objeto de decorado.
+func _update_rest(delta: float) -> void:
+	if _rested or not freeze_when_settled or not _active or _settling or not physics_enabled or _body.freeze:
+		_rest_clock = 0.0
+		return
+	var still := _body.linear_velocity.length() < settle_speed and _body.angular_velocity.length() < settle_speed
+	_rest_clock = _rest_clock + delta if still else 0.0
+	if _rest_clock >= settle_time:
+		_rested = true
+		_body.linear_velocity = Vector3.ZERO
+		_body.angular_velocity = Vector3.ZERO
 
 func _restore() -> void:
 	if _settling or not _active: return
 	_settling = true
+	_rested = false
 	_interaction.available = false
 	_body.freeze = true
 	_body.transform = spawn_transform

@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://b1lgbruv7hft8" path="res://scripts/ice_skate_audio.gd" id="5_ice_audio"]
 [ext_resource type="Script" uid="uid://dr14kwro8cmrf" path="res://scripts/ice_reflection.gd" id="6_ice_reflection"]
 [ext_resource type="Script" uid="uid://cv01f2kcsxges" path="res://scripts/swimming.gd" id="7_swimming"]
+[ext_resource type="Script" uid="uid://b4w22qh33g6ce" path="res://scripts/squirrel_face_life.gd" id="8_face_life"]
 
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
@@ -113,6 +114,7 @@ script = ExtResource("6_ice_reflection")
 
 [node name="Swimming" type="Node" parent="." unique_id=694358090]
 script = ExtResource("7_swimming")
+jump_velocity = 9.0
 dive_jump_min_height = 0.5
 drip_size = 0.04999999999999999
 dive_stroke_sounds_enabled = false
@@ -123,3 +125,15 @@ dive_stroke_speed_variation = 0.0
 dive_stroke_rhythm_variation = 0.1
 underwater_cutoff_hz = 440.0
 underwater_pitch = 0.6
+
+[node name="FaceLife" type="Node" parent="." unique_id=352256461]
+script = ExtResource("8_face_life")
+blink_interval_min = 0.6
+blink_interval_max = 3.0
+ear_flick_interval_min = 0.5
+ear_flick_interval_max = 0.5
+ear_flick_degrees = 4.9
+body_sway_intensity = 1.01
+head_nod_degrees = 3.5
+arm_swing_degrees = 10.0
+arm_sway_speed = 0.5

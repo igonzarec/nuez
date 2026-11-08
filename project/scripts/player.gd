@@ -473,6 +473,12 @@ var _snow_step_side := -1.0
 @export_group("Escalada")
 ## Mantener Brincar agarra roca escalable si está cerca y enfrente.
 @export var climb_enabled := true
+## Impide agarrarse a una pared mientras nada o tiene los pies dentro del agua más de Climb Water Depth. Si baja
+## trepando hasta el agua, se suelta y cae a nadar. Apagado: puede trepar desde el agua. Se consulta en vivo.
+@export var climb_blocked_in_water := true
+## Metros de agua sobre los pies a partir de los cuales ya no se puede trepar (con Climb Blocked In Water). 0 = basta
+## con tocar el agua; mayor deja trepar desde orillas poco profundas. Nadando nunca puede trepar. Se consulta en vivo.
+@export_range(0.0, 2.0, 0.05, "suffix:m") var climb_water_depth := 0.15
 ## Permite el prototipo de escalada sobre cualquier superficie empinada sin una etiqueta climbable. Activo sirve para probar rutas esculpidas en Terrain3D; desactívalo cuando haya edificios, árboles u otros objetos verticales que no deban poder treparse. Se consulta en vivo.
 @export var climb_untagged_steep_surfaces_enabled := true
 ## Ángulo mínimo, desde suelo horizontal, que una superficie sin etiqueta debe tener para agarrarse. 65° separa las laderas resbaladizas de las paredes trepables; bajarlo permite trepar antes y subirlo exige caras más verticales. Se consulta en vivo.
@@ -666,6 +672,15 @@ var _snow_step_side := -1.0
 var is_climbing := false
 ## Nadando en un WaterRiver / WaterLake; lo gestiona el nodo Swimming (PlayerSwimming).
 var is_swimming := false
+
+## True when climbing is not allowed because of water (Climb Blocked In Water).
+func in_water_for_climb() -> bool:
+	if not climb_blocked_in_water:
+		return false
+	if is_swimming:
+		return true
+	var water := WaterBody.find_water(get_tree(), global_position + Vector3.UP * 0.05, 0.5)
+	return not water.is_empty() and water.surface - global_position.y > climb_water_depth
 ## Clavado en el aire hacia el agua (PlayerSwimming › Clavado).
 var is_water_diving := false
 var swimming: PlayerSwimming

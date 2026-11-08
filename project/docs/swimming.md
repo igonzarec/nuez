@@ -164,6 +164,13 @@ Ejemplos:
 - **Nado tranquilo:** Stroke Rate 1, Swim Arm Reach 25, Swim Roll 3.
 - **Nado nervioso:** Stroke Rate 2,5, Swim Kick 40, Swim Tail Wave 20.
 
+### Escalada en el agua (SquirrelExplorer › Escalada)
+
+- **Climb Blocked In Water** (activo): no se puede agarrar una pared mientras nada ni con más de
+  **Climb Water Depth** (0,15 m) de agua sobre los pies. Si baja trepando hasta el agua, se suelta y cae a nadar.
+- **Climb Water Depth:** 0 = basta con tocar el agua; mayor deja trepar desde orillas poco profundas. Nadando nunca
+  puede trepar.
+
 ### Agua (WaterRiver / WaterLake › Nado)
 
 - **Swimmable:** apágalo en charcos decorativos.

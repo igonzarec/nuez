@@ -20,6 +20,10 @@ config/use_custom_user_dir=true
 config/custom_user_dir_name="LanternTrail"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
+[audio]
+
+buses/default_bus_layout="uid://beko10tig1mrv"
+
 [autoload]
 
 DialogueManager="*res://addons/dialogue_manager/dialogue_manager.gd"
@@ -34,8 +38,6 @@ runtime/balloon_path="res://ui/dialogue/squirrel_dialogue_balloon.tscn"
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
-window/size/window_width_override=1280
-window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
 [dotnet]
@@ -44,7 +46,7 @@ project/assembly_name="Explorer Squirrel- Lantern Trail"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/dialogue_manager/plugin.cfg", "res://addons/terrain_3d/plugin.cfg", "res://addons/surface_painter/plugin.cfg")
+enabled=PackedStringArray("res://addons/cliff_tools/plugin.cfg", "res://addons/dialogue_manager/plugin.cfg", "res://addons/surface_painter/plugin.cfg", "res://addons/terrain_3d/plugin.cfg")
 
 [internationalization]
 

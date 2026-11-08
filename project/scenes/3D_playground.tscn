@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" path="res://scenes/sky/stylized_sky.tscn" id="7_sky"]
 [ext_resource type="Script" uid="uid://3qaql3pm8oow" path="res://scripts/terrain3d_snow_footprints.gd" id="8_footprints"]
 [ext_resource type="Resource" uid="uid://c8uqxve2468pq" path="res://resources/sky/grass_day.tres" id="9_rof4l"]
-[ext_resource type="PackedScene" path="res://scenes/accessories/green_hat_pickup.tscn" id="10_hat"]
+[ext_resource type="PackedScene" uid="uid://bdpx4hk7ly218" path="res://scenes/accessories/green_hat_pickup.tscn" id="10_hat"]
 
 [sub_resource type="Resource" id="Resource_045tv"]
 resource_local_to_scene = true

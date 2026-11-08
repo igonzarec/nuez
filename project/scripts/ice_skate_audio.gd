@@ -115,7 +115,8 @@ func _tick_loop(player: AudioStreamPlayer3D, stream: AudioStream, level: float, 
 		if player.playing:
 			player.stop()
 		return
-	if player.stream != stream and player.get_meta("source", null) != stream:
+	var source: AudioStream = player.get_meta("source") if player.has_meta("source") else null
+	if player.stream != stream and source != stream:
 		player.stream = _looping(stream)
 		player.set_meta("source", stream)
 	player.volume_db = volume_db + linear_to_db(level)

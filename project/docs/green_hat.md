@@ -110,7 +110,9 @@ Spread 0,4; curva amplia y caída, Fold Position 0,3 y Fold Spread 0,8; cola má
 tiesa, Tail Stiffness 20. Medido al frenar en seco desde 7 m/s: la cola se asienta
 sin oscilar con Damping Ratio 1, y la copa gira hasta 0,8° por articulación con
 Crown Transmission 0,5 (1,7° con 1). El gorro tirado activa además el apoyo de la
-cola en el suelo (**Ground Collision** del visual, un rayo por tick).
+cola en el suelo (**Ground Collision** del visual, un rayo por tick) y el
+reposo (**Sleep When Still** del visual, con **Sleep Threshold** en rad/s:
+mayor duerme antes). El gorro puesto nunca duerme.
 
 ## Inspector: objeto del mundo
 
@@ -128,6 +130,23 @@ La forma de colisión es un cilindro simple, con **Collision Radius/Height**,
 **Keep Upright** bloquea vuelcos X/Z, conservando gravedad y contactos reales.
 **Physics Enabled** congela/descongela el cuerpo; **Enabled** desactiva todo el
 pickup. Por defecto colisiona con terreno, sin bloquear al jugador.
+
+**Reposo** (Inspector → nodo del pickup → grupo **Reposo**): el gorro tirado
+se comporta como un objeto del mundo, no como el gorro puesto.
+**Freeze When Settled** (activado) lo congela cuando lleva **Settle Time**
+(0,4 s) por debajo de **Settle Speed** (0,08 m/s): así no repta por las
+pendientes. Vuelve a ser dinámico al devolverse al origen o al reactivarse.
+Si cambias Body Layer para que el jugador lo empuje, desactívalo.
+**Tail Sleep** (activado) duerme la simulación de la cola cuando el gorro y la
+tela están quietos; se despierta sola si el gorro se mueve o cambia de forma.
+Los ajustes de física se aplican sólo cuando cambian: reasignarlos cada tick
+despertaba el cuerpo y lo hacía deslizar.
+
+Patrón para otros accesorios: el visual es compartido; el host decide el
+comportamiento. El host equipado (en el jugador) deja la física siempre activa
+para que responda a la cabeza; el host del mundo (pickup) activa el apoyo en el
+suelo, el desinflado y el reposo. Esos ajustes se pasan al visual como
+propiedades, sin cambiar el estilo compartido.
 
 **Visual Offset**, **Visual Rotation Degrees** y **Visual Scale** ajustan cómo
 descansa la malla dentro del cuerpo. Con 0 el gorro queda recto y el borde blanco

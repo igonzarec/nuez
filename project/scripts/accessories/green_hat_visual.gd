@@ -15,6 +15,12 @@ extends Node3D
 @export var ground_collision := false
 ## Capas que cuentan como suelo para Ground Collision.
 @export_flags_3d_physics var ground_mask := 1
+## Duerme la cola cuando el gorro no se mueve y la tela ya se asentó: pose fija, sin coste ni temblor.
+## Despierta sola si el gorro se mueve o cambia de forma. Lo activa el gorro tirado; el gorro puesto
+## lo deja apagado para que la cola responda siempre a la cabeza. En vivo.
+@export var sleep_when_still := false
+## Velocidad de giro (rad/s) por articulación bajo la cual la tela cuenta como asentada. Mayor duerme antes.
+@export_range(0.001, 0.5, 0.001, "suffix:rad/s") var sleep_threshold := 0.02
 
 @export_group("Desinflado")
 ## Aspecto desinflado de esta instancia (0–1), sin cambiar el estilo compartido: 0 es el gorro puesto;
@@ -55,6 +61,10 @@ var _previous_xf := Transform3D.IDENTITY
 var _sim_ready := false
 var _ground := Plane()
 var _ground_valid := false
+var _asleep := false
+var _still_time := 0.0
+## Tiempo quieto (s) antes de dormir la cola.
+const SLEEP_DELAY := 0.5
 
 func _ready() -> void:
 	if not style: style = GreenHatStyle.new()
@@ -282,8 +292,13 @@ func _physics_process(delta: float) -> void:
 			_skeleton.reset_bone_poses()
 			_sim_ready = false
 		return
-	_update_ground()
 	var xf := _skeleton.global_transform
+	var moved := not xf.is_equal_approx(_previous_xf)
+	if _asleep:
+		if _sim_ready and sleep_when_still and not moved: return
+		_asleep = false
+		_still_time = 0.0
+	_update_ground()
 	var dt := minf(delta, 1.0 / 20.0)
 	if not _sim_ready or xf.origin.distance_to(_previous_xf.origin) > 3.0:
 		_reset(xf)
@@ -301,6 +316,19 @@ func _physics_process(delta: float) -> void:
 		for step in steps: _step(xf, dt / steps)
 	_previous_xf = xf
 	_apply_pose(xf)
+	_update_sleep(moved, dt)
+
+## Cuenta el tiempo con el gorro quieto y la tela asentada; pasado SLEEP_DELAY deja la pose fija.
+func _update_sleep(moved: bool, dt: float) -> void:
+	if not sleep_when_still or moved:
+		_still_time = 0.0
+		return
+	for spin in _spins:
+		if spin.length() > sleep_threshold:
+			_still_time = 0.0
+			return
+	_still_time += dt
+	if _still_time >= SLEEP_DELAY: _asleep = true
 
 func _reset(xf: Transform3D) -> void:
 	var count := _rest_points.size()

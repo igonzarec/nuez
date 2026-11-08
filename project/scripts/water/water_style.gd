@@ -854,6 +854,22 @@ extends Resource
 	set(value):
 		far_distance = value
 		emit_changed()
+## Optimizacion: entre Far Distance y 1,5 veces esa distancia se desvanecen causticas, destellos y la segunda capa de
+## crestas, y mas alla la GPU deja de calcularlos (tambien la refraccion y las ondas del jugador). Ahorra mucho en agua
+## lejana o que llena la pantalla. Apagado = todo el detalle a cualquier distancia (mas caro). En vivo.
+@export var far_simplify := true:
+	set(value):
+		far_simplify = value
+		emit_changed()
+## Metros a la camara desde los que los efectos de la base de cada cascada (espuma, lobulos, burbujas, neblina, gotas) se
+## ocultan y dejan de simularse; al volver a acercarse reaparecen ya en marcha. Se mide a cada cascada por separado.
+## 0 = siempre activos. Menor = mas ahorro de CPU (particulas) y GPU, pero se nota si aparecen dentro de la vista.
+## Solo en juego: en el editor siempre se ven. En vivo.
+@export_range(0.0, 500.0, 1.0, "suffix:m") var fall_fx_distance := 80.0:
+	set(value):
+		fall_fx_distance = value
+		emit_changed()
+
 
 @export_group("Bajo el agua")
 ## Color de la niebla al bucear, en lo lejano y hacia el fondo. Mas oscuro = agua mas honda y misteriosa. Lo usa la camara
@@ -1031,7 +1047,7 @@ func apply(material: ShaderMaterial) -> void:
 		"rapids_foam": rapids_foam, "break_foam": break_foam, "sky_color": sky_color,
 		"fresnel_strength": fresnel_strength, "fresnel_power": fresnel_power, "specular_amount": specular,
 		"roughness_amount": roughness, "caustic_color": caustic_color, "caustic_scale": caustic_scale,
-		"caustic_speed": caustic_speed, "caustic_strength": caustic_strength, "far_distance": far_distance,
+		"caustic_speed": caustic_speed, "caustic_strength": caustic_strength, "far_distance": far_distance, "far_simplify": far_simplify,
 		"under_surface_color": underwater_surface_color, "under_window": underwater_window,
 		"pw_length": player_wave_length, "pw_speed": player_wave_speed, "pw_strength": player_wave_strength,
 		"pw_rings": player_wave_rings, "pw_damping": player_wave_damping, "pw_falloff": player_wave_falloff,

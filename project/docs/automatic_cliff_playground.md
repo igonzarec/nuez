@@ -75,16 +75,85 @@ escalada del jugador (65° en superficies sin etiqueta): la roca anuncia lo trep
 
 ## Flujo de edición
 
-1. Para volver a esculpir, pulsa **Restaurar terreno**: cierra los agujeros propios, elimina la
-   cubierta de la vista y desconecta el bake del nodo; no borra el archivo.
-2. Esculpe en Terrain3D.
-3. Pulsa **Regenerar cliffs** para una vista previa.
-4. Si aparece *"la cubierta cruza N agujeros no registrados"*: si son restos de pruebas, pulsa
-   **Adoptar agujeros bajo la cubierta** (regenera registrándolos como propios); si los pintaste
-   tú, separa esa zona.
-5. **Hornear y guardar B** guarda mallas, materiales, colisiones y los datos de Terrain3D.
-6. **Guarda la escena con Ctrl+S** para conservar la referencia al bake, los ajustes y la lista
-   de agujeros propios.
+Un **cliff** es un grupo de paredes conectadas (o a menos de `Cliff Link Distance`, 12 m). Se
+detectan solos y cada uno se regenera o restaura por separado, sin tocar los demás. Las franjas
+nunca cruzan de un cliff a otro, así que rehacer uno no deja rendijas.
+
+**Día a día:**
+
+1. Esculpe en Terrain3D (o talla un río).
+2. Pulsa **Regenerar cambios**: rehace sólo los cliffs de las regiones de Terrain3D cuyo relieve
+   cambió desde la última vez (huella md5 por región de 64 m) y crea los cliffs nuevos que aparezcan
+   ahí. Si nada cambió, no hace nada.
+3. **Hornear y guardar B** y **Ctrl+S**. Hornear hace antes un **Regenerar cambios**; si cambiaste
+   ajustes de CliffFolds desde la última regeneración completa (o la escena no tiene registro),
+   hace **Regenerar cliffs** completo.
+
+**Qué detecta "cambios":** cualquier cambio de altura en una región de Terrain3D (md5 de su mapa de
+alturas), por pequeño que sea: pinceles, tallado de ríos, importaciones. Rehace los cliffs enteros
+que tocan esa región, así que puede rehacer de más, nunca de menos. No mira la pintura de texturas
+(los cliffs no dependen de ella). Ante cualquier duda, **Regenerar cliffs** rehace todo.
+
+**Re-esculpir una pared concreta:**
+
+1. Elige el cliff:
+   - **Con clic:** selecciona `CliffFolds`, activa **Seleccionar cliff** en la barra de la vista 3D
+     y haz clic sobre la pared. Otro clic cambia la selección; un clic en suelo sin cliff cerca la vacía;
+     **Shift+clic** añade o quita; **Esc** sale. Si el clic no cae justo
+     sobre un cliff, se toma el más cercano dentro de `Pick Radius` (6 m). Se resalta en amarillo.
+   - **Con zona:** añade un nodo **CliffZone** como hijo de `CliffFolds` (Agregar nodo → CliffZone),
+     muévelo y escálalo (o cambia su `Size`) hasta tocar la pared. Los cliffs que toca se resaltan
+     en azul. Las zonas se guardan con la escena; apaga `Enabled` para conservar una sin usarla.
+2. **Restaurar selección** / **Restaurar zonas**: quita la malla y cierra los agujeros sólo de esos
+   cliffs; el terreno esculpido queda a la vista. Un cliff restaurado **vuelve** con el siguiente
+   **Regenerar cambios** u **Hornear y guardar B**, aunque no hayas esculpido: restaurar es para
+   re-esculpir, no para quitar un cliff para siempre (para eso, suaviza la pared por debajo de
+   `Minimum Slope`).
+3. Esculpe y pulsa **Regenerar cambios** (o **Regenerar selección** / **Regenerar zonas**).
+
+**Dejar una pared sin pliegues para siempre (Excluir):**
+
+1. Selecciona el cliff con clic. También vale una pared ya restaurada: haz clic sobre ella.
+2. **Excluir selección** (Inspector → CliffFolds → Regeneracion por cliff): quita su malla y la marca como excluida.
+   En el editor se ve con cuadros rojos sobre el terreno.
+3. **Hornear y guardar B** y **Ctrl+S**.
+
+Ninguna regeneración vuelve a poner pliegues ahí: ni **Regenerar cliffs**, ni **Regenerar cambios**, ni hornear,
+ni la reconstrucción automática al iniciar el juego. Para devolverla, haz clic sobre la zona roja y pulsa
+**Incluir selección**; **Quitar todas las exclusiones** las devuelve todas.
+
+**Restaurar no es excluir:** un cliff restaurado vuelve con la siguiente regeneración (sirve para re-esculpir). Y el
+juego no usa lo que ves en el editor sino el **bake**: si el terreno guardado ya no coincide con él, al iniciar
+reconstruye todos los cliffs (**Rebuild Stale Bake**). Por eso, tras restaurar o excluir, hornea y guarda.
+
+Una zona o un clic **eligen cliffs enteros**: basta con tocar un trozo de la pared. Si un clic cae
+donde aún no hay cliff generado (una pared nueva), **Regenerar selección** crea el de ese sitio.
+
+**Todo a la vez:** **Regenerar cliffs** rehace todos (úsalo al cambiar ajustes de pliegues o malla)
+y **Restaurar terreno** quita todos.
+
+**Primera vez en una escena antigua:** sin registro de cliffs, la primera regeneración parcial
+regenera todo una vez para crearlo.
+
+**Coste medido en el playground** (4 cliffs; en el editor la lectura del terreno queda en caché):
+
+| Operación | Tiempo |
+|---|---|
+| Regenerar cliffs (todo) | ~12 s |
+| Cliff grande (24 franjas, 56 % de la malla) | ~6 s |
+| Cliff mediano (8 franjas) | ~3,5 s |
+| Cliff pequeño | ~0,5–1 s |
+| Regenerar cambios sin cambios | décimas de segundo |
+
+Regenerar cada cliff por separado da exactamente la misma malla y los mismos agujeros que
+regenerar todo (comprobado: 308.436 vértices y 131.535 agujeros en ambos casos).
+
+**Plugin "Cliffs"** (`addons/cliff_tools/`): sólo añade el botón **Seleccionar cliff**. Actívalo una
+vez en **Project → Project Settings → Plugins**. Sin él, todo lo demás funciona con zonas.
+
+Si aparece *"la cubierta cruza N agujeros no registrados"*: si son restos de pruebas, pulsa
+**Adoptar agujeros bajo la cubierta** (regenera registrándolos como propios); si los pintaste tú,
+separa esa zona.
 
 Hornear, regenerar y restaurar marcan la escena como modificada (asterisco). Si aun así el juego
 se ejecuta con una escena guardada sin la referencia al bake, el nodo carga el archivo de
@@ -192,6 +261,14 @@ previa y **Hornear + Ctrl+S** para conservarlos en juego.
 | Generacion | Rebuild On Ready, Live Preview / Preview Delay | Vista previa en editor; no genera al iniciar el juego (salvo bake desactualizado, ver Rebuild Stale Bake). |
 | | Rebuild Stale Bake | Si el terreno guardado no coincide con el bake, reconstruye al iniciar el juego en lugar de mostrar huecos. Coste: una regeneración al cargar. |
 | | Regenerar / Hornear / Restaurar | Vista previa, guardado final y regreso a esculpir. |
+| | Regenerar cambios | Rehace sólo los cliffs de las regiones cuyo relieve cambió (y crea los nuevos). Ver Flujo de edición. |
+| Regeneracion por cliff | Regenerar / Restaurar / Limpiar selección | Cliffs elegidos con clic (plugin Cliffs, botón **Seleccionar cliff** de la barra 3D). |
+| | Regenerar / Restaurar zonas | Cliffs que tocan algún `CliffZone` activo (hijos de CliffFolds). |
+| | Cliff Link Distance | Metros (12) por debajo de los cuales dos paredes son el mismo cliff. Menor = cliffs más pequeños; por debajo de ~10 m las franjas de dos cliffs podrían pisarse. Regenerar cliffs. |
+| | Pick Radius | Metros (6) alrededor del clic donde se busca el cliff más cercano. En vivo. |
+| | Highlight Enabled, Selection Color, Zone Color, Excluded Color | Resaltado en el editor (no se hornea). En vivo. |
+| | Excluir selección / Incluir selección / Quitar todas las exclusiones | Paredes que nunca reciben pliegues (se guardan en la escena y se respetan también al iniciar el juego). |
+| CliffZone | Enabled, Size, Color | Caja de selección: cuenta su planta (x, z); se mueve y escala con el gizmo. |
 | | Adoptar agujeros bajo la cubierta | Regenera registrando como propios los agujeros sin registrar bajo la malla. No lo uses sobre agujeros pintados que quieras conservar. |
 | | Baked Scene / Bake Path | Recurso de runtime y destino de escritura. |
 | Deteccion | Minimum Slope | Inicio de la zona de cliff; cada columna termina donde la escultura baja de este ángulo. |
