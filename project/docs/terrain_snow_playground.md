@@ -370,6 +370,9 @@ usan transparencia, por lo que quedaban tapados aunque estuvieran activos.
 Se cambió la prioridad del blur a **-128**, antes de las transparencias
 habituales (prioridad 0). El blur permanece activo sobre el mundo opaco;
 copos y huellas se componen después y no reciben este desenfoque.
+Actualización 2026-11-07: con Forward+ el blur es un postproceso sobre la
+imagen final, así que copos y huellas lejanos sí se desenfocan (en
+Compatibility sigue la regla anterior).
 No se cambiaron los valores artísticos guardados en la escena.
 
 Las explicaciones anteriores sobre conversión CPU/GPU y ausencia de índices

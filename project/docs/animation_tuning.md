@@ -97,7 +97,15 @@ En **camera_rig.tscn → nodo raíz → Desenfoque de distancia**:
 - **Blur Transition = 12**: distancia adicional para alcanzar la intensidad completa.
 - **Blur Strength = 3**: radio máximo del filtro, en píxeles de renderizado.
 
-El efecto es progresivo, compatible con el renderizador Compatibility y no desenfoca la interfaz. No cambia la distancia fija de cámara ni captura el cursor. La cola recupera su forma al aterrizar: la deformación es reversible y no modifica el GLB original.
+El efecto es progresivo y no desenfoca la interfaz. Depende del renderer:
+
+- **Forward+ (PC, por defecto):** es un postproceso sobre la imagen final (`scripts/core/distant_blur_effect.gd` +
+  `shaders/distant_blur_post.glsl`, un CompositorEffect que crea la cámara). Desenfoca todo, también lo transparente:
+  agua, cascadas, nieve, copos y partículas.
+- **Compatibility (teléfonos, `rendering_method.mobile`):** usa el cuadro `distant_blur.gdshader`, que sólo alcanza lo
+  opaco; lo transparente queda nítido.
+
+Mismos controles y mismo filtro (3 × 3 muestras) en ambos. No cambia la distancia fija de cámara ni captura el cursor. La cola recupera su forma al aterrizar: la deformación es reversible y no modifica el GLB original.
 
 ## Cómo afinarla
 

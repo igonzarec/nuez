@@ -1,8 +1,7 @@
 shader_type spatial;
 // Stylized water for WaterRiver / WaterLake. Values come from a WaterStyle resource (Inspector help lives there).
 // Mesh data from the generator: UV = flow space in metres (x across, y downstream; lakes: world XZ),
-// TANGENT = flow direction, COLOR.r = slope (0 flat, 1 vertical), COLOR.g = foam near a slope break (lip and base of
-// a waterfall), COLOR.b = distance to the ribbon edge (0 edge, 1 inside), COLOR.a = flow amount (1 river, 0 lake).
+// TANGENT = flow direction, COLOR.r = slope (0 flat, 1 vertical), COLOR.g is unused,// COLOR.b = distance to the ribbon edge (0 edge, 1 inside), COLOR.a = flow amount (1 river, 0 lake).
 // The scene behind is read from the screen and depth textures: the bed shows through shallow water and foam
 // appears where anything crosses the surface. Drawn at render priority 0, after the camera's distant blur (-128).
 render_mode blend_mix, depth_draw_always, cull_disabled, diffuse_burley, specular_schlick_ggx;
@@ -119,7 +118,6 @@ uniform float fall_streak_softness = 0.35;
 uniform float fall_streak_scale = 1.5;
 uniform float fall_speed = 6.0;
 uniform float rapids_foam = 0.2;
-uniform float break_foam = 1.0;
 group_uniforms reflection;
 uniform vec4 sky_color : source_color = vec4(0.75, 0.88, 1.0, 1.0);
 uniform float fresnel_strength = 0.2;
@@ -136,6 +134,20 @@ uniform float far_distance = 40.0;
 // Fade caustics, sparkles and the second crest layer out up to 1.5 x far_distance and skip them (plus refraction and
 // player waves) beyond it.
 uniform bool far_simplify = true;
+// Far from the camera Terrain3D is a coarse mesh whose triangles zigzag across the water plane. From shore_lod_start on the
+// shoreline comes from the real heightmap instead: the water ignores the coarse mesh (drawn shore_lod_bias metres closer,
+// only over shallow water) and cuts itself where the real terrain rises above it.
+uniform bool shore_mask_style = true;
+uniform float shore_lod_bias = 3.0;
+uniform float shore_lod_start = 12.0;
+uniform float shore_object_tolerance = 0.35;
+group_uniforms terrain_link;
+// Terrain3D height data, set by WaterBody once it finds the terrain.
+uniform bool shore_mask_ready = false;
+uniform highp sampler2DArray terrain_heights : repeat_disable;
+uniform int terrain_region_map[1024];
+uniform float terrain_region_size = 1024.0;
+uniform float terrain_density = 1.0;
 group_uniforms surface_motion;
 uniform bool motion_enabled = false;
 uniform float swell_height = 0.1;
@@ -238,8 +250,17 @@ void vertex() {
 	lip = lip_code >= 1.5 ? lip_code - 2.0 : lip_code;
 }
 
+// Integer hash (PCG2D). The usual fract(sin(...) * 43758.5) amplifies rounding differences: under Vulkan two neighbouring
+// noise cells stopped agreeing on their shared edge, which drew hard square cuts. Integers give the same bits every time.
 float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+	uvec2 v = uvec2(ivec2(floor(p))) * 1664525u + 1013904223u;
+	v.x += v.y * 1664525u;
+	v.y += v.x * 1664525u;
+	v = v ^ (v >> uvec2(16u));
+	v.x += v.y * 1664525u;
+	v.y += v.x * 1664525u;
+	v = v ^ (v >> uvec2(16u));
+	return float(v.x) / 4294967295.0;
 }
 
 float value_noise(vec2 p) {
@@ -302,6 +323,28 @@ vec2 crest_layer(vec2 uv, float scale, vec2 scroll_m, float time) {
 // Wave height in flow space: two layers drifting at different speeds and directions.
 float waves(vec2 p, float time) {
 	return value_noise(p + vec2(0.0, -time)) * 0.6 + value_noise(p * 2.1 + vec2(time * 0.37, -time * 1.3)) * 0.4;
+}
+
+// Real terrain height at one heightmap vertex, or -1e6 where there is no region.
+float terrain_vertex(ivec2 vertex) {
+	vec2 region = floor(vec2(vertex) / terrain_region_size);
+	ivec2 cell = ivec2(region) + 16;
+	if (uint(cell.x | cell.y) >= 32u) {
+		return -1e6;
+	}
+	int layer = terrain_region_map[cell.y * 32 + cell.x] - 1;
+	if (layer < 0) {
+		return -1e6;
+	}
+	return texelFetch(terrain_heights, ivec3(vertex - ivec2(region * terrain_region_size), layer), 0).r;
+}
+
+float terrain_height(vec2 xz) {
+	vec2 p = xz * terrain_density;
+	ivec2 a = ivec2(floor(p));
+	vec2 f = fract(p);
+	return mix(mix(terrain_vertex(a), terrain_vertex(a + ivec2(1, 0)), f.x),
+		mix(terrain_vertex(a + ivec2(0, 1)), terrain_vertex(a + ivec2(1, 1)), f.x), f.y);
 }
 
 float view_depth(vec2 uv, mat4 inverse_projection) {
@@ -381,6 +424,18 @@ void fragment() {
 	// take the same branch (far water is far everywhere around it), so the skipped work is really saved.
 	float detail = far_simplify ? 1.0 - far : 1.0;
 	bool skip_detail = detail <= 0.001;
+	// Beyond shore_lod_start the shoreline follows the real heightmap, not the coarse terrain mesh.
+	float shore_ramp = 0.0;
+	float real_ground = -1e6;
+	if (shore_mask_style && shore_mask_ready && fall < 0.5 && CAMERA_POSITION_WORLD.y >= world_pos.y) {
+		shore_ramp = smoothstep(shore_lod_start, shore_lod_start * 2.0, distance_to_camera);
+		if (shore_ramp > 0.0) {
+			real_ground = terrain_height(world_pos.xz);
+			if (real_ground > world_pos.y) {
+				discard;
+			}
+		}
+	}
 
 	// Flow space: rivers scroll downstream and stretch along the flow. Rapids and falls run faster through their UV.y, which
 	// the mesh squeezes there (same scroll everywhere, so no shear stripes where the slope changes).
@@ -439,6 +494,10 @@ void fragment() {
 	vec3 bed_world = (INV_VIEW_MATRIX * vec4(bed_view, 1.0)).xyz;
 	float thickness = max(scene_depth + VERTEX.z, 0.0);
 	float vertical = max(world_pos.y - bed_world.y, 0.0);
+	// The shore foam follows the real shoreline too, not the triangles of the coarse mesh.
+	if (shore_ramp > 0.0 && real_ground > -1e5) {
+		vertical = mix(vertical, world_pos.y - real_ground, shore_ramp);
+	}
 	float depth = mix(min(vertical, thickness), thickness, fall);
 
 	// Refraction: bend the screen lookup with the waves, but never pick something in front of the water.
@@ -481,14 +540,14 @@ void fragment() {
 	}
 	vec3 bed = (behind + caustic_color.rgb * caustics) * mix(vec3(1.0), water, bed_tint);
 
-	// Foam: where anything crosses the surface (banks, stones, the player), plus rapids and the lip/base of falls.
+	// Foam: where anything crosses the surface (banks, stones, the player), plus rapids.
 	vec2 fp = UV / max(foam_noise_scale, 0.01) - scroll * wave_scale / max(foam_noise_scale, 0.01);
 	float foam_noise = value_noise(fp + time * 0.5) * 0.65 + value_noise(fp * 2.3 - time * 0.3) * 0.35;
 	// Not on falls: the cliff right behind the curtain would read as a shore everywhere and paint it white.
 	float shore = (1.0 - smoothstep(0.0, max(foam_width, 0.001), min(vertical, thickness))) * (1.0 - fall);
 	// Rapids foam stops where the slope becomes a fall: the curtain has its own streaks.
 	// Not on the lip of a fall: there the river just bends over, without a strip of rapids foam.
-	float churn = max(rapids * (1.0 - fall) * rapids_foam * (1.0 - smoothstep(0.05, 0.3, lip)), body.g * break_foam);
+	float churn = rapids * (1.0 - fall) * rapids_foam * (1.0 - smoothstep(0.05, 0.3, lip));
 	float foam_mask = max(shore, churn) * (1.0 + foam_breakup) - foam_noise * foam_breakup;
 	float foam = smoothstep(0.5 - foam_softness * 0.5, 0.5 + foam_softness * 0.5, foam_mask) * foam_strength;
 	// A second thin dashed line a little further into the water, like the reference's bank lines.
@@ -629,6 +688,22 @@ void fragment() {
 	if (fall > 0.01) {
 		ALPHA *= mix(1.0, smoothstep(0.0, 0.015, body.b), fall);
 	}
+
+	// Moved closer only to beat the coarse terrain: something in front whose real ground is under the water and that lies on
+	// that ground. A real bank (real ground above the water) or an object (well above its ground) keeps hiding the water.
+	float lod_bias = 0.0;
+	if (shore_ramp > 0.0 && scene_depth < -VERTEX.z) {
+		float occluder_ground = terrain_height(bed_world.xz);
+		if (occluder_ground <= world_pos.y && bed_world.y - occluder_ground < shore_object_tolerance) {
+			lod_bias = shore_lod_bias * shore_ramp * (1.0 - smoothstep(1.0, 2.0, world_pos.y - real_ground));
+		}
+	}
+	vec4 biased_clip = PROJECTION_MATRIX * vec4(VERTEX * max(1.0 - lod_bias / max(distance_to_camera, 0.001), 0.01), 1.0);
+	#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	DEPTH = biased_clip.z / biased_clip.w * 0.5 + 0.5;
+	#else
+	DEPTH = biased_clip.z / biased_clip.w;
+	#endif
 
 	// Seen from below (diving): a bright ceiling with the sky only inside a cone looking up (Snell's window).
 	// The camera height decides the side: the winding of lakes and rivers is not reliable for FRONT_FACING.

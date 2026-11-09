@@ -46,7 +46,7 @@ project/assembly_name="Explorer Squirrel- Lantern Trail"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/cliff_tools/plugin.cfg", "res://addons/dialogue_manager/plugin.cfg", "res://addons/surface_painter/plugin.cfg", "res://addons/terrain_3d/plugin.cfg")
+enabled=PackedStringArray("res://addons/click_place/plugin.cfg", "res://addons/cliff_tools/plugin.cfg", "res://addons/dialogue_manager/plugin.cfg", "res://addons/surface_painter/plugin.cfg", "res://addons/terrain_3d/plugin.cfg")
 
 [internationalization]
 
@@ -58,6 +58,4 @@ common/physics_interpolation=true
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.18, 0.29, 0.45, 1)

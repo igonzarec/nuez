@@ -382,7 +382,8 @@ func _process(delta: float) -> void:
 	# This node still processes on title/pause screens; hide the gameplay-only quad
 	# immediately when another camera is current, even while its rig is paused.
 	if camera_rig and camera_rig.blur_mesh:
-		camera_rig.blur_mesh.visible = camera_rig.distant_blur_enabled and camera_rig.camera.is_current()
+		camera_rig.blur_mesh.visible = camera_rig.distant_blur_enabled and camera_rig.camera.is_current() \
+			and camera_rig.blur_effect == null
 	if state == State.PLAYING:
 		progress.elapsed += delta
 		autosave_time += delta

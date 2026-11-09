@@ -151,10 +151,15 @@ signal recenter_requested
 ## [Modo Por tiempo] Exponente del ease-out. 1 = lineal; 2 suave; 3 marcado.
 @export_range(1.0, 5.0, 0.1) var recenter_timed_ease_power := 2.5
 @export_group("Desenfoque de distancia")
+## Desenfoca lo lejano. Con Forward+ (PC) es un postproceso sobre la imagen final: alcanza todo, tambien agua, nieve y
+## particulas. Con Compatibility (telefonos) solo alcanza lo opaco: lo transparente queda nitido. En vivo.
 @export var distant_blur_enabled := true
-## A partir de esta distancia de la camara comienza el desenfoque.
+## Metros desde la camara, a lo largo de la vista, a partir de los que comienza el desenfoque. Mayor = mas escena nitida.
+## En vivo.
 @export_range(15.0, 40.0) var blur_start := 18.0
+## Metros extra, desde Blur Start, hasta alcanzar el desenfoque completo. Mayor = entrada mas gradual. En vivo.
 @export_range(1.0, 30.0) var blur_transition := 12.0
+## Radio maximo del filtro, en pixeles de render. Mayor = mas borroso; 0 = sin desenfoque. Coste pequeno y fijo. En vivo.
 @export_range(0.0, 6.0) var blur_strength := 3.0
 @export_group("Agua")
 ## Evita que la camara quede cortada por la superficie del agua: se mantiene por encima de ella. Necesita WaterRiver /
@@ -233,6 +238,8 @@ var recenter_timed_delta := 0.0
 var camera: Camera3D
 var blur_mesh: MeshInstance3D
 var blur_material: ShaderMaterial
+## Forward+: the distant blur runs as a post effect on the camera (covers transparents too) instead of blur_mesh.
+var blur_effect: DistantBlurEffect
 @export_group("Separación de siluetas")
 ## Dibuja una línea donde una superficie cercana tapa otra lejana, aunque tengan el mismo color.
 @export var depth_outline_enabled := false
@@ -293,6 +300,12 @@ func _ready() -> void:
 	blur_material.render_priority = -128
 	blur_mesh.material_override = blur_material
 	camera.add_child(blur_mesh)
+	# Forward+ can blur the final image, after the transparents (water, snow, particles); Compatibility keeps blur_mesh.
+	if RenderingServer.get_current_rendering_method() == "forward_plus":
+		blur_effect = DistantBlurEffect.new()
+		var compositor := Compositor.new()
+		compositor.compositor_effects = [blur_effect]
+		camera.compositor = compositor
 	_outline_mesh = MeshInstance3D.new()
 	_outline_mesh.mesh = quad
 	_outline_mesh.position.z = -0.5
@@ -430,10 +443,15 @@ func _apply_projection() -> void:
 	camera.far = maxf(far_clip, camera.near + 1.0)
 
 func _update_post_effects() -> void:
-	blur_mesh.visible = distant_blur_enabled and camera.is_current()
+	blur_mesh.visible = distant_blur_enabled and camera.is_current() and blur_effect == null
 	blur_material.set_shader_parameter("focus_distance", blur_start)
 	blur_material.set_shader_parameter("far_transition", blur_transition)
 	blur_material.set_shader_parameter("blur_radius", blur_strength)
+	if blur_effect != null:
+		blur_effect.enabled = distant_blur_enabled
+		blur_effect.focus_distance = blur_start
+		blur_effect.far_transition = blur_transition
+		blur_effect.blur_radius = blur_strength
 	_outline_mesh.visible = depth_outline_enabled and camera.is_current()
 	_outline_material.set_shader_parameter("line_opacity", depth_outline_opacity)
 	_outline_material.set_shader_parameter("line_width", depth_outline_width)

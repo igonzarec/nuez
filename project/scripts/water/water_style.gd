@@ -324,13 +324,6 @@ extends Resource
 	set(value):
 		rapids_foam = value
 		emit_changed()
-## 0-2: espuma en el borde de arriba y en la base de una cascada (donde cambia la pendiente).
-@export_range(0.0, 2.0, 0.01) var break_foam := 1.0:
-	set(value):
-		break_foam = value
-		emit_changed()
-
-
 @export_subgroup("Cascada · franja del borde")
 ## 0-1: opacidad de la franja blanca del borde (donde el agua se asoma y empieza a caer). Menor = mas transparente: deja
 ## ver Fall Color (el mismo a ambos lados del borde, sin linea en el pliegue). 0 = sin franja. En vivo.
@@ -869,7 +862,49 @@ extends Resource
 	set(value):
 		fall_fx_distance = value
 		emit_changed()
+## A distancia, la orilla sigue la altura real de Terrain3D y no su malla simplificada (LOD), que dibujaba dientes y sacaba
+## el agua fuera de su sitio. Requiere un Terrain3D en la escena. Apagado = lo recorta la malla del terreno. En vivo.
+@export var shore_mask := true:
+	set(value):
+		shore_mask = value
+		emit_changed()
+## Metros a la camara desde los que se usa la altura real (del todo al doble). Debe ser menor que donde aparecen los dientes;
+## mas cerca el LOD del terreno es fino y no hace falta. En vivo.
+@export_range(2.0, 200.0, 1.0, "suffix:m") var shore_lod_start := 12.0:
+	set(value):
+		shore_lod_start = value
+		emit_changed()
+## Metros que el agua poco profunda puede adelantarse para ganarle a la malla simplificada del terreno. Solo se aplica contra esa
+## malla: las lomas reales, el player y otros objetos siguen tapando el agua. Sube si quedan mordiscos. En vivo.
+@export_range(0.0, 10.0, 0.1, "suffix:m") var shore_lod_bias := 3.0:
+	set(value):
+		shore_lod_bias = value
+		emit_changed()
+## Altura en metros sobre el suelo real por debajo de la cual lo que tapa el agua se considera terreno simplificado.
+## Por encima es un objeto y tapa el agua. Sube si quedan mordiscos lejanos; baja si la base de un objeto en la orilla queda cubierta. En vivo.
+@export_range(0.05, 2.0, 0.05, "suffix:m") var shore_object_tolerance := 0.35:
+	set(value):
+		shore_object_tolerance = value
+		emit_changed()
 
+
+@export_group("Vista en editor")
+## En el editor el agua se dibuja con un color plano: sin movimiento, sin leer el terreno y sin efectos de cascada (espuma, lobulos,
+## burbujas, neblina, gotas). Aligera el editor y no afecta al juego. Apagalo para ajustar el aspecto real del agua. En vivo.
+@export var editor_simple_preview := true:
+	set(value):
+		editor_simple_preview = value
+		emit_changed()
+## Color y transparencia (alfa) del agua en la vista simple del editor. Menos alfa deja ver mejor el cauce al esculpir. En vivo.
+@export var editor_water_color := Color(0.2, 0.55, 0.9, 0.8):
+	set(value):
+		editor_water_color = value
+		emit_changed()
+## Color y transparencia (alfa) de las partes empinadas (cascadas) en la vista simple del editor. En vivo.
+@export var editor_fall_color := Color(0.6, 0.85, 1.0, 0.8):
+	set(value):
+		editor_fall_color = value
+		emit_changed()
 
 @export_group("Bajo el agua")
 ## Color de la niebla al bucear, en lo lejano y hacia el fondo. Mas oscuro = agua mas honda y misteriosa. Lo usa la camara
@@ -1044,10 +1079,10 @@ func apply(material: ShaderMaterial) -> void:
 		"fall_lip_top_shape": fall_lip_top_shape, "fall_lip_top_amount": fall_lip_top_amount,
 		"fall_lip_top_size": fall_lip_top_size, "fall_lip_top_width": fall_lip_top_width, "fall_streak_shimmer": fall_streak_shimmer,
 		"fall_streak_seed": float(fall_streak_seed),
-		"rapids_foam": rapids_foam, "break_foam": break_foam, "sky_color": sky_color,
+		"rapids_foam": rapids_foam, "sky_color": sky_color,
 		"fresnel_strength": fresnel_strength, "fresnel_power": fresnel_power, "specular_amount": specular,
 		"roughness_amount": roughness, "caustic_color": caustic_color, "caustic_scale": caustic_scale,
-		"caustic_speed": caustic_speed, "caustic_strength": caustic_strength, "far_distance": far_distance, "far_simplify": far_simplify,
+		"caustic_speed": caustic_speed, "caustic_strength": caustic_strength, "far_distance": far_distance, "far_simplify": far_simplify, "shore_mask_style": shore_mask, "shore_lod_start": shore_lod_start, "shore_lod_bias": shore_lod_bias, "shore_object_tolerance": shore_object_tolerance,
 		"under_surface_color": underwater_surface_color, "under_window": underwater_window,
 		"pw_length": player_wave_length, "pw_speed": player_wave_speed, "pw_strength": player_wave_strength,
 		"pw_rings": player_wave_rings, "pw_damping": player_wave_damping, "pw_falloff": player_wave_falloff,

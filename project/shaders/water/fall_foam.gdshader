@@ -24,8 +24,16 @@ uniform float reach = 0.62;
 // Waviness of the patch and the lines.
 uniform float wobble = 0.06;
 
+// Integer hash (PCG2D), same as water_surface: the sin() hash drew square cuts under Vulkan.
 float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+	uvec2 v = uvec2(ivec2(floor(p))) * 1664525u + 1013904223u;
+	v.x += v.y * 1664525u;
+	v.y += v.x * 1664525u;
+	v = v ^ (v >> uvec2(16u));
+	v.x += v.y * 1664525u;
+	v.y += v.x * 1664525u;
+	v = v ^ (v >> uvec2(16u));
+	return float(v.x) / 4294967295.0;
 }
 
 float value_noise(vec2 p) {

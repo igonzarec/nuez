@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://dr14kwro8cmrf" path="res://scripts/ice_reflection.gd" id="6_ice_reflection"]
 [ext_resource type="Script" uid="uid://cv01f2kcsxges" path="res://scripts/swimming.gd" id="7_swimming"]
 [ext_resource type="Script" uid="uid://b4w22qh33g6ce" path="res://scripts/squirrel_face_life.gd" id="8_face_life"]
+[ext_resource type="Resource" uid="uid://cnma2f6e5tanv" path="res://resources/climb/climb_rules_default.tres" id="9_climb_rules"]
 
 [node name="SquirrelExplorer" type="CharacterBody3D" unique_id=205916994]
 script = ExtResource("1")
@@ -41,15 +42,14 @@ glide_high_speed_turn_rate_multiplier = 0.30000000000000004
 glide_visual_turn_follow = 0.3
 glide_visual_turn_speed = 2.0
 glide_turn_speed_retention = 0.0
+climb_rules = ExtResource("9_climb_rules")
 climb_speed = 4.0
 climb_grab_distance = 1.5
-climb_facing_angle_degrees = 45.0
-climb_sustain_min_slope_degrees = 10.0
 climb_mantle_enabled = true
-climb_mantle_surface_speed = 1.6
+climb_mantle_auto = true
+climb_mantle_surface_speed = 2.0
 climb_finish_max_slope_degrees = 48.0
 climb_finish_visual_response = 4.0
-climb_mantle_extra_cycles = 1
 climb_mantle_surface_blend_start = 0.0
 climb_mantle_surface_blend_end = 0.05
 climb_mantle_forward_reach = 0.5

@@ -299,7 +299,10 @@ previa y **Hornear + Ctrl+S** para conservarlos en juego.
 | | Rock By Angle / Rock Angle Start / Rock Angle Full / Rock Height Reduction | Roca por ángulo en Terrain3D (shader override) y en la malla, sin roca por altura por defecto. En vivo. |
 | | Rock Follows Cliffs / Rock Follow Lead / Rock Follow Width | La roca deriva de la detección: empieza en Minimum Slope − Lead (2°) y es completa Width (8°) después. Detrás de todo cliff hay roca aunque cambies Minimum Slope. Apagado usa Rock Angle Start/Full. En vivo. |
 | | Collision Enabled | Trimesh de la parte opaca, capas 1 y 3, grupo climbable. Blockout, no proxy simplificado. |
+| | Climb Rule Mode | Heredar: Grab Min Slope Degrees del ClimbRules del Player (recomendado; ver [climb_rules.md](climb_rules.md)). Angulo Propio: Climb Min Slope Degrees. Cualquier Pendiente: toda la malla (prueba). En vivo, sin rehornear. |
+| | Climb Min Slope Degrees | Solo con Angulo Propio. 75.5° = límite anterior. No crea pared por debajo de Minimum Slope. |
 | Distancia (LOD) | Far Spike Fix / Far Spike Push / Far Spike Reach | Quita los picos de terreno sobre los cliffs lejanos (shader override de Terrain3D). Activar: regenerar; empuje y radio en vivo. |
+| | Far Hole Fill | Los agujeros del terreno solo se abren en su malla más fina: quita los puntos de cielo en la franja del cliff vista de lejos. Requiere Far Spike Fix. Al iniciar el juego; en el editor, regenerar/hornear. |
 | | Mesh LOD / Mesh LOD Merge Angle | Versiones simplificadas de cada chunk para la distancia. Regenerar/hornear. |
 | | Mesh LOD Bias | Detalle a distancia por chunk: >1 más detalle, <1 simplifica antes. En vivo. |
 
@@ -324,6 +327,10 @@ no se toca y las sombras direccionales tampoco (solo cámaras en perspectiva).
 - También cubre la transición del anillo más fino: con `mesh_size` 64 y `vertex_spacing` 0,25,
   entre ~25 y ~32 m los vértices se desplazan hacia la rejilla de 0,5 m y dejaban rombos verdes al
   pie de la pared vistos de cerca. El paso usado es `escala × (1 + morph)`.
+- **Puntos de cielo en la franja del cliff.** De lejos, un vértice grueso sobre un agujero borra su
+  triángulo entero, y ese triángulo puede pasar del collar de `Seam Overlap`. **Far Hole Fill** deja
+  los agujeros sólo en el anillo más fino y Far Spike Fix empuja el resto detrás de la malla. Límite:
+  un agujero pintado a mano fuera de un cliff (una cueva) se ve cerrado desde más de ~16 m.
 - Una escena guardada con un override anterior recibe el Far Spike Fix al arrancar el juego; para
   verlo en el editor, regenera u hornea.
 

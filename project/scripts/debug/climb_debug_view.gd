@@ -6,9 +6,9 @@ extends Node3D
 ## bloqueada. Usa por defecto los mismos umbrales que el player (grupo Escalada),
 ## así que al ajustarlos en Remote el color cambia en vivo.
 ##
-## Límite: es una lectura por pendiente (regla "sin etiqueta" de Terrain3D).
-## Los objetos del grupo climbable usan su propio límite y zonas, que esta vista
-## no distingue. Ver project/docs/climb_debug_view.md.
+## Límite: es una lectura por pendiente con las reglas de ClimbRules. Coincide con
+## Terrain3D y con las mallas en modo Heredar; las que usan ángulo propio o zonas
+## no se distinguen. Ver project/docs/climb_debug_view.md.
 
 const SHADER := preload("res://shaders/debug/climb_slope_view.gdshader")
 
@@ -34,20 +34,16 @@ const SHADER := preload("res://shaders/debug/climb_slope_view.gdshader")
 		_refresh_visibility()
 
 @export_group("Umbrales")
-## Lee en vivo los umbrales del player (Walkable Slope Degrees, Untagged Min/Max, Sustain). Desactivado usa los valores manuales de abajo. En el editor sólo funciona si Player Path está asignado.
+## Lee en vivo del player Walkable Slope Degrees y su ClimbRules. Desactivado (o sin player, p. ej. en el editor sin Player Path)
+## usa Climb Rules y Manual Walkable Degrees de abajo.
 @export var read_from_player := true
 ## Player del que leer umbrales. Vacío: usa el target de la cámara padre o busca el primer ExplorerPlayer que no sea NPC.
 @export var player_path: NodePath
-## Pendiente máxima caminable, en grados desde horizontal. Equivale a Walkable Slope Degrees del player. Sólo con Read From Player apagado o sin player.
+## Reglas usadas sin player. Asigna el mismo .tres que el Player (resources/climb/climb_rules_default.tres) para que el editor
+## muestre lo mismo que el juego. Vacío usa los valores por defecto de ClimbRules.
+@export var climb_rules: ClimbRules
+## Pendiente máxima caminable, en grados desde horizontal, cuando no hay player. Equivale a Walkable Slope Degrees del player.
 @export_range(0.0, 89.0, 0.5, "suffix:°") var manual_walkable_degrees := 48.0
-## Refleja Climb Sustain Enabled: muestra la banda donde se conserva un agarre ya iniciado.
-@export var manual_sustain_enabled := true
-## Pendiente mínima para conservar un agarre ya iniciado. Equivale a Climb Sustain Min Slope Degrees.
-@export_range(5.0, 85.0, 0.5, "suffix:°") var manual_sustain_min_degrees := 40.0
-## Pendiente mínima para agarrarse. Equivale a Climb Untagged Min Slope Degrees.
-@export_range(45.0, 89.0, 0.5, "suffix:°") var manual_grab_min_degrees := 65.0
-## Pendiente máxima para agarrarse. Equivale a Climb Untagged Max Slope Degrees. Por encima (y techos) se colorea como bloqueada.
-@export_range(45.0, 90.0, 0.5, "suffix:°") var manual_grab_max_degrees := 89.0
 
 @export_group("Colores")
 ## Suelo caminable (≤ Walkable). Alfa 0 lo deja sin colorear para no tapar el terreno normal.
@@ -86,6 +82,7 @@ var _legend_layer: CanvasLayer
 var _legend: RichTextLabel
 var _player: Node
 var _lookup_wait := 0.0
+var _default_rules := ClimbRules.new()
 
 func _ready() -> void:
 	_material = ShaderMaterial.new()
@@ -187,22 +184,18 @@ func _thresholds(delta: float) -> Dictionary:
 		if not is_instance_valid(_player) and _lookup_wait <= 0.0:
 			_lookup_wait = 1.0
 			_player = _find_player()
-		if is_instance_valid(_player) and _player.get("climb_untagged_min_slope_degrees") != null:
-			return {
-				"from_player": true,
-				"walk": float(_player.get("walkable_slope_degrees")),
-				"sustain_enabled": bool(_player.get("climb_sustain_enabled")),
-				"sustain": float(_player.get("climb_sustain_min_slope_degrees")),
-				"grab_min": float(_player.get("climb_untagged_min_slope_degrees")),
-				"grab_max": float(_player.get("climb_untagged_max_slope_degrees")),
-			}
+		if is_instance_valid(_player) and _player.has_method("get_climb_rules"):
+			return _from_rules(true, float(_player.get("walkable_slope_degrees")), _player.get_climb_rules())
+	return _from_rules(false, manual_walkable_degrees, climb_rules if climb_rules else _default_rules)
+
+func _from_rules(from_player: bool, walk: float, rules: ClimbRules) -> Dictionary:
 	return {
-		"from_player": false,
-		"walk": manual_walkable_degrees,
-		"sustain_enabled": manual_sustain_enabled,
-		"sustain": manual_sustain_min_degrees,
-		"grab_min": manual_grab_min_degrees,
-		"grab_max": manual_grab_max_degrees,
+		"from_player": from_player,
+		"walk": walk,
+		"sustain_enabled": rules.sustain_enabled,
+		"sustain": rules.sustain_min_slope_degrees,
+		"grab_min": rules.grab_min_slope_degrees,
+		"grab_max": rules.grab_max_slope_degrees,
 	}
 
 func _find_player() -> Node:

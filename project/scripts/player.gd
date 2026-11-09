@@ -479,18 +479,14 @@ var _snow_step_side := -1.0
 ## Metros de agua sobre los pies a partir de los cuales ya no se puede trepar (con Climb Blocked In Water). 0 = basta
 ## con tocar el agua; mayor deja trepar desde orillas poco profundas. Nadando nunca puede trepar. Se consulta en vivo.
 @export_range(0.0, 2.0, 0.05, "suffix:m") var climb_water_depth := 0.15
-## Permite el prototipo de escalada sobre cualquier superficie empinada sin una etiqueta climbable. Activo sirve para probar rutas esculpidas en Terrain3D; desactívalo cuando haya edificios, árboles u otros objetos verticales que no deban poder treparse. Se consulta en vivo.
-@export var climb_untagged_steep_surfaces_enabled := true
-## Ángulo mínimo, desde suelo horizontal, que una superficie sin etiqueta debe tener para agarrarse. 65° separa las laderas resbaladizas de las paredes trepables; bajarlo permite trepar antes y subirlo exige caras más verticales. Se consulta en vivo.
-@export_range(45.0, 89.0, 0.5, "suffix:°") var climb_untagged_min_slope_degrees := 65.0
-## Ángulo máximo, desde suelo horizontal, de una superficie sin etiqueta que puede agarrarse. 89° admite paredes casi verticales; Terrain3D no genera caras por encima de 90°. Se consulta en vivo y debe ser igual o mayor que Untagged Min Slope Degrees.
-@export_range(45.0, 89.0, 0.5, "suffix:°") var climb_untagged_max_slope_degrees := 89.0
+## Reglas compartidas de escalada (pendiente de agarre, sostener, orientación). Única fuente de verdad: la leen también los cliffs
+## en modo Heredar y ClimbDebugView. Vacío usa los valores por defecto de ClimbRules. Editar el .tres afecta a todos los que lo usan;
+## para una escena distinta, asigna otro .tres. En vivo. Ver project/docs/climb_rules.md.
+@export var climb_rules: ClimbRules
 ## Metros por segundo sobre la pared. Ejemplo: 2 es pausado; 4 sube rápido.
 @export_range(0.5, 8.0, 0.1) var climb_speed := 3.0
 ## Alcance del agarre desde el centro del cuerpo. Ejemplo: 0,9 requiere acercarse; 1,3 es permisivo.
 @export_range(0.6, 1.5, 0.05) var climb_grab_distance := 1.15
-## Desviación máxima mirando hacia la roca. 25 exige entrar de frente; 45 permite entradas diagonales.
-@export_range(5.0, 60.0, 1.0) var climb_facing_angle_degrees := 30.0
 ## Distancia del centro a la pared; debe superar el radio de la cápsula (0,42).
 @export_range(0.46, 0.6, 0.01) var climb_wall_distance := 0.5
 ## Adapta inclinación y separación a la pendiente de la superficie agarrada. Desactivado recupera la postura y distancia fijas anteriores. Se actualiza en vivo; no modifica los umbrales de agarre.
@@ -506,12 +502,13 @@ var _snow_step_side := -1.0
 ## Impulso hacia fuera al soltar Brincar. Ejemplo: 2 facilita separarse y después planear.
 @export_range(0.5, 5.0, 0.1) var climb_detach_speed := 2.0
 @export_group("Escalada · continuidad y cima")
-## Permite pendientes más suaves una vez agarrado, sin facilitar el agarre inicial. Conserva las zonas Disabled y las reglas del collider. Se consulta en vivo.
-@export var climb_sustain_enabled := true
-## Pendiente mínima desde horizontal para conservar un agarre existente, en grados. Menor valor permite seguir sobre la transición hacia la cima. Sólo relaja el umbral de entrada, no lo endurece. Se consulta en vivo.
-@export_range(5.0, 85.0, 0.5) var climb_sustain_min_slope_degrees := 40.0
 ## Activa la salida asistida opcional sobre repisas, con avance y elevación automáticos. Desactivado sigue la superficie mediante el movimiento del jugador y se incorpora sólo con apoyo real. En vivo; no atraviesa colisiones.
 @export var climb_mantle_enabled := false
+## Salida a la cima automática: al rebasar el borde (el pecho deja de ver la pared o la cara ya es caminable) la asistencia empieza sola,
+## sin empujar hacia delante/arriba, y una vez iniciada continúa aunque sueltes el botón de escalada. Requiere Mantle Enabled. Sigue
+## necesitando suelo firme delante (Max Height, Forward Reach, Finish Max Slope); al pie de la pared no se activa. Apagado: hay que
+## empujar hacia arriba y mantener escalada, como antes. En vivo. Coste: la búsqueda de cima se repite cada Retry Interval al perder la pared.
+@export var climb_mantle_auto := false
 ## Usa salida automática siguiendo contactos reales en vez de la trayectoria antigua subir/avanzar/bajar. Requiere Mantle Enabled. En vivo antes de iniciar; no crea rampas ni salva huecos. Activado por defecto para la nueva salida.
 @export var climb_mantle_surface_assist_enabled := true
 ## Reproduce los sonidos de pasos durante Surface Assist en vez de los golpes de trepa. Conserva Climb Sound Phase y la cadencia del ciclo; usa el audio de pasos de la superficie cuando existe. Desactivado silencia los contactos de la asistencia. En vivo; no cambia el sonido de trepa normal.
@@ -558,6 +555,12 @@ var _snow_step_side := -1.0
 @export_range(0.0, 0.5, 0.01, "suffix:s") var climb_mantle_contact_grace := 0.18
 ## Diagnóstico de la última búsqueda/salida, visible durante el juego en Remote. Informa falta de suelo, pendiente o tramo bloqueado. Se actualiza automáticamente; editar este texto no modifica el comportamiento.
 @export_multiline var climb_mantle_status := "Sin búsqueda de cima"
+## Diagnóstico: motivo de la última vez que la ardilla se soltó de una superficie (botón soltado, contacto perdido y por qué, agua, choque…). Visible en Remote durante el juego. Se actualiza automáticamente; editarlo no cambia nada.
+@export_multiline var climb_last_release := "Sin soltadas"
+## Diagnóstico: por qué falló el último intento de agarre mientras se mantenía el botón (rayo sin contacto, pendiente bajo el límite, no estar de frente, zona Disabled…), con el nombre del collider y su pendiente. Visible en Remote. Se actualiza automáticamente.
+@export_multiline var climb_last_grab_miss := ""
+## Imprime en Output cada soltada con su motivo y tiempo. Útil para cazar soltadas inesperadas; apagado por defecto. En vivo. Coste: un print por soltada.
+@export var climb_release_log := false
 ## Altura máxima de búsqueda del suelo superior respecto a los pies, en metros. Mayor valor admite bordes más altos. Se consulta al buscar la cima.
 @export_range(0.3, 2.5, 0.05, "suffix:m") var climb_mantle_max_height := 1.4
 ## Profundidad de búsqueda bajo los pies, en metros. Permite encontrar suelo ligeramente más bajo al terminar la transición. Se consulta al buscar la cima.
@@ -674,6 +677,16 @@ var is_climbing := false
 var is_swimming := false
 
 ## True when climbing is not allowed because of water (Climb Blocked In Water).
+var _fallback_climb_rules: ClimbRules
+
+## Reglas de escalada efectivas: Climb Rules asignado o, si está vacío, los valores por defecto de ClimbRules.
+func get_climb_rules() -> ClimbRules:
+	if climb_rules:
+		return climb_rules
+	if _fallback_climb_rules == null:
+		_fallback_climb_rules = ClimbRules.new()
+	return _fallback_climb_rules
+
 func in_water_for_climb() -> bool:
 	if not climb_blocked_in_water:
 		return false

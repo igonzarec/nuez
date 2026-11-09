@@ -4,12 +4,13 @@ Durante la exploración de rutas, la ardilla puede agarrarse a superficies
 empinadas sin pintar una máscara. Esto sirve para esculpir una ladera en
 Terrain3D y probar de inmediato si comunica bien una ruta vertical.
 
-Los controles están en el nodo `SquirrelExplorer`, Inspector > **Escalada**:
+Los ángulos se ajustan en el recurso **ClimbRules** que tiene asignado
+`SquirrelExplorer` (Inspector > **Escalada** > **Climb Rules**, por defecto
+`resources/climb/climb_rules_default.tres`); ver [climb_rules.md](climb_rules.md):
 
-- **Climb Untagged Steep Surfaces Enabled** activa el modo. Al apagarlo, sólo
-  funcionan los objetos del grupo `climbable`, como los acantilados
-  procedurales existentes.
-- **Untagged Min/Max Slope Degrees** definen la inclinación desde horizontal
+- **Untagged Enabled** activa el modo. Al apagarlo, sólo funcionan los objetos
+  del grupo `climbable`.
+- **Grab Min/Max Slope Degrees** definen la inclinación desde horizontal
   que permite el agarre. El valor inicial de 65° a 89° deja 48°–65° como zona
   de deslizamiento y reserva las caras más verticales para escalar.
 
@@ -157,9 +158,10 @@ empujar verticalmente contra ella.
 
 | Control | Inicial | Efecto |
 | --- | --- | --- |
-| Climb Sustain Enabled | Sí | Activa el límite relajado sólo una vez agarrado. |
-| Climb Sustain Min Slope Degrees | 40° | Menor valor conserva el agarre en transiciones más suaves. |
+| Sustain Enabled (ClimbRules) | Sí | Activa el límite relajado sólo una vez agarrado. |
+| Sustain Min Slope Degrees (ClimbRules) | 10° en el .tres | Menor valor conserva el agarre en transiciones más suaves. |
 | Climb Mantle Enabled | No | Opcional: activa la trayectoria asistida sobre el borde al mantener arriba. |
+| Climb Mantle Auto | No | Requiere Mantle Enabled. La salida a cima empieza sola al rebasar el borde, sin empujar arriba, y continúa aunque se suelte escalada. Necesita suelo firme delante; al pie de la pared no se activa. Si la asistencia se detiene por recorrido/tiempo, vuelve a necesitar el botón. |
 | Climb Finish Max Slope Degrees | 25° | Máxima inclinación para considerar tierra firme e incorporarse; menor exige suelo más plano. |
 | Climb Mantle Extra Cycles | 2 | Vueltas adicionales completas de brazos y piernas durante la salida. |
 | Climb Mantle Surface Blend Start | 0,1 | Progreso de salida donde empieza a pasar de la normal de pared a la del suelo superior. |
@@ -171,6 +173,9 @@ empujar verticalmente contra ella.
 | Climb Mantle Retry Interval | 0,05 s | Pausa entre búsquedas fallidas. |
 | Climb Mantle Contact Grace | 0,18 s | Tolerancia de pérdida de contacto mientras busca salida. |
 | Climb Mantle Status | Diagnóstico | Último resultado visible en Remote, actualizado automáticamente. |
+| Climb Last Release | Diagnóstico | Motivo y tiempo de la última soltada: botón soltado, agua, golpe, choque en la salida o *contacto perdido* con la causa del rayo (sin contacto, pendiente bajo el límite, no estar de frente, zona Disabled). Visible en Remote. |
+| Climb Last Grab Miss | Diagnóstico | Por qué falla el agarre inicial mientras mantienes el botón, con collider y pendiente. Útil cuando una pared parece trepable y no lo es. |
+| Climb Release Log | Diagnóstico | Imprime en Output cada soltada y cada cambio de motivo de agarre fallido. Apagado por defecto. |
 | Climb Mantle Max Height | 1,4 m | Altura máxima de búsqueda sobre los pies. |
 | Climb Mantle Max Drop | 0,3 m | Búsqueda permitida por debajo de los pies. |
 | Climb Mantle Clearance | 0,08 m | Altura libre extra para pasar la cápsula sobre el borde. |

@@ -10,13 +10,17 @@ Terrain3D y ver de un vistazo dónde se puede empezar a trepar.
 
 | Superficie | Control | Ubicación |
 | --- | --- | --- |
-| Sin etiqueta (Terrain3D, mallas) | Climb Untagged Min / Max Slope Degrees (65° / 89°) | `SquirrelExplorer` > **Escalada** |
-| Agarre ya iniciado | Climb Sustain Enabled / Min Slope Degrees (40°) | `SquirrelExplorer` > **Escalada · continuidad y cima** |
+| Sin etiqueta (Terrain3D) y mallas en modo Heredar | Grab Min / Max Slope Degrees (65° / 89°) | Recurso **ClimbRules** del Player ([climb_rules.md](climb_rules.md)) |
+| Agarre ya iniciado | Sustain Enabled / Min Slope Degrees (10°) | Recurso **ClimbRules** del Player |
 | Suelo caminable | Walkable Slope Degrees (48°) | `SquirrelExplorer` (grupo superior) |
 | Rocas `CliffPiece` (grupo `climbable`) | Climb Surface Tilt (35° desde vertical ⇒ ≥ 55° desde horizontal) | Nodo de la roca > **Escalada y física** |
+| Malla de `CliffFoldsGenerator` | Climb Rule Mode (Heredar / Angulo Propio / Cualquier Pendiente) | Nodo del generador > **Aspecto y colision** |
 | Otros `climbable` sin método propio | Constante 0,25 en `climbing.gd` (≈ ≥ 75,5°) | Código; no expuesto |
 
-Bajar **Untagged Min** permite agarrarse a laderas menos verticales; subirlo
+Sin player (editor), la vista usa su campo **Umbrales > Climb Rules**: asigna el
+mismo `.tres` que el Player para ver lo mismo que en el juego.
+
+Bajar **Grab Min** permite agarrarse a laderas menos verticales; subirlo
 exige paredes más rectas. Todos se leen en vivo: con la vista activa, cambiar
 el valor en **Remote** recolorea la pantalla al instante.
 
@@ -26,9 +30,9 @@ el valor en **Remote** recolorea la pantalla al instante.
 | --- | --- | --- |
 | Azul (alfa 0 por defecto) | 0° – Walkable | Se camina. |
 | Naranja | Walkable – Sustain Min | Desliza y no se puede trepar. Con los defaults no aparece, porque Sustain (40°) es menor que Walkable (48°). |
-| Amarillo | max(Sustain, Walkable) – Untagged Min | Sólo conserva un agarre ya iniciado (transición a la cima); no permite empezar a trepar. |
-| Verde | Untagged Min – Untagged Max | Se puede iniciar la escalada. |
-| Rojo | > Untagged Max, techos | No se agarra. |
+| Amarillo | max(Sustain, Walkable) – Grab Min | Sólo conserva un agarre ya iniciado (transición a la cima); no permite empezar a trepar. |
+| Verde | Grab Min – Grab Max | Se puede iniciar la escalada. |
+| Rojo | > Grab Max, techos | No se agarra. |
 
 La leyenda de la esquina superior izquierda muestra los rangos efectivos e
 indica `· manual` si no está leyendo los valores del player.

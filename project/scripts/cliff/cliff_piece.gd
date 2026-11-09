@@ -114,6 +114,9 @@ extends StaticBody3D
 @export_enum("Whole Wall", "Selected Zones", "Disabled") var climb_mode := 0
 ## Desviación máxima respecto a una pared vertical, en grados. Mayor admite facetas más inclinadas.
 @export_range(5.0, 70.0, 1.0) var climb_surface_tilt := 35.0
+## Usa Grab Min Slope Degrees del ClimbRules del Player en vez de Climb Surface Tilt (una sola fuente de verdad). Apagado conserva
+## el limite propio de esta roca. Las zonas (Climb Mode) se respetan igual. En vivo.
+@export var climb_inherit_rules := false
 ## Repisas: usar el modo de la pared antecesora, evitando escalada cuando ésta se apaga.
 @export var inherit_climb_mode := true
 ## Colisión sólida independiente del detalle visual. Desactivar sólo para decoración.
@@ -188,6 +191,8 @@ func allows_climb(point: Vector3) -> bool:
 	return false
 
 func climb_normal_limit() -> float:
+	if climb_inherit_rules:
+		return -1.0
 	return sin(deg_to_rad(climb_surface_tilt))
 
 func snow_sample(hit: Dictionary) -> Vector2:

@@ -7,6 +7,7 @@ extends Path3D
 ## mas hondo. Restaurar devuelve las alturas (y la pintura) de antes del primer tallado. Guia: docs/water.md.
 
 const SHADER := preload("res://shaders/water/water_surface.gdshader")
+const EDITOR_SHADER := preload("res://shaders/water/water_editor_preview.gdshader")
 const DEFAULT_STYLE := "res://assets/water/water_style_default.tres"
 
 @export_group("Aspecto")
@@ -99,6 +100,9 @@ const DEFAULT_STYLE := "res://assets/water/water_style_default.tres"
 @export_storage var carved_controls := PackedInt64Array()
 
 var _material: ShaderMaterial
+var _editor_material: ShaderMaterial
+var _terrain_link_wait := 0.0
+var _terrain_link_key := 0
 
 ## Ondas reales: golpes en el agua (caidas, brazadas, pasos) compartidos por todos los cuerpos de agua. Cada golpe es un
 ## anillo de ondas que se expande y se apaga en el shader (WaterStyle › Ondas del jugador).
@@ -209,7 +213,42 @@ static func _advance_waves(delta: float) -> void:
 		_wave_packed_points[i] = _wave_points[i] if i < _wave_points.size() else Vector4.ZERO
 		_wave_packed_ages[i] = _wave_ages[i] if i < _wave_ages.size() else 0.0
 
+## Hands the Terrain3D heightmap to the water shader (WaterStyle > Distancia > Shore Mask). Reads the textures the terrain
+## already keeps on the GPU, so brush edits show up with no baking. Checked twice a second: the terrain loads after the water.
+func _update_terrain_link(delta: float) -> void:
+	if _editor_simple():
+		return
+	_terrain_link_wait -= delta
+	if _terrain_link_wait > 0.0 or _material == null:
+		return
+	_terrain_link_wait = 0.5
+	var land := terrain
+	if not is_instance_valid(land):
+		var search_root: Node = owner if is_instance_valid(owner) else get_tree().root
+		var found := search_root.find_children("*", "Terrain3D", true, false)
+		land = found[0] if not found.is_empty() else null
+	if not is_instance_valid(land) or land.material == null:
+		_material.set_shader_parameter("shore_mask_ready", false)
+		return
+	var source: RID = land.material.get_material_rid()
+	var heights: Variant = RenderingServer.material_get_param(source, "_height_maps")
+	var region_map: Variant = RenderingServer.material_get_param(source, "_region_map")
+	if not (heights is RID and heights.is_valid() and region_map != null):
+		_material.set_shader_parameter("shore_mask_ready", false)
+		return
+	var link_key := hash([heights, region_map, land.vertex_spacing])
+	if link_key == _terrain_link_key:
+		return
+	_terrain_link_key = link_key
+	var target := _material.get_rid()
+	RenderingServer.material_set_param(target, "terrain_heights", heights)
+	RenderingServer.material_set_param(target, "terrain_region_map", region_map)
+	RenderingServer.material_set_param(target, "terrain_region_size", RenderingServer.material_get_param(source, "_region_size"))
+	RenderingServer.material_set_param(target, "terrain_density", 1.0 / land.vertex_spacing)
+	_material.set_shader_parameter("shore_mask_ready", true)
+
 func _process(delta: float) -> void:
+	_update_terrain_link(delta)
 	if Engine.is_editor_hint() or _material == null:
 		return
 	_advance_waves(delta)
@@ -347,7 +386,28 @@ func _after_rebuild() -> void:
 func _terrain_changed() -> void:
 	pass
 
+## True while the editor shows this water with the flat stand-in (WaterStyle > Vista en editor).
+func _editor_simple() -> bool:
+	return Engine.is_editor_hint() and style != null and style.editor_simple_preview
+
+## Swaps the drawn material only: the real one keeps receiving the style, so switching back is immediate.
+func _update_editor_preview() -> void:
+	if not is_instance_valid(_surface):
+		return
+	if not _editor_simple():
+		_surface.material_override = null
+		return
+	if _editor_material == null:
+		_editor_material = ShaderMaterial.new()
+		_editor_material.shader = EDITOR_SHADER
+		_editor_material.render_priority = _render_priority()
+	_editor_material.set_shader_parameter("water_color", style.editor_water_color)
+	_editor_material.set_shader_parameter("fall_color", style.editor_fall_color)
+	_surface.material_override = _editor_material
+
 func _apply_style() -> void:
+
+	_update_editor_preview()
 	if style != null and _material != null:
 		style.apply(_material)
 		# Surface motion needs a denser mesh: rebuild when it is switched or its resolution changes.

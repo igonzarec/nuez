@@ -317,6 +317,19 @@ extends Node3D
 ## Colision triangular por chunk que sigue los pliegues (grupo climbable, capas 1 y 3). Colision de blockout; no es un proxy simplificado.
 ## Coste alto: construir y consultar trimesh por chunk. Apagado: los agujeros dejan caer al personaje a traves de las paredes.
 @export var collision_enabled := true
+## De donde sale el angulo minimo de agarre de la malla de cliffs. Heredar: Grab Min Slope Degrees del ClimbRules del Player (una
+## sola fuente de verdad, recomendado). Angulo Propio: Climb Min Slope Degrees de abajo. Cualquier Pendiente: toda cara que alcance
+## el rayo del pecho (prueba). Orientacion y sostener siempre vienen de ClimbRules. En vivo, sin regenerar ni rehornear. Coste nulo.
+@export_enum("Heredar", "Angulo Propio", "Cualquier Pendiente") var climb_rule_mode := 1
+## Solo con Angulo Propio. Pendiente minima, en grados desde horizontal, para AGARRARSE a la malla. 75.5 = limite fijo anterior.
+## Menor permite pliegues y paredes mas tendidos. La malla solo existe donde la escultura supera Minimum Slope: bajarlo por debajo
+## no crea pared nueva. En vivo.
+@export_range(10.0, 89.0, 0.5, "suffix:degrees") var climb_min_slope_degrees := 75.5
+## Valor antiguo: al cargar una escena con Climb Any Slope activo pasa a Climb Rule Mode = Cualquier Pendiente.
+@export_storage var climb_any_slope := false:
+	set(value):
+		if value:
+			climb_rule_mode = 2
 
 @export_group("Distancia (LOD)")
 ## Terrain3D simplifica el terreno lejano en anillos cada vez mas gruesos y solo oculta un vertice si cae justo sobre un agujero:
@@ -340,6 +353,12 @@ extends Node3D
 	set(value):
 		far_spike_reach = value
 		_update_rock_angles()
+## Los agujeros del terreno solo se abren en su malla mas fina. De lejos, un vertice grueso sobre un agujero borra su triangulo entero,
+## que puede ser mayor que Seam Overlap: se veian puntos de cielo en la franja del cliff. Apagado = agujeros en todos los anillos.
+## Requiere Far Spike Fix, que empuja ese terreno detras de la malla. Limite: un agujero pintado a mano fuera de un cliff (una cueva)
+## se ve cerrado desde mas lejos de unos 16 m con mesh_size 64 y vertex_spacing 0,25; la colision no cambia.
+## Se aplica al iniciar el juego, y en el editor al regenerar u hornear. Coste nulo.
+@export var far_hole_fill := true
 ## Genera versiones simplificadas de cada chunk de la malla al regenerar/hornear; Godot elige una segun el tamano en pantalla.
 ## Reduce vertices dibujados a distancia. No afecta a la colision. Coste: generacion algo mas lenta y bake mas grande.
 @export var mesh_lod := true
@@ -427,7 +446,7 @@ func _preview_parameters() -> Array:
 		cliff_texture_id, match_terrain_shading, fold_triplanar, seam_depth_offset,
 		rock_start_angle, rock_blend_angle, terrain_auto_shader, terrain_auto_slope,
 		rock_by_angle, rock_angle_start, rock_angle_full, rock_height_reduction, collision_enabled,
-		far_spike_fix, far_spike_push, far_spike_reach, mesh_lod, mesh_lod_merge_angle, mesh_lod_bias,
+		far_spike_fix, far_spike_push, far_spike_reach, far_hole_fill, mesh_lod, mesh_lod_merge_angle, mesh_lod_bias,
 		seam_fade_far_distance, clean_rock_edge, rock_follows_cliffs, rock_follow_lead, rock_follow_width]
 
 ## Rock blend angles (start, full) used by the Terrain3D override and the mesh.
@@ -435,6 +454,15 @@ func _rock_angles() -> Vector2:
 	var start := minimum_slope - rock_follow_lead if rock_follows_cliffs else rock_angle_start
 	var width := rock_follow_width if rock_follows_cliffs else rock_angle_full - rock_angle_start
 	return Vector2(start, start + maxf(width, 0.5))
+
+## Limite de |normal.y| para agarrarse a la colision generada; -1 = heredar de ClimbRules. climbing.gd lo busca en el ancestro del cuerpo.
+func climb_normal_limit() -> float:
+	match climb_rule_mode:
+		0:
+			return -1.0
+		2:
+			return 1.0
+	return cos(deg_to_rad(climb_min_slope_degrees))
 
 func _ready() -> void:
 	_observed_parameters = _preview_parameters()
@@ -1542,6 +1570,10 @@ const FAR_SPIKE_CODE := """
 	POSITION = PROJECTION_MATRIX * vec4(VERTEX * (1.0 + cliff_far_offset / max(length(VERTEX), 1.0)), 1.0);
 """
 
+# Far LODs keep their vertices over holes: dropping one removes a whole coarse triangle, wider than the collar that hides it.
+const HOLE_ANCHOR := "(hole || (_background_mode"
+const HOLE_FINE_ONLY := "((hole && scale < _vertex_spacing + 1e-6) || (_background_mode"
+
 func _is_our_override(material: Terrain3DMaterial) -> bool:
 	return material != null and material.shader_override_enabled and material.shader_override != null \
 		and (material.shader_override.code.contains(OVERRIDE_MARK) or material.shader_override.code.contains(ROCK_MARK))
@@ -1550,7 +1582,8 @@ func _override_up_to_date(material: Terrain3DMaterial) -> bool:
 	if not _is_our_override(material):
 		return false
 	var code: String = material.shader_override.code
-	return rock_by_angle == code.contains(ROCK_MARK) and far_spike_fix == code.contains(FAR_SPIKE_CODE)
+	return rock_by_angle == code.contains(ROCK_MARK) and far_spike_fix == code.contains(FAR_SPIKE_CODE) \
+		and (far_spike_fix and far_hole_fill) == code.contains(HOLE_FINE_ONLY)
 
 ## Installs (or removes) CliffFolds' Terrain3D shader override, built from Terrain3D's own generated shader:
 ## the angle rule replaces the auto blend line (Rock By Angle) and the far spike fix is added to vertex()
@@ -1596,6 +1629,11 @@ func _apply_terrain_override(material: Terrain3DMaterial) -> void:
 			push_warning("CliffFolds: no reconozco el vertex() de Terrain3D; Far Spike Fix no se aplica.")
 		else:
 			code = code.replace(VERTEX_ANCHOR, VERTEX_ANCHOR + FAR_SPIKE_CODE)
+			if far_hole_fill:
+				if code.contains(HOLE_ANCHOR):
+					code = code.replace(HOLE_ANCHOR, HOLE_FINE_ONLY)
+				else:
+					push_warning("CliffFolds: no reconozco los agujeros del vertex() de Terrain3D; Far Hole Fill no se aplica.")
 			uniforms += "uniform float cliff_far_push = 3.0;\nuniform float cliff_far_reach = 2.5;\n"
 			patched = true
 	if not patched:

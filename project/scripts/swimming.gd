@@ -194,6 +194,27 @@ signal swimming_changed(active: bool)
 ## Color de las gotas. En vivo.
 @export var drip_color := Color(0.82, 0.93, 1.0, 0.9)
 
+@export_subgroup("Cabeza")
+## Gotas que caen tambien de la zona del hocico mientras dura el goteo, siguiendo la cabeza. Usa el mismo ritmo de secado
+## y el mismo Drip Color que el cuerpo; apagar Drip Enabled tambien las apaga. En vivo.
+@export var drip_head_enabled := true
+## Nombre del hueso que siguen las gotas. Si no existe en el esqueleto, el hocico no gotea. En vivo.
+@export var drip_head_bone := "head"
+## Gotas por segundo de la cabeza justo al salir; bajan a la vez que las del cuerpo. Mayor = cabeza mas chorreante.
+## Coste: particulas de CPU, muy pocas. En vivo.
+@export_range(0.0, 60.0, 0.5) var drip_head_rate := 8.0
+## Tamano de cada gota de la cabeza, en metros (radio). Independiente de Drip Size. En vivo.
+@export_range(0.005, 0.1, 0.001, "suffix:m") var drip_head_size := 0.035
+## Tamano en metros de la caja de la que nacen las gotas: X ancho, Y alto, Z fondo. Mayor = gotas mas repartidas por la
+## cara; menor = concentradas junto a la nariz. En vivo.
+@export var drip_head_zone_size := Vector3(0.18, 0.12, 0.08)
+## Centro de esa caja respecto al hueso, en metros y ejes del personaje: X derecha, Y arriba, Z negativa hacia delante.
+## Gira con la cabeza. Colocala con Drip Head Show Zone. En vivo.
+@export var drip_head_offset := Vector3(0.0, 0.12, -0.2)
+## Muestra en juego la zona como una caja roja translucida, visible a traves del modelo, para colocarla sobre el hocico.
+## Solo para ajustar; dejala apagada al terminar. En vivo.
+@export var drip_head_show_zone := false
+
 @export_group("Audio del agua")
 ## Sonido del chapuzon al caer al agua y, mas suave y agudo, al saltar fuera. Vacio = chapuzon generado por codigo. En vivo.
 @export var splash_sound: AudioStream = preload("res://audio/water/diving_splash.wav")
@@ -355,6 +376,8 @@ var _ambience_level := 0.0
 var _next_dive_voice := 0
 var _was_diving := false
 var _drips: CPUParticles3D
+var _head_drips: CPUParticles3D
+var _head_zone_preview: MeshInstance3D
 ## 0-1: cuanto de mojado esta el pelaje ahora.
 var wetness := 0.0
 var _wet_target := 0.0
@@ -382,6 +405,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_tick_ripples(delta)
 	_tick_drips(delta)
+	_tick_head_zone_preview()
 	_tick_wet(delta)
 	_tick_ambience(delta)
 
@@ -833,37 +857,114 @@ func _tick_drips(delta: float) -> void:
 	else:
 		ratio = clampf(_drip_left / maxf(drip_duration, 0.01), 0.0, 1.0)
 	if ratio <= 0.0:
-		if is_instance_valid(_drips):
-			_drips.emitting = false
+		_stop_drips(_drips)
+		_stop_drips(_head_drips)
 		return
 	if actor == null or not actor.is_inside_tree():
 		return
-	if not is_instance_valid(_drips):
-		_drips = CPUParticles3D.new()
-		_drips.name = "Drips"
-		_drips.local_coords = false
-		_drips.lifetime = 0.55
-		_drips.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-		_drips.direction = Vector3.DOWN
-		_drips.spread = 25.0
-		_drips.initial_velocity_min = 0.1
-		_drips.initial_velocity_max = 0.5
-		_drips.gravity = Vector3(0.0, -9.8, 0.0)
-		var shrink := Curve.new()
-		shrink.add_point(Vector2(0.0, 1.0))
-		shrink.add_point(Vector2(0.8, 0.9))
-		shrink.add_point(Vector2(1.0, 0.0))
-		_drips.scale_amount_curve = shrink
-		actor.add_child(_drips)
-	# Valores en vivo: tamano, color, zona y ritmo.
-	var mesh := _drips.mesh as SphereMesh
+	_drips = _drip_emitter(_drips, "Drips", CPUParticles3D.EMISSION_SHAPE_SPHERE)
+	_apply_drip_look(_drips, drip_size, drip_rate)
+	_drips.emission_sphere_radius = drip_spread
+	_drips.position = Vector3(0.0, drip_height, 0.0)
+	# Cada vez menos gotas hasta parar: el emisor se enciende en una fraccion de los frames que baja con el tiempo, lo que
+	# ademas da el goteo irregular de un pelaje mojado. Las gotas ya sueltas terminan su caida.
+	_drips.emitting = randf() < ratio
+	_tick_head_drips(ratio)
+
+## Gotas del hocico: el emisor sigue a la cabeza cada frame y las gotas, en coordenadas de mundo, caen por su cuenta.
+func _tick_head_drips(ratio: float) -> void:
+	var bone := _head_drip_bone() if drip_head_enabled and drip_head_rate > 0.0 else -1
+	if bone < 0:
+		_stop_drips(_head_drips)
+		return
+	_head_drips = _drip_emitter(_head_drips, "HeadDrips", CPUParticles3D.EMISSION_SHAPE_BOX)
+	_apply_drip_look(_head_drips, drip_head_size, drip_head_rate)
+	_head_drips.emission_box_extents = drip_head_zone_size.abs() * 0.5
+	var zone := _head_drip_zone(bone)
+	_head_drips.global_transform = zone
+	# The zone turns with the face, but the drops must still fall straight down.
+	_head_drips.direction = zone.basis.inverse() * Vector3.DOWN
+	_head_drips.emitting = randf() < ratio
+
+func _head_drip_bone() -> int:
+	if actor == null or not actor.is_inside_tree() or not is_instance_valid(actor.model):
+		return -1
+	var skeleton := actor.model.playertest2_skeleton
+	return skeleton.find_bone(drip_head_bone) if skeleton != null else -1
+
+## Transform de la zona de goteo: posicion del hueso mas el offset, girado con el personaje y con lo que la cabeza se
+## aparte de su pose de reposo.
+func _head_drip_zone(bone: int) -> Transform3D:
+	var skeleton := actor.model.playertest2_skeleton
+	var pose := skeleton.get_bone_global_pose(bone)
+	var rest := skeleton.get_bone_global_rest(bone)
+	var rig := skeleton.global_basis.orthonormalized()
+	var head_turn := rig * (pose.basis.orthonormalized() * rest.basis.orthonormalized().inverse()) * rig.inverse()
+	var axes := head_turn * actor.model.global_basis.orthonormalized()
+	return Transform3D(axes, skeleton.global_transform * pose.origin + axes * drip_head_offset)
+
+func _tick_head_zone_preview() -> void:
+	var bone := _head_drip_bone() if drip_head_show_zone else -1
+	if bone < 0:
+		if is_instance_valid(_head_zone_preview):
+			_head_zone_preview.visible = false
+		return
+	if not is_instance_valid(_head_zone_preview):
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.albedo_color = Color(1.0, 0.1, 0.1, 0.45)
+		material.no_depth_test = true
+		var box := BoxMesh.new()
+		box.material = material
+		_head_zone_preview = MeshInstance3D.new()
+		_head_zone_preview.name = "HeadDripZonePreview"
+		_head_zone_preview.mesh = box
+		_head_zone_preview.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		actor.add_child(_head_zone_preview)
+	var box_mesh := _head_zone_preview.mesh as BoxMesh
+	var wanted_size := drip_head_zone_size.abs()
+	if box_mesh.size != wanted_size:
+		box_mesh.size = wanted_size
+	_head_zone_preview.visible = true
+	_head_zone_preview.global_transform = _head_drip_zone(bone)
+
+func _stop_drips(emitter: CPUParticles3D) -> void:
+	if is_instance_valid(emitter):
+		emitter.emitting = false
+
+## Devuelve el emisor de goteo indicado, creandolo si aun no existe.
+func _drip_emitter(current: CPUParticles3D, node_name: String, shape: CPUParticles3D.EmissionShape) -> CPUParticles3D:
+	if is_instance_valid(current):
+		return current
+	var emitter := CPUParticles3D.new()
+	emitter.name = node_name
+	emitter.local_coords = false
+	emitter.lifetime = 0.55
+	emitter.emission_shape = shape
+	emitter.direction = Vector3.DOWN
+	emitter.spread = 25.0
+	emitter.initial_velocity_min = 0.1
+	emitter.initial_velocity_max = 0.5
+	emitter.gravity = Vector3(0.0, -9.8, 0.0)
+	var shrink := Curve.new()
+	shrink.add_point(Vector2(0.0, 1.0))
+	shrink.add_point(Vector2(0.8, 0.9))
+	shrink.add_point(Vector2(1.0, 0.0))
+	emitter.scale_amount_curve = shrink
+	actor.add_child(emitter)
+	return emitter
+
+## Valores en vivo comunes: tamano, color y ritmo.
+func _apply_drip_look(emitter: CPUParticles3D, size: float, rate: float) -> void:
+	var mesh := emitter.mesh as SphereMesh
 	if mesh == null:
 		mesh = SphereMesh.new()
 		mesh.radial_segments = 8
 		mesh.rings = 4
-		_drips.mesh = mesh
-	mesh.radius = drip_size
-	mesh.height = drip_size * 2.6
+		emitter.mesh = mesh
+	mesh.radius = size
+	mesh.height = size * 2.6
 	var material := mesh.material as StandardMaterial3D
 	if material == null:
 		material = StandardMaterial3D.new()
@@ -871,14 +972,9 @@ func _tick_drips(delta: float) -> void:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mesh.material = material
 	material.albedo_color = drip_color
-	_drips.emission_sphere_radius = drip_spread
-	_drips.position = Vector3(0.0, drip_height, 0.0)
-	var wanted := maxi(1, ceili(drip_rate * _drips.lifetime))
-	if _drips.amount != wanted:
-		_drips.amount = wanted
-	# Cada vez menos gotas hasta parar: el emisor se enciende en una fraccion de los frames que baja con el tiempo, lo que
-	# ademas da el goteo irregular de un pelaje mojado. Las gotas ya sueltas terminan su caida.
-	_drips.emitting = randf() < ratio
+	var wanted := maxi(1, ceili(rate * emitter.lifetime))
+	if emitter.amount != wanted:
+		emitter.amount = wanted
 
 func _droplet_material(alpha: float) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()

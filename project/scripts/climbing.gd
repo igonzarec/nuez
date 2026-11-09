@@ -14,6 +14,8 @@ var mantle_duration := 0.55
 var contact_lost_time := 0.0
 var mantle_retry_left := 0.0
 var forbidden_contact := false
+## Motivo del último _wall_hit fallido (diagnóstico; vacío si acertó).
+var last_miss := ""
 var mantle_wall_normal := Vector3.BACK
 var mantle_ground_normal := Vector3.UP
 var mantle_surface_blend_start := 0.1
@@ -54,39 +56,79 @@ func _wall_hit(direction: Vector3, sustained := false) -> Dictionary:
 	var chest := actor.global_position + Vector3.UP * 0.85
 	var hit := _ray(chest, chest + direction * actor.climb_grab_distance)
 	if hit.is_empty():
+		last_miss = "zona no permitida" if forbidden_contact else "el rayo del pecho no toca nada a %.2f m" % actor.climb_grab_distance
 		return {}
 	var normal: Vector3 = hit.normal
 	var collider := hit.collider as Node
+	var slope := rad_to_deg(acos(clampf(normal.y, -1.0, 1.0)))
+	var label := "%s, pendiente %.1f°" % [collider.name if collider else "?", slope]
 	if collider and (collider.is_in_group("climbable") or collider.is_in_group("npc_actors")):
 		# Las rocas procedurales mantienen sus zonas y sus límites propios. El
 		# prototipo por pendiente no debe convertir una zona Disabled en escalable.
 		if collider.has_method("allows_climb") and not collider.allows_climb(hit.position):
 			forbidden_contact = true
+			last_miss = "zona Disabled (%s)" % label
 			return {}
-		var normal_limit: float = collider.climb_normal_limit() if collider.has_method("climb_normal_limit") else 0.25
-		if sustained and actor.climb_sustain_enabled:
-			normal_limit = maxf(normal_limit, cos(deg_to_rad(actor.climb_sustain_min_slope_degrees)))
+		var rules := actor.get_climb_rules()
+		var normal_limit := _climb_normal_limit(collider, rules)
+		if sustained and rules.sustain_enabled:
+			normal_limit = maxf(normal_limit, cos(deg_to_rad(rules.sustain_min_slope_degrees)))
 		if absf(normal.y) > normal_limit:
+			last_miss = "pendiente bajo el límite de agarre (%s; mínimo %.1f°)" % [label, rad_to_deg(acos(normal_limit))]
 			return {}
 	elif not _is_untagged_steep_surface(normal, sustained):
+		last_miss = "terreno sin etiqueta fuera de Grab Min/Max o Sustain de ClimbRules (%s)" % label
 		return {}
-	if direction.dot(-normal) < cos(deg_to_rad(actor.climb_facing_angle_degrees)):
+	var facing_rules := actor.get_climb_rules()
+	var look := direction
+	var toward := -normal
+	if facing_rules.facing_horizontal:
+		look.y = 0.0
+		toward.y = 0.0
+		if look.length() < 0.05 or toward.length() < 0.05:
+			last_miss = "superficie casi plana: no hay pared a la que mirar (%s)" % label
+			return {}
+		look = look.normalized()
+		toward = toward.normalized()
+	var facing := rad_to_deg(acos(clampf(look.dot(toward), -1.0, 1.0)))
+	if facing > facing_rules.facing_angle_degrees:
+		last_miss = "no estás de frente: desvío %.1f° > Facing Angle %.1f° (%s)" % [facing, facing_rules.facing_angle_degrees, label]
 		return {}
+	last_miss = ""
 	return hit
+
+## El collider o un ancestro cercano (p. ej. CliffFoldsGenerator sobre sus cuerpos
+## generados) puede definir el límite; si no, 0.25 (~75.5°) como antes. Un límite
+## negativo significa "Heredar": usa Grab Min Slope Degrees de ClimbRules.
+func _climb_normal_limit(collider: Node, rules: ClimbRules) -> float:
+	var node := collider
+	for i in 3:
+		if node == null:
+			break
+		if node.has_method("climb_normal_limit"):
+			var limit: float = node.climb_normal_limit()
+			return cos(deg_to_rad(rules.grab_min_slope_degrees)) if limit < 0.0 else limit
+		node = node.get_parent()
+	return 0.25
 
 func _is_untagged_steep_surface(normal: Vector3, sustained := false) -> bool:
 	# Terrain3D es una altura: sus normales útiles miran hacia arriba y nunca
 	# superan 90°. No usamos su control map ni el material visual como gameplay.
-	if not actor.climb_untagged_steep_surfaces_enabled or normal.y < 0.0:
+	var rules := actor.get_climb_rules()
+	if not rules.untagged_enabled or normal.y < 0.0:
 		return false
 	var slope_degrees := rad_to_deg(acos(clampf(normal.y, -1.0, 1.0)))
-	var minimum := minf(actor.climb_untagged_min_slope_degrees, actor.climb_untagged_max_slope_degrees)
-	var maximum := maxf(actor.climb_untagged_min_slope_degrees, actor.climb_untagged_max_slope_degrees)
-	if sustained and actor.climb_sustain_enabled:
-		minimum = minf(minimum, actor.climb_sustain_min_slope_degrees)
+	var minimum := minf(rules.grab_min_slope_degrees, rules.grab_max_slope_degrees)
+	var maximum := maxf(rules.grab_min_slope_degrees, rules.grab_max_slope_degrees)
+	if sustained and rules.sustain_enabled:
+		minimum = minf(minimum, rules.sustain_min_slope_degrees)
 	return slope_degrees >= minimum and slope_degrees <= maximum
 
-func _release() -> void:
+func _release(reason := "motivo no indicado") -> void:
+	var text := "%.2f s · %s" % [Time.get_ticks_msec() / 1000.0, reason]
+	actor.climb_last_release = text
+	if actor.climb_release_log:
+		print("[Escalada] Soltada: ", text)
 	reset()
 	actor.reset_climb_arms()
 	actor.velocity = wall_normal * actor.climb_detach_speed
@@ -99,9 +141,17 @@ func tick(delta: float) -> bool:
 	cooldown = maxf(0.0, cooldown - delta)
 	mantle_retry_left = maxf(0.0, mantle_retry_left - delta)
 	var grab_held := actor.action_pressed("climb")
+	# Con Mantle Auto, una salida a cima ya iniciada no depende del botón.
+	if not grab_held and actor.is_climbing and mantle_stage != 0 and actor.climb_mantle_auto and actor.climb_mantle_enabled:
+		grab_held = true
 	if actor.is_splat or actor.is_glide_recoiling or not actor.climb_enabled or not grab_held or actor.in_water_for_climb():
 		if actor.is_climbing:
-			_release()
+			var why := "botón de escalada soltado"
+			if actor.is_splat: why = "golpe (splat)"
+			elif actor.is_glide_recoiling: why = "retroceso de planeo"
+			elif not actor.climb_enabled: why = "Climb Enabled apagado"
+			elif grab_held: why = "en agua (Climb Blocked In Water)"
+			_release(why)
 		return false
 	if not actor.is_climbing:
 		if cooldown > 0.0 or actor.input_grace > 0.0:
@@ -109,6 +159,10 @@ func tick(delta: float) -> bool:
 		var forward := Vector3.FORWARD.rotated(Vector3.UP, actor.model.rotation.y)
 		var contact := _wall_hit(forward)
 		if contact.is_empty():
+			if actor.climb_last_grab_miss != last_miss:
+				actor.climb_last_grab_miss = last_miss
+				if actor.climb_release_log:
+					print("[Escalada] Agarre fallido: ", last_miss)
 			return false
 		wall_normal = contact.normal
 		actor.climb_surface_normal = wall_normal
@@ -132,6 +186,7 @@ func tick(delta: float) -> bool:
 		return true
 	var input := actor.climb_arms_input(delta) if actor.uses_climb_arms() else actor.movement_input()
 	var contact := _wall_hit(-wall_normal, true)
+	var wants_top := input.y < -0.1 or (actor.climb_mantle_auto and actor.climb_mantle_enabled)
 	# Al rebasar la pared el pecho puede dejar de verla. Sólo se continúa
 	# sobre suelo cercano bajo los pies; nunca se busca un destino lejano.
 	if not forbidden_contact and not actor.climb_mantle_enabled:
@@ -142,7 +197,7 @@ func tick(delta: float) -> bool:
 			if allowed:
 				contact = support
 	if contact.is_empty():
-		if not forbidden_contact and input.y < -0.1 and _start_mantle():
+		if not forbidden_contact and wants_top and _start_mantle():
 			return true
 		contact_lost_time += delta
 		if not forbidden_contact and actor.climb_mantle_enabled and contact_lost_time < actor.climb_mantle_contact_grace:
@@ -156,12 +211,12 @@ func tick(delta: float) -> bool:
 			return true
 		if forbidden_contact:
 			actor.climb_mantle_status = "Agarre cancelado: zona no permitida"
-		_release()
+		_release("contacto perdido %.2f s: %s" % [contact_lost_time, last_miss])
 		return false
 	contact_lost_time = 0.0
 	wall_normal = contact.normal
 	actor.climb_surface_normal = wall_normal
-	if input.y < -0.1 and wall_normal.y >= cos(actor.floor_max_angle) and _start_mantle():
+	if wants_top and wall_normal.y >= cos(actor.floor_max_angle) and _start_mantle():
 		return true
 	var right := Vector3.UP.cross(wall_normal).normalized()
 	# Arriba/abajo del stick son verticales en la pared; izquierda/derecha,
@@ -261,7 +316,7 @@ func _surface_assist_tick(delta: float) -> void:
 	var feet := _ray(actor.global_position + Vector3.UP * 0.1, actor.global_position - Vector3.UP * actor.snap_distance)
 	var contact := _wall_hit(-wall_normal, true)
 	if forbidden_contact:
-		_release()
+		_release("zona no permitida durante la salida a cima")
 		return
 	if not feet.is_empty() and _allows_support(feet):
 		contact = feet
@@ -395,7 +450,7 @@ func _mantle_tick(delta: float) -> void:
 	actor.model.update_climb(0.0)
 	if collision:
 		actor.climb_mantle_status = "Salida cancelada: colisión durante el tramo %d" % mantle_stage
-		_release()
+		_release("choque durante la salida a cima (tramo %d)" % mantle_stage)
 	elif fraction >= 1.0:
 		if mantle_stage < 3:
 			mantle_stage += 1
@@ -408,7 +463,7 @@ func _mantle_tick(delta: float) -> void:
 				_finish_mantle()
 			else:
 				actor.climb_mantle_status = "Salida cancelada: el destino ya no tiene apoyo firme"
-				_release()
+				_release("salida a cima sin apoyo firme")
 
 
 func _finish_mantle() -> void:

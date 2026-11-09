@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ClimbRules" format=3 uid="uid://cnma2f6e5tanv"]
+
+[ext_resource type="Script" uid="uid://b1j31vpib6g5a" path="res://scripts/climb_rules.gd" id="1_rules"]
+
+[resource]
+script = ExtResource("1_rules")
+grab_min_slope_degrees = 20.0
+sustain_min_slope_degrees = 10.0
+facing_angle_degrees = 60.0
+facing_horizontal = true

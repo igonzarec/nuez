@@ -37,11 +37,6 @@ extends WaterBody
 	set(value):
 		cross_segments = value
 		_queue_rebuild()
-## Metros antes y despues de un cambio de pendiente (borde de cascada, base, inicio de rapidos) con espuma. En vivo.
-@export_range(0.25, 10.0, 0.05, "suffix:m") var break_foam_length := 2.5:
-	set(value):
-		break_foam_length = value
-		_queue_rebuild()
 
 @export_group("Alturas (terreno)")
 ## Pone la altura del agua de cada punto nuevo de la curva (Add Point) sobre el terreno que tiene debajo, Snap Depth por
@@ -286,6 +281,8 @@ extends WaterBody
 ## mayor = playas tambien en curvas suaves. Al tallar.
 @export_range(2.0, 200.0, 0.5, "suffix:m") var beach_bend_radius := 25.0
 
+# Metres of river before a fall searched (half of this) for the steep rows that mark its lip.
+const LIP_WINDOW_LENGTH := 2.5
 var _pebbles: Node3D
 var _fall_fx: Node3D
 # Seconds to the next distance check of the fall effects (WaterStyle › Distancia › Fall FX Distance).
@@ -802,7 +799,7 @@ func _build_mesh() -> ArrayMesh:
 	var rapids_high := maxf((style.rapids_full_angle if style != null else 15.0) / 90.0, rapids_low + 0.001)
 	var along := 0.0
 	var previous_rapids := 0.0
-	var window := ceili(break_foam_length / maxf(distances[1] - distances[0], 0.001))
+	var lip_window := ceili(LIP_WINDOW_LENGTH / maxf(distances[1] - distances[0], 0.001)) / 2
 	# Rows inside a lake at the same height: with the mouth blend they fade out along the river over Mouth Blend Length
 	# from the shore and sit just above the lake (drawn after it, see _render_priority); without it they are skipped (one
 	# row is kept past the shore).
@@ -843,21 +840,15 @@ func _build_mesh() -> ArrayMesh:
 		if flat.length() > 0.001:
 			across = Vector3(-flat.z, 0.0, flat.x).normalized()
 		var normal := across.cross(t).normalized()
-		# Foam below a steeper stretch (base of a fall, end of rapids); a highlight just above one (the lip, where the
-		# water curls over before dropping).
-		var upstream := slopes[i]
+		# A highlight just above a steeper stretch (the lip, where the water curls over before dropping).
 		var downstream := slopes[i]
-		for j in range(maxi(i - window, 0), i):
-			upstream = maxf(upstream, slopes[j])
-		for j in range(i + 1, mini(i + window / 2 + 1, count)):
+		for j in range(i + 1, mini(i + lip_window + 1, count)):
 			downstream = maxf(downstream, slopes[j])
-		var break_foam := clampf((upstream - slopes[i]) * 2.0, 0.0, 1.0)
 		var lip_amount := clampf((downstream - slopes[i]) * 2.0, 0.0, 1.0) if mouth[i] <= 0.0 else 0.0
-		# On the curtain itself: white flames near the top, churning foam at the foot.
+		# On the curtain itself: white flames near the top.
 		var progress := _fall_progress[i] if i < _fall_progress.size() else -1.0
 		if progress >= 0.0:
 			lip_amount = maxf(lip_amount, pow(1.0 - progress, 2.0))
-			break_foam = maxf(break_foam, smoothstep(0.8, 1.0, progress) * 0.9)
 		# The curtain is as wide as the water you see between the banks above (its Width), not the drawn width: the bank
 		# overlap hidden under the banks narrows away before the lip.
 		var overlap := bank_overlap * (_overlap_scale[i] if i < _overlap_scale.size() else 1.0)
@@ -910,7 +901,7 @@ func _build_mesh() -> ArrayMesh:
 			var edge := clampf((halves[i] - absf(side) * reach) / maxf(halves[i], 0.01), 0.0, 1.0)
 			if progress >= 0.0:
 				edge = clampf((1.0 - absf(side)) * reach / maxf(halves[i], 0.01), 0.0, 1.0)
-			colors.append(Color(shade_slope, break_foam, edge, 1.0))
+			colors.append(Color(shade_slope, 0.0, edge, 1.0))
 			# UV2.y: mouth sides inside lakes (> 0), the highlight above a lip (0 to -1) or a curtain row (-2 - lip).
 			# Curtain rows are shifted by 2 so the shader can tell them apart from the highlight above a lip.
 			var lip_code := -(2.0 + lip_amount) if progress >= 0.0 else -lip_amount
@@ -1132,6 +1123,10 @@ func _after_style() -> void:
 func _process(delta: float) -> void:
 	super(delta)
 	if Engine.is_editor_hint():
+		# Particles keep simulating while hidden: the simple preview also stops them.
+		if is_instance_valid(_fall_fx) and _fall_fx.visible == _editor_simple():
+			_fall_fx.visible = not _editor_simple()
+			_fall_fx.process_mode = Node.PROCESS_MODE_DISABLED if _editor_simple() else Node.PROCESS_MODE_INHERIT
 		return
 	_fall_fx_check -= delta
 	if _fall_fx_check > 0.0:
