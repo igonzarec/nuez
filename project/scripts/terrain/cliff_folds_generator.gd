@@ -910,6 +910,9 @@ func _run(mode: int, seeds := PackedInt32Array(), restore := false, reopen := tr
 	var holes_changed := _set_owned_holes(kept_holes)
 	if holes_changed:
 		_refresh_terrain()
+		# Updating the control maps gives them a new RID: the chunks must read the new one to see painted textures.
+		# In the editor _process would catch it; in a rebuild at game start nothing else does.
+		_update_texture_params()
 	if mode == MODE_ALL:
 		region_hashes = hashes.duplicate()
 		registry_parameters = _preview_parameters()

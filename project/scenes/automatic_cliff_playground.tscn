@@ -662,7 +662,6 @@ _shader_parameters = {
 &"rock_angle_start": 58.0,
 &"rock_height_reduction": 0.0
 }
-world_background = 0
 auto_shader = true
 shader_override_enabled = true
 shader_override = SubResource("Shader_m5sth")
